@@ -19,12 +19,18 @@ export async function scrapeSite(url: string, delay: number = 2000) {
 
     const page = await browser.newPage();
     
-    // Intercept fonts
+    // Intercept fonts (Google Fonts + Fontshare)
     const googleFonts: string[] = [];
+    const fontshareFonts: string[] = [];
     page.on('request', (request) => {
-      const url = request.url();
-      if (url.includes('fonts.googleapis.com/css')) {
-        googleFonts.push(url);
+      const reqUrl = request.url();
+      if (reqUrl.includes('fonts.googleapis.com/css')) {
+        console.log('[scraper] captured Google Fonts URL:', reqUrl);
+        googleFonts.push(reqUrl);
+      }
+      if (reqUrl.includes('api.fontshare.com')) {
+        console.log('[scraper] captured Fontshare URL:', reqUrl);
+        fontshareFonts.push(reqUrl);
       }
     });
 
@@ -124,21 +130,28 @@ export async function scrapeSite(url: string, delay: number = 2000) {
     const title = await page.title();
     const domain = new URL(url).hostname;
 
-    // Desktop screenshot
-    await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 2 });
-    const desktopBuffer = await page.screenshot() as Buffer;
+    // Set a per-operation screenshot timeout
+    page.setDefaultTimeout(25000);
+
+    // Desktop screenshot — 1440px, DPR 1.5 (reduced from 1920/DPR2 to avoid Vercel 60s timeout)
+    await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1.5 });
+    const desktopBuffer = Buffer.from(await page.screenshot());
     const desktopScreenshot = desktopBuffer.toString('base64');
 
     // Extract colors from desktop hero
     const colors = await extractColors(desktopBuffer);
 
-    // Desktop fullpage
-    const desktopFullScreenshot = (await page.screenshot({ fullPage: true })) as Buffer;
+    // Desktop fullpage — cap body height to avoid very long pages eating memory
+    await page.evaluate(() => {
+      document.body.style.maxHeight = '6000px';
+      document.body.style.overflow = 'hidden';
+    });
+    const desktopFullScreenshot = Buffer.from(await page.screenshot({ fullPage: true }));
 
-    // Mobile fullpage
-    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3 });
+    // Mobile screenshot — DPR 2 instead of 3 to save time/memory
+    await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
     await new Promise(resolve => setTimeout(resolve, 500));
-    const mobileScreenshot = (await page.screenshot({ fullPage: true })) as Buffer;
+    const mobileScreenshot = Buffer.from(await page.screenshot({ fullPage: true }));
 
     // Extract logos (multiple candidates)
     let logoCandidates = await page.evaluate(() => {
@@ -269,11 +282,22 @@ export async function scrapeSite(url: string, delay: number = 2000) {
       logo: logosBase64[0] || '',
       colors: finalColors,
       siteBgColor,
-      fonts: extractedFonts.map(name => ({
-        name,
-        isGoogleFont: googleFonts.some(url => url.toLowerCase().includes(name.toLowerCase().replace(/ /g, '+'))),
-        url: googleFonts.find(url => url.toLowerCase().includes(name.toLowerCase().replace(/ /g, '+')))
-      })),
+      fonts: extractedFonts.map(name => {
+        // Split camelCase first: "BricolageGrotesque" → "Bricolage Grotesque" → "bricolage+grotesque"
+        const normalized = name
+          .replace(/([A-Z])/g, ' $1')
+          .trim()
+          .toLowerCase()
+          .replace(/ +/g, '+');
+        const googleUrl = googleFonts.find(u => u.toLowerCase().includes(normalized));
+        const fontshareUrl = fontshareFonts.find(u => u.toLowerCase().includes(normalized));
+        console.log(`[scraper] font "${name}" → normalized: "${normalized}" | googleUrl: ${googleUrl} | fontshareUrl: ${fontshareUrl}`);
+        return {
+          name,
+          isGoogleFont: !!googleUrl,
+          url: googleUrl || fontshareUrl || undefined,
+        };
+      }),
       font: {
         name: extractedFonts[0] || 'Inter',
         url: googleFonts[0],
