@@ -28,6 +28,7 @@ import {
   ArrowRight,
   PanelLeftClose,
   PanelLeft,
+  TriangleAlert,
 } from "lucide-react";
 
 const Aurora = dynamic(() => import("@/components/Aurora"), { ssr: false });
@@ -39,6 +40,7 @@ export default function Home() {
     error,
     theme,
     toggleTheme,
+    fontName,
     fontUrl,
     localFontFile,
     setUrl,
@@ -338,7 +340,12 @@ export default function Home() {
 
               <AccordionItem value="typography" className="border-border">
                 <AccordionTrigger className="text-[13px] font-semibold hover:no-underline py-3">
-                  Typographie
+                  <span className="flex items-center gap-2">
+                    Typographie
+                    {fontName && !fontUrl && !localFontFile && (
+                      <TriangleAlert className="w-3.5 h-3.5 text-amber-500" />
+                    )}
+                  </span>
                 </AccordionTrigger>
                 <AccordionContent>
                   <FontSelector />

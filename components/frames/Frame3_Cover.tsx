@@ -144,7 +144,7 @@ export const Frame3_Cover = ({ id }: { id?: string }) => {
               <img
                 src={agencyLogo}
                 alt="Agency"
-                style={{ maxHeight: "100%", objectFit: "contain" }}
+                style={{ maxHeight: "100%", objectFit: "contain", filter: "brightness(0)" }}
               />
             ) : (
               <span

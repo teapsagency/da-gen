@@ -8,12 +8,12 @@ export const useDAStore = create<DAStore>((set) => ({
   
   // Scraped data
   scrapeResult: null,
-  setScrapeResult: (result: ScrapeResult) => set({ 
+  setScrapeResult: (result: ScrapeResult) => set({
     scrapeResult: result,
     selectedLogo: result.logo || result.logos[0] || '',
     selectedColors: result.colors.slice(0, 4).map(c => c.hex),
     fontName: result.font.name,
-    fontUrl: result.font.url || `https://fonts.googleapis.com/css2?family=${result.font.name.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`,
+    fontUrl: result.font.url,
     bgColor: result.siteBgColor || '#F2EEE9'
   }),
 
@@ -49,7 +49,7 @@ export const useDAStore = create<DAStore>((set) => ({
   theme: typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
   toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
   
-  agencyLogo: '',
+  agencyLogo: '/logo-teaps.svg',
   setAgencyLogo: (logo: string) => set({ agencyLogo: logo }),
   
   screenshotDelay: 2000,

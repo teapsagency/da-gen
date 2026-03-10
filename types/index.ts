@@ -11,12 +11,12 @@ export type ScrapeResult = {
     name: string;
     url?: string;
     isGoogleFont: boolean;
+    isSelfHosted?: boolean;
   }[];
   font: {
     name: string;
     url?: string;
     isGoogleFont: boolean;
-    cssImport?: string;
   };
   screenshots: {
     desktop: string;

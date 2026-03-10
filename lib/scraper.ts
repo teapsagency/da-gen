@@ -19,9 +19,10 @@ export async function scrapeSite(url: string, delay: number = 2000) {
 
     const page = await browser.newPage();
     
-    // Intercept fonts (Google Fonts + Fontshare)
+    // Intercept font service URLs (Google Fonts, Fontshare, Adobe Fonts)
     const googleFonts: string[] = [];
     const fontshareFonts: string[] = [];
+    const adobeFonts: string[] = [];
     page.on('request', (request) => {
       const reqUrl = request.url();
       if (reqUrl.includes('fonts.googleapis.com/css')) {
@@ -31,6 +32,10 @@ export async function scrapeSite(url: string, delay: number = 2000) {
       if (reqUrl.includes('api.fontshare.com')) {
         console.log('[scraper] captured Fontshare URL:', reqUrl);
         fontshareFonts.push(reqUrl);
+      }
+      if (reqUrl.includes('use.typekit.net')) {
+        console.log('[scraper] captured Adobe Fonts URL:', reqUrl);
+        adobeFonts.push(reqUrl);
       }
     });
 
@@ -244,25 +249,47 @@ export async function scrapeSite(url: string, delay: number = 2000) {
     // Deduplicate by HEX
     const finalColors = Array.from(new Map(combinedColors.map(c => [c.hex, c])).values()).slice(0, 8);
 
-    // Extract all fonts used on the page (Filter out icon fonts)
+    // Extract all fonts used on the page (Filter out icon/system fonts)
     const extractedFonts = await page.evaluate(() => {
-      const fonts = new Set<string>();
-      const iconKeywords = ['icon', 'symbol', 'remix', 'lucide', 'awesome', 'fontello', 'glyph'];
-      const elements = document.querySelectorAll('h1, h2, h3, p, button, a');
-      
+      const fonts = new Map<string, number>(); // font name → usage count (for priority)
+      const iconKeywords = ['icon', 'symbol', 'remix', 'lucide', 'awesome', 'fontello', 'glyph', 'material'];
+      const systemFonts = ['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-sans-serif', 'ui-serif', 'ui-monospace', '-apple-system', 'blinkmacsystemfont', 'segoe ui', 'roboto', 'helvetica', 'arial', 'times new roman', 'times', 'courier new', 'courier', 'inherit', 'initial', 'unset'];
+      const elements = document.querySelectorAll('h1, h2, h3, h4, p, span, button, a, li, div');
+
       elements.forEach(el => {
         const style = window.getComputedStyle(el);
         if (style.fontFamily) {
           const family = style.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
-          if (family && family !== 'inherit') {
+          if (family) {
              const lowerFamily = family.toLowerCase();
-             if (!iconKeywords.some(kw => lowerFamily.includes(kw))) {
-               fonts.add(family);
+             if (!iconKeywords.some(kw => lowerFamily.includes(kw)) && !systemFonts.includes(lowerFamily)) {
+               fonts.set(family, (fonts.get(family) || 0) + 1);
              }
           }
         }
       });
-      return Array.from(fonts).slice(0, 10);
+
+      // Also extract @font-face declarations from stylesheets
+      const fontFaceMap: Record<string, string> = {};
+      try {
+        for (const sheet of Array.from(document.styleSheets)) {
+          try {
+            for (const rule of Array.from(sheet.cssRules || [])) {
+              if (rule instanceof CSSFontFaceRule) {
+                const family = rule.style.getPropertyValue('font-family').replace(/['"]/g, '').trim();
+                const src = rule.style.getPropertyValue('src');
+                if (family && src) {
+                  fontFaceMap[family] = src;
+                }
+              }
+            }
+          } catch { /* cross-origin stylesheets */ }
+        }
+      } catch { /* no access */ }
+
+      // Sort by usage count (most used first)
+      const sorted = Array.from(fonts.entries()).sort((a, b) => b[1] - a[1]).map(([name]) => name);
+      return { fontNames: sorted.slice(0, 10), fontFaceMap };
     });
 
     const siteBgColor = await page.evaluate(() => {
@@ -274,6 +301,46 @@ export async function scrapeSite(url: string, delay: number = 2000) {
       return "#FFFFFF";
     });
 
+    // Helper: normalize font name for URL matching
+    // Handles camelCase ("BricolageGrotesque" → "bricolage grotesque")
+    // but preserves consecutive uppercase ("DM Sans" stays "dm sans", "DMSans" → "dm sans")
+    const normalizeFontName = (name: string): string => {
+      return name
+        // Insert space before uppercase letter that follows a lowercase letter: "BricolageGrotesque" → "Bricolage Grotesque"
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        // Insert space before uppercase letter that is followed by lowercase and preceded by uppercase: "DMSans" → "DM Sans"
+        .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+        .trim();
+    };
+
+    // Build fonts array with proper URL matching
+    const fontsWithUrls = extractedFonts.fontNames.map(name => {
+      const displayName = normalizeFontName(name);
+      const searchName = displayName.toLowerCase().replace(/ +/g, '+');
+
+      // Try matching against intercepted font service URLs
+      const googleUrl = googleFonts.find(u => u.toLowerCase().includes(searchName));
+      const fontshareUrl = fontshareFonts.find(u => u.toLowerCase().includes(searchName));
+      const adobeUrl = adobeFonts.length > 0 ? adobeFonts[0] : undefined; // Adobe uses a single CSS for all fonts
+
+      // Check if we have a self-hosted @font-face src for this font
+      const hasFontFace = !!extractedFonts.fontFaceMap[name] || !!extractedFonts.fontFaceMap[displayName];
+
+      const url = googleUrl || fontshareUrl || adobeUrl || undefined;
+
+      console.log(`[scraper] font "${name}" → display: "${displayName}" | search: "${searchName}" | google: ${!!googleUrl} | fontshare: ${!!fontshareUrl} | adobe: ${!!adobeUrl} | fontFace: ${hasFontFace}`);
+
+      return {
+        name: displayName,
+        isGoogleFont: !!googleUrl,
+        url,
+        isSelfHosted: hasFontFace && !url,
+      };
+    });
+
+    // Primary font: use the most-used font and its matched URL (not just googleFonts[0])
+    const primaryFont = fontsWithUrls[0];
+
     return {
       title,
       domain,
@@ -282,26 +349,15 @@ export async function scrapeSite(url: string, delay: number = 2000) {
       logo: logosBase64[0] || '',
       colors: finalColors,
       siteBgColor,
-      fonts: extractedFonts.map(name => {
-        // Split camelCase first: "BricolageGrotesque" → "Bricolage Grotesque" → "bricolage+grotesque"
-        const normalized = name
-          .replace(/([A-Z])/g, ' $1')
-          .trim()
-          .toLowerCase()
-          .replace(/ +/g, '+');
-        const googleUrl = googleFonts.find(u => u.toLowerCase().includes(normalized));
-        const fontshareUrl = fontshareFonts.find(u => u.toLowerCase().includes(normalized));
-        console.log(`[scraper] font "${name}" → normalized: "${normalized}" | googleUrl: ${googleUrl} | fontshareUrl: ${fontshareUrl}`);
-        return {
-          name,
-          isGoogleFont: !!googleUrl,
-          url: googleUrl || fontshareUrl || undefined,
-        };
-      }),
-      font: {
-        name: extractedFonts[0] || 'Inter',
-        url: googleFonts[0],
-        isGoogleFont: googleFonts.length > 0
+      fonts: fontsWithUrls,
+      font: primaryFont ? {
+        name: primaryFont.name,
+        url: primaryFont.url,
+        isGoogleFont: primaryFont.isGoogleFont,
+      } : {
+        name: 'Inter',
+        url: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+        isGoogleFont: true,
       },
       screenshots: {
         desktop: `data:image/png;base64,${desktopScreenshot}`,

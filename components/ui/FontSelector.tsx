@@ -12,16 +12,13 @@ const getFontSource = (fontUrl?: string): "google" | "fontshare" | null => {
   return null;
 };
 
-// "BricolageGrotesque" → "Bricolage Grotesque"
-const toDisplayName = (name: string): string =>
-  name.replace(/([A-Z])/g, " $1").trim();
+// Font names are now already normalized by the scraper (e.g. "Bricolage Grotesque")
+// so toDisplayName is identity — kept for safety with legacy data
+const toDisplayName = (name: string): string => name;
 
 // "Bricolage Grotesque" → "Bricolage+Grotesque"
 const toGoogleFontsSlug = (name: string): string =>
-  name
-    .replace(/([A-Z])/g, " $1")
-    .trim()
-    .replace(/ +/g, "+");
+  name.replace(/ +/g, "+");
 
 const buildGoogleFontsUrl = (fontName: string): string =>
   `https://fonts.googleapis.com/css2?family=${toGoogleFontsSlug(fontName)}:wght@400;500;600;700&display=swap`;
@@ -152,11 +149,58 @@ export const FontSelector = () => {
     validateFont(font);
   };
 
-  const handleCustomFont = () => {
+  const [customFontLoading, setCustomFontLoading] = useState(false);
+
+  const handleCustomFont = async () => {
     if (!customFont) return;
-    const url = `https://fonts.googleapis.com/css2?family=${customFont.replace(/ /g, "+")}:wght@400;500;600;700&display=swap`;
-    setFont(customFont, url);
-    setCustomFont("");
+    const input = customFont.trim();
+    setCustomFontLoading(true);
+
+    try {
+      // Detect if the input is a URL
+      if (input.startsWith("http")) {
+        // Fetch the CSS to extract the font-family name
+        const res = await fetch(input, { method: "GET" });
+        if (!res.ok) throw new Error("fetch failed");
+        const css = await res.text();
+
+        // Extract font-family from @font-face rules
+        const familyMatch = css.match(/font-family:\s*['"]?([^'";]+)['"]?/);
+        const name = familyMatch ? familyMatch[1].trim() : "Custom Font";
+
+        // Inject stylesheet
+        const existing = document.querySelector(`style[data-url="${input}"]`);
+        if (!existing) {
+          const style = document.createElement("style");
+          style.setAttribute("data-url", input);
+          style.textContent = css;
+          document.head.appendChild(style);
+        }
+
+        setFont(name, input);
+        setFontStatus((s) => ({ ...s, [name]: "ok" }));
+
+        // Determine source for logo
+        if (input.includes("fonts.googleapis.com")) {
+          setFontSources((s) => ({ ...s, [name]: "google" }));
+        } else if (input.includes("fontshare.com") || input.includes("api.fontshare")) {
+          setFontSources((s) => ({ ...s, [name]: "fontshare" }));
+        }
+      } else {
+        // Treat as font name — try Google Fonts URL
+        const url = buildGoogleFontsUrl(input);
+        setFont(input, url);
+        validateFont({ name: input, url });
+      }
+    } catch {
+      // Fallback: treat as font name
+      const url = buildGoogleFontsUrl(input);
+      setFont(input, url);
+      validateFont({ name: input, url });
+    } finally {
+      setCustomFontLoading(false);
+      setCustomFont("");
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -271,10 +315,10 @@ export const FontSelector = () => {
         </label>
       </div>
 
-      {/* Manual Google Font */}
+      {/* Manual font — URL or name */}
       <div className="flex flex-col gap-2 pt-2 border-t border-border">
         <span className="text-xs font-medium text-foreground/40">
-          Google Font manuelle
+          Ajouter une police
         </span>
         <div className="flex gap-1.5">
           <input
@@ -282,15 +326,15 @@ export const FontSelector = () => {
             value={customFont}
             onChange={(e) => setCustomFont(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCustomFont()}
-            placeholder="Ex: Inter, Montserrat..."
+            placeholder="Lien ou nom (Google, Fontshare, Adobe...)"
             className="flex-1 h-9 bg-background border border-border rounded-lg px-3 text-xs outline-none focus:border-foreground/20 font-medium placeholder:text-foreground/20"
           />
           <button
             onClick={handleCustomFont}
-            disabled={!customFont}
-            className="h-9 px-4 bg-foreground text-background rounded-lg text-xs font-bold hover:opacity-90 transition-all cursor-pointer disabled:opacity-30"
+            disabled={!customFont || customFontLoading}
+            className="h-9 px-4 bg-foreground text-background rounded-lg text-xs font-bold hover:opacity-90 transition-all cursor-pointer disabled:opacity-30 flex items-center justify-center"
           >
-            OK
+            {customFontLoading ? <Loader className="w-3.5 h-3.5 animate-spin" /> : "OK"}
           </button>
         </div>
       </div>

@@ -90,23 +90,36 @@ export const LogoSelector = () => {
 
       {/* Logo scale slider */}
       <div className="flex flex-col gap-2 pt-2 border-t border-border">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-foreground/40">
-            Taille du logo
-          </span>
-          <span className="text-xs font-medium text-foreground/60 tabular-nums">
-            {Math.round(localScale * 100)}%
-          </span>
+        <span className="text-xs font-medium text-foreground/40">
+          Taille du logo
+        </span>
+        <div className="flex items-center gap-2">
+          <Slider
+            value={[localScale]}
+            onValueChange={handleSliderChange}
+            onValueCommit={handleSliderCommit}
+            min={0.3}
+            max={5}
+            step={0.05}
+            className="flex-1"
+          />
+          <div className="flex items-center">
+            <input
+              type="number"
+              value={Math.round(localScale * 100)}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                if (!isNaN(v) && v > 0) {
+                  const clamped = Math.min(v, 1000) / 100;
+                  setLocalScale(clamped);
+                  setLogoScale(clamped);
+                }
+              }}
+              className="w-12 h-7 bg-background border border-border rounded-md px-1.5 text-xs text-right font-medium tabular-nums outline-none focus:border-foreground/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <span className="text-[10px] text-foreground/30 font-medium ml-1">%</span>
+          </div>
         </div>
-        <Slider
-          value={[localScale]}
-          onValueChange={handleSliderChange}
-          onValueCommit={handleSliderCommit}
-          min={0.3}
-          max={2.5}
-          step={0.05}
-          className="w-full"
-        />
       </div>
     </div>
   );
