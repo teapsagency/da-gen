@@ -1,6 +1,7 @@
 "use client";
 
 import "./globals.css";
+import { useEffect, useState } from "react";
 import { useDAStore } from "@/store/daStore";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -10,12 +11,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const theme = useDAStore((state) => state.theme);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <html
       lang="fr"
-      data-theme={theme}
-      className={theme === "dark" ? "dark" : ""}
+      data-theme={mounted ? theme : "light"}
+      className={mounted && theme === "dark" ? "dark" : ""}
+      suppressHydrationWarning
     >
       <head>
         <link

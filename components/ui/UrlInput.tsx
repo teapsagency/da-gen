@@ -17,14 +17,30 @@ export const UrlInput = () => {
 
   const handleAnalyze = async () => {
     if (!localUrl) return;
+
+    // Prepend https:// if no protocol specified
+    let urlToAnalyze = localUrl.trim();
+    if (!/^https?:\/\//i.test(urlToAnalyze)) {
+      urlToAnalyze = `https://${urlToAnalyze}`;
+      setLocalUrl(urlToAnalyze);
+    }
+
+    // Validate URL format
+    try {
+      new URL(urlToAnalyze);
+    } catch {
+      setError("URL invalide. Vérifiez le format (ex: https://example.com)");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
-    setUrl(localUrl);
+    setUrl(urlToAnalyze);
     try {
       const response = await fetch("/api/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: localUrl, delay: screenshotDelay }),
+        body: JSON.stringify({ url: urlToAnalyze, delay: screenshotDelay }),
       });
       const data = await response.json();
       if (data.error) throw new Error(data.error);

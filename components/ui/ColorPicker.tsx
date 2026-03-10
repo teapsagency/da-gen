@@ -1,7 +1,7 @@
 import React from "react";
 import { useDAStore } from "@/store/daStore";
 import { toast } from "sonner";
-import { Pipette, Check } from "lucide-react";
+import { Pipette, Check, Copy } from "lucide-react";
 
 const PRESET_BG_COLORS = [
   { name: "Sable", hex: "#F2EEE9" },
@@ -45,9 +45,17 @@ export const ColorPicker = () => {
               }`}
               style={{ backgroundColor: color.hex }}
             >
-              {/* HEX tooltip on hover */}
-              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-foreground text-background text-[10px] font-bold tracking-wider whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 translate-y-1 group-hover:translate-y-0 z-50 shadow-lg">
+              {/* HEX tooltip on hover — click to copy */}
+              <span
+                className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-foreground text-background text-[10px] font-bold tracking-wider whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 translate-y-1 group-hover:translate-y-0 z-50 shadow-lg flex items-center gap-1 cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(color.hex.toUpperCase());
+                  toast.success("Copié", { description: color.hex.toUpperCase() });
+                }}
+              >
                 {color.hex.toUpperCase()}
+                <Copy className="w-2.5 h-2.5 opacity-50" />
               </span>
               {selectedColors.includes(color.hex) && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-xl">

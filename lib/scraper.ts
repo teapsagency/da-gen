@@ -143,8 +143,8 @@ export async function scrapeSite(url: string, delay: number = 2000) {
     const desktopBuffer = Buffer.from(await page.screenshot());
     const desktopScreenshot = desktopBuffer.toString('base64');
 
-    // Extract colors from desktop hero
-    const colors = await extractColors(desktopBuffer);
+    // Extract colors from desktop hero (cached, reused later)
+    const vibrantColors = await extractColors(desktopBuffer);
 
     // Desktop fullpage — cap body height to avoid very long pages eating memory
     await page.evaluate(() => {
@@ -237,9 +237,7 @@ export async function scrapeSite(url: string, delay: number = 2000) {
       return Array.from(colors).slice(0, 10);
     });
 
-    // 2. Extract colors from screenshot (existing Vibrant)
-    const vibrantColors = await extractColors(desktopBuffer);
-    
+    // 2. Reuse cached Vibrant colors (already extracted above)
     // Combine and prioritize CSS colors (brand colors)
     const combinedColors = [
       ...cssColors.map(hex => ({ hex, isLight: false, rgb: [0,0,0] as [number,number,number] })), // Simplified for mapping

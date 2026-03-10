@@ -137,7 +137,8 @@ export const FontSelector = () => {
     setFontStatus({});
     setFontSources({});
     discoveredUrls.current = {};
-    scrapeResult.fonts.forEach((font) => validateFont(font));
+    // Validate all fonts in parallel for faster loading
+    Promise.all(scrapeResult.fonts.map((font) => validateFont(font)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrapeResult?.fonts]);
 

@@ -33,6 +33,24 @@ import {
 
 const Aurora = dynamic(() => import("@/components/Aurora"), { ssr: false });
 
+/** Wait until all frame IDs exist in the DOM, with a safety timeout */
+function waitForFrames(ids: string[], timeout = 3000): Promise<void> {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const check = () => {
+      if (ids.every((id) => document.getElementById(id))) {
+        // One extra rAF to let paint finish
+        requestAnimationFrame(() => resolve());
+      } else if (Date.now() - start > timeout) {
+        resolve(); // fallback — don't block export forever
+      } else {
+        requestAnimationFrame(check);
+      }
+    };
+    requestAnimationFrame(check);
+  });
+}
+
 export default function Home() {
   const {
     isLoading,
@@ -73,14 +91,26 @@ export default function Home() {
 
   const handleHeaderAnalyze = async () => {
     if (!headerUrl) return;
+
+    let urlToAnalyze = headerUrl.trim();
+    if (!/^https?:\/\//i.test(urlToAnalyze)) {
+      urlToAnalyze = `https://${urlToAnalyze}`;
+      setHeaderUrl(urlToAnalyze);
+    }
+
+    try { new URL(urlToAnalyze); } catch {
+      setError("URL invalide.");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
-    setUrl(headerUrl);
+    setUrl(urlToAnalyze);
     try {
       const response = await fetch("/api/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: headerUrl }),
+        body: JSON.stringify({ url: urlToAnalyze }),
       });
       const data = await response.json();
       if (data.error) throw new Error(data.error);
@@ -96,8 +126,8 @@ export default function Home() {
     if (!scrapeResult) return;
     setIsExportingPack(true);
     setShowOffscreenFrames(true);
-    // Wait for offscreen frames to render
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    // Wait for offscreen frames to actually render in the DOM
+    await waitForFrames(["frame-1-da", "frame-2-mockup", "frame-3-cover"]);
     try {
       await exportAllFrames(scrapeResult.domain);
     } finally {
@@ -454,8 +484,8 @@ function PreviewContainer({
     if (scrapeResult) {
       setIsExporting(true);
       setShowExportFrame(true);
-      // Wait for the offscreen frame to render
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Wait for the offscreen frame to actually render in the DOM
+      await waitForFrames([id]);
       try {
         await exportFrame(id, `${scrapeResult.domain}_${id}`);
       } finally {
