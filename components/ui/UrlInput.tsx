@@ -141,7 +141,7 @@ export const UrlInput = ({ onLogs }: { onLogs?: (logs: { time: number; msg: stri
         <button
           onClick={handleAnalyze}
           disabled={isLoading || !fields[0].value.trim()}
-          className="flex-1 h-12 bg-foreground text-background rounded-xl font-bold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer hover:opacity-90"
+          className="flex-1 h-12 bg-foreground text-background rounded-xl font-bold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer shadow-[inset_0_2px_1px_0_rgba(255,255,255,0.4)] active:shadow-[inset_0_-1px_1px_0_rgba(255,255,255,0.2)] active:scale-[0.97]"
         >
           {isLoading ? "Analyse en cours..." : "Générer le projet"}
         </button>

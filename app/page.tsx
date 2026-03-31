@@ -27,16 +27,19 @@ import { ContentChat } from "@/components/ContentChat";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { ChipSelector } from "@/components/ui/ChipSelector";
 import { GeneratedContent } from "@/types";
-import { exportFrame, exportAllFrames } from "@/lib/exportFrames";
+import { exportFrame, exportAllFrames, exportAllSocialFrames } from "@/lib/exportFrames";
+import { toast } from "sonner";
 import {
   Download,
   Sun,
   Moon,
   Loader2,
-  ArrowRight,
   TriangleAlert,
   Terminal,
   X,
+  Layers,
+  FileText,
+  RotateCcw,
 } from "lucide-react";
 
 /** Wait until all frame IDs exist in the DOM, with a safety timeout */
@@ -45,10 +48,9 @@ function waitForFrames(ids: string[], timeout = 3000): Promise<void> {
     const start = Date.now();
     const check = () => {
       if (ids.every((id) => document.getElementById(id))) {
-        // One extra rAF to let paint finish
         requestAnimationFrame(() => resolve());
       } else if (Date.now() - start > timeout) {
-        resolve(); // fallback — don't block export forever
+        resolve();
       } else {
         requestAnimationFrame(check);
       }
@@ -71,12 +73,15 @@ export default function Home() {
     setIsLoading,
     setScrapeResult,
     setError,
+    resetProject,
   } = useDAStore();
+
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const [isExportingPack, setIsExportingPack] = React.useState(false);
   const [showOffscreenFrames, setShowOffscreenFrames] = React.useState(false);
-  const [headerUrl, setHeaderUrl] = React.useState("");
+  const [isExportingSocialPack, setIsExportingSocialPack] = React.useState(false);
+  const [showOffscreenSocialFrames, setShowOffscreenSocialFrames] = React.useState(false);
   const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu">("visuels");
   const [visualSubTab, setVisualSubTab] = React.useState<"desktop" | "social">("desktop");
 
@@ -91,11 +96,8 @@ export default function Home() {
   const [scrapeLogs, setScrapeLogs] = React.useState<{ time: number; msg: string }[]>([]);
   const [showConsole, setShowConsole] = React.useState(false);
 
-  // Try to parse partial JSON from stream into GeneratedContent
   const tryParsePartial = React.useCallback((raw: string): GeneratedContent | null => {
-    // Strip markdown code blocks
     let clean = raw.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
-    // Try to complete partial JSON by closing open braces/brackets
     const attempts = [clean];
     let closers = '';
     for (let i = clean.length - 1; i >= 0; i--) {
@@ -104,14 +106,12 @@ export default function Home() {
       else if (clean[i] === '}' && closers.endsWith('}')) closers = closers.slice(0, -1);
       else if (clean[i] === ']' && closers.endsWith(']')) closers = closers.slice(0, -1);
     }
-    // Try adding quote + closers if we're mid-string
     const lastQuoteIdx = clean.lastIndexOf('"');
     const afterLastQuote = clean.slice(lastQuoteIdx + 1);
     if (lastQuoteIdx > 0 && !afterLastQuote.match(/^\s*[,}\]:]/) && afterLastQuote.length < 500) {
       attempts.push(clean + '"' + closers);
     }
     attempts.push(clean + closers);
-
     for (const attempt of attempts) {
       try {
         const parsed = JSON.parse(attempt);
@@ -138,7 +138,6 @@ export default function Home() {
       contentFiles.forEach((f) => formData.append("files", f));
 
       const res = await fetch("/api/generate-content", { method: "POST", body: formData });
-
       if (!res.ok) {
         const errData = await res.json().catch(() => null);
         throw new Error(errData?.error || "Erreur lors de la génération.");
@@ -146,7 +145,6 @@ export default function Home() {
 
       const reader = res.body?.getReader();
       if (!reader) throw new Error("Streaming non supporté");
-
       const decoder = new TextDecoder();
       let accumulated = "";
 
@@ -155,16 +153,12 @@ export default function Home() {
         if (done) break;
         accumulated += decoder.decode(value, { stream: true });
         setStreamingContent(accumulated);
-
-        // Try to parse partial content for live preview
         const partial = tryParsePartial(accumulated);
         if (partial) setGeneratedContent(partial);
       }
 
-      // Final parse
       const clean = accumulated.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
-      const finalContent = JSON.parse(clean);
-      setGeneratedContent(finalContent);
+      setGeneratedContent(JSON.parse(clean));
     } catch (err) {
       setContentError(err instanceof Error ? err.message : "Erreur lors de la génération.");
     } finally {
@@ -173,7 +167,6 @@ export default function Home() {
     }
   }, [scrapeResult, contentChips, contentFiles, contentBrief, tryParsePartial]);
 
-  // States for handling the slide-out unmount of the LoadingOverlay
   const [showLoadingOverlay, setShowLoadingOverlay] = React.useState(false);
   const [isOverlayExiting, setIsOverlayExiting] = React.useState(false);
 
@@ -186,142 +179,142 @@ export default function Home() {
       const timer = setTimeout(() => {
         setShowLoadingOverlay(false);
         setIsOverlayExiting(false);
-      }, 700); // 700ms matches the exit animation duration in LoadingOverlay.tsx
+      }, 700);
       return () => clearTimeout(timer);
     }
   }, [isLoading, showLoadingOverlay]);
-
-  const handleHeaderAnalyze = async () => {
-    if (!headerUrl) return;
-
-    let urlToAnalyze = headerUrl.trim();
-    if (!/^https?:\/\//i.test(urlToAnalyze)) {
-      urlToAnalyze = `https://${urlToAnalyze}`;
-      setHeaderUrl(urlToAnalyze);
-    }
-
-    try { new URL(urlToAnalyze); } catch {
-      setError("URL invalide.");
-      return;
-    }
-
-    const { screenshotDelay } = useDAStore.getState();
-
-    setIsLoading(true);
-    setError(null);
-    setUrl(urlToAnalyze);
-    try {
-      const response = await fetch("/api/scrape", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: urlToAnalyze, delay: screenshotDelay }),
-      });
-      const data = await response.json();
-      if (data._logs) setScrapeLogs(data._logs);
-      if (data.error) throw new Error(data.error);
-      setScrapeResult(data);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Impossible d'analyser ce site.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleExportPack = useCallback(async () => {
     if (!scrapeResult) return;
     setIsExportingPack(true);
     setShowOffscreenFrames(true);
-    // Wait for offscreen frames to actually render in the DOM
     await waitForFrames(["frame-1-da", "frame-2-mockup", "frame-3-cover"]);
     try {
       await exportAllFrames(scrapeResult.domain);
+      toast.success("Pack téléchargé !");
+    } catch {
+      toast.error("Erreur lors de l'export");
     } finally {
       setIsExportingPack(false);
       setShowOffscreenFrames(false);
     }
   }, [scrapeResult]);
 
+  const handleExportSocialPack = useCallback(async () => {
+    if (!scrapeResult) return;
+    setIsExportingSocialPack(true);
+    setShowOffscreenSocialFrames(true);
+    await waitForFrames(["frame-4-social-browser", "frame-5-social-hero", "frame-6-social-nouvelle", "frame-7-social-three"]);
+    try {
+      await exportAllSocialFrames(scrapeResult.domain);
+      toast.success("Pack social téléchargé !");
+    } catch {
+      toast.error("Erreur lors de l'export");
+    } finally {
+      setIsExportingSocialPack(false);
+      setShowOffscreenSocialFrames(false);
+    }
+  }, [scrapeResult]);
+
   return (
-    <main
-      className={`min-h-screen transition-colors duration-300 bg-background text-foreground`}
-    >
-      {/* CENTRALIZED FONT LOADING — single <link> instead of per-frame @import */}
-      {fontUrl && (
-        <link rel="stylesheet" href={fontUrl} crossOrigin="anonymous" />
-      )}
+    <main className="min-h-screen transition-colors duration-300 bg-background text-foreground">
+      {/* FONT LOADING */}
+      {fontUrl && <link rel="stylesheet" href={fontUrl} crossOrigin="anonymous" />}
       {localFontFile && (
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `
-          @font-face {
-            font-family: 'LocalFont';
-            src: url('${localFontFile}');
-          }
-        `,
-          }}
-        />
+        <style dangerouslySetInnerHTML={{
+          __html: `@font-face { font-family: 'LocalFont'; src: url('${localFontFile}'); }`,
+        }} />
       )}
 
-      {/* HEADER */}
-      <nav className="fixed top-0 w-full flex items-center px-5 py-2.5 z-[100] bg-card/80 backdrop-blur-md border-b border-border gap-4">
-        <div className="text-[13px] font-bold tracking-tight text-foreground shrink-0">
-          DA.gen
+      {/* ICON RAIL */}
+      <div className="fixed left-0 top-0 bottom-0 w-16 bg-card border-r border-border z-[100] flex flex-col items-center py-4">
+        {/* Logo */}
+        <div className="w-9 h-9 flex items-center justify-center mb-4 shrink-0">
+          <span className="text-[11px] font-black tracking-tighter text-foreground">DA</span>
         </div>
 
-        {/* Compact URL input — visible when results are loaded */}
-        {scrapeResult && !isLoading && (
-          <div className="flex-1 flex justify-center max-w-lg mx-auto">
-            <div className="flex w-full bg-background border border-border rounded-lg overflow-hidden h-8">
-              <input
-                type="text"
-                value={headerUrl}
-                onChange={(e) => setHeaderUrl(e.target.value)}
-                placeholder="Nouvelle URL..."
-                onKeyDown={(e) => e.key === "Enter" && handleHeaderAnalyze()}
-                className="flex-1 px-3 text-xs outline-none bg-transparent font-medium placeholder:text-foreground/20"
-              />
+        {/* Nav icons */}
+        {scrapeResult && (
+          <div className="flex flex-col items-center gap-1">
+            <div className="relative group">
               <button
-                onClick={handleHeaderAnalyze}
-                disabled={!headerUrl || isLoading}
-                className="h-full px-3 bg-foreground text-background text-[10px] font-bold flex items-center gap-1.5 hover:opacity-90 transition-all cursor-pointer disabled:opacity-30"
+                onClick={() => setSidebarTab("visuels")}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                  sidebarTab === "visuels"
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5"
+                }`}
               >
-                Générer
-                <ArrowRight className="w-3 h-3" />
+                <Layers className="w-[18px] h-[18px]" />
               </button>
+              <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                Visuels
+              </span>
+            </div>
+            <div className="relative group">
+              <button
+                onClick={() => setSidebarTab("contenu")}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                  sidebarTab === "contenu"
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5"
+                }`}
+              >
+                <FileText className="w-[18px] h-[18px]" />
+              </button>
+              <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                Contenu
+              </span>
+            </div>
+            <div className="relative group">
+              <button
+                onClick={resetProject}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-foreground/20 hover:text-red-400 hover:bg-red-500/5 transition-all cursor-pointer"
+              >
+                <RotateCcw className="w-[16px] h-[16px]" />
+              </button>
+              <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                Nouveau projet
+              </span>
             </div>
           </div>
         )}
 
-        <button
-          onClick={() => setShowConsole(!showConsole)}
-          className="p-2 rounded-full hover:bg-foreground/5 transition-all cursor-pointer shrink-0 relative"
-          title="Console"
-        >
-          <Terminal className="w-4 h-4 text-foreground" />
-          {scrapeLogs.length > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-orange-500 rounded-full" />
-          )}
-        </button>
+        {/* Bottom actions */}
+        <div className="mt-auto flex flex-col items-center gap-1">
+          <div className="relative group">
+            <button
+              onClick={() => setShowConsole(!showConsole)}
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5 transition-all cursor-pointer relative"
+            >
+              <Terminal className="w-[18px] h-[18px]" />
+              {scrapeLogs.length > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-orange-500 rounded-full" />
+              )}
+            </button>
+            <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+              Console
+            </span>
+          </div>
+          <div className="relative group">
+            <button
+              onClick={toggleTheme}
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5 transition-all cursor-pointer"
+            >
+              {mounted ? (
+                theme === "dark" ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />
+              ) : <div className="w-[18px] h-[18px]" />}
+            </button>
+            <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+              {mounted ? (theme === "dark" ? "Mode clair" : "Mode sombre") : "Thème"}
+            </span>
+          </div>
+        </div>
+      </div>
 
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-full hover:bg-foreground/5 transition-all cursor-pointer shrink-0"
-        >
-          {mounted ? (
-            theme === "dark" ? (
-              <Sun className="w-4 h-4 text-foreground" />
-            ) : (
-              <Moon className="w-4 h-4 text-foreground" />
-            )
-          ) : (
-            <div className="w-4 h-4" />
-          )}
-        </button>
-      </nav>
-
-      {/* Console panel */}
+      {/* CONSOLE PANEL */}
       {showConsole && (
-        <div className="fixed top-11 right-4 z-[101] w-[500px] max-h-[400px] bg-black/95 backdrop-blur-md rounded-lg border border-white/10 shadow-2xl flex flex-col">
+        <div className="fixed bottom-4 left-20 z-[101] w-[480px] max-h-[360px] bg-black/95 backdrop-blur-md rounded-lg border border-white/10 shadow-2xl flex flex-col">
           <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
             <span className="text-[11px] font-mono font-bold text-white/70">Console — Scraper logs</span>
             <div className="flex items-center gap-2">
@@ -344,9 +337,9 @@ export default function Home() {
         </div>
       )}
 
-      {/* 1. HERO SECTION */}
+      {/* HERO SECTION */}
       {!scrapeResult && (
-        <section className="min-h-screen flex flex-col items-center justify-center px-6 relative overflow-hidden bg-background">
+        <section className="min-h-screen flex flex-col items-center justify-center px-6 pl-20 relative overflow-hidden bg-background">
           {/* Line grid background */}
           <div
             className="absolute inset-0 z-0"
@@ -357,23 +350,14 @@ export default function Home() {
               opacity: 0.5,
             }}
           />
-
           {/* Corner markers */}
-          {[
-            "top-[72px] left-[72px]",
-            "top-[72px] right-[72px]",
-            "bottom-[72px] left-[72px]",
-            "bottom-[72px] right-[72px]",
-          ].map((pos, i) => (
+          {["top-[72px] left-[72px]", "top-[72px] right-[72px]", "bottom-[72px] left-[72px]", "bottom-[72px] right-[72px]"].map((pos, i) => (
             <span key={i} className={`absolute ${pos} text-foreground/15 text-xs font-mono select-none`}>+</span>
           ))}
 
           <div className="max-w-2xl w-full text-center z-10 flex flex-col items-center gap-10">
             {/* Bracket badge */}
-            <div
-              className="inline-flex items-center gap-3"
-              style={{ animation: "fadeSlideUp 0.5s ease-out both" }}
-            >
+            <div className="inline-flex items-center gap-3" style={{ animation: "fadeSlideUp 0.5s ease-out both" }}>
               <span className="inline-block w-2.5 h-2.5 border-t-[1.5px] border-l-[1.5px] border-foreground/30" />
               <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-foreground/40">
                 Générateur d&apos;identité visuelle
@@ -387,9 +371,7 @@ export default function Home() {
                 className="text-[56px] md:text-[68px] font-extrabold tracking-tight leading-[1.05] text-foreground"
                 style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}
               >
-                Votre DA client,{" "}
-                <br />
-                en quelques secondes.
+                Votre DA client,<br />en quelques secondes.
               </h1>
             </div>
 
@@ -403,71 +385,41 @@ export default function Home() {
             </p>
 
             {/* Input */}
-            <div
-              className="w-full max-w-lg"
-              style={{ animation: "fadeSlideUp 0.5s ease-out 0.24s both" }}
-            >
+            <div className="w-full max-w-lg" style={{ animation: "fadeSlideUp 0.5s ease-out 0.24s both" }}>
               <UrlInput onLogs={setScrapeLogs} />
             </div>
 
             {error && (
-              <div
-                className="p-4 bg-red-500/5 text-red-500 rounded-xl text-xs font-bold border border-red-500/10 w-full max-w-lg"
-                style={{ animation: "fadeSlideUp 0.3s ease-out both" }}
-              >
+              <div className="p-4 bg-red-500/5 text-red-500 rounded-xl text-xs font-bold border border-red-500/10 w-full max-w-lg" style={{ animation: "fadeSlideUp 0.3s ease-out both" }}>
                 {error}
               </div>
             )}
-
           </div>
         </section>
       )}
 
-      {/* NEW FULLSCREEN LOADING OVERLAY */}
+      {/* LOADING OVERLAY */}
       {showLoadingOverlay && <LoadingOverlay isExiting={isOverlayExiting} />}
 
-      {/* Generated Result Section */}
+      {/* APP VIEW */}
       {scrapeResult && !isLoading && (
-        <div className="pt-12 flex min-h-screen">
-          {/* SIDEBAR SHADCN ACCORDION */}
-          <aside
-            className="fixed left-0 top-[45px] bottom-0 w-[320px] bg-card border-r border-border overflow-hidden z-50 flex flex-col"
-          >
+        <div className="flex min-h-screen">
+          {/* SIDEBAR PANEL */}
+          <aside className="fixed left-16 top-0 bottom-0 w-[280px] bg-card border-r border-border overflow-hidden z-50 flex flex-col">
             {/* Project header */}
-            <div className="px-5 pt-5 pb-4 border-b border-border shrink-0">
+            <div className="px-4 pt-5 pb-4 border-b border-border shrink-0">
               <h2 className="text-sm font-bold truncate leading-tight">
                 {scrapeResult.title || "Projet"}
               </h2>
-              <p className="text-[11px] text-foreground/30 font-medium mt-1 truncate">
+              <p className="text-[11px] text-foreground/30 font-medium mt-0.5 truncate">
                 {scrapeResult.domain}
               </p>
             </div>
 
-            {/* Tab switcher */}
-            <div className="px-5 py-3 border-b border-border shrink-0">
-              <div className="flex bg-foreground/[0.05] rounded-lg p-0.5 gap-0.5">
-                {(["visuels", "contenu"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setSidebarTab(tab)}
-                    className={`
-                      flex-1 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer capitalize
-                      ${sidebarTab === tab
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-foreground/40 hover:text-foreground/60"
-                      }
-                    `}
-                  >
-                    {tab === "visuels" ? "Visuels" : "Contenu"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Tab content */}
+            {/* Panel content */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden">
               {sidebarTab === "visuels" && (
-                <div className="p-5 flex flex-col gap-0">
+                <div className="p-4 flex flex-col gap-0">
                   <div className="mb-4 pb-4 border-b border-border">
                     <PageScreenshots />
                   </div>
@@ -487,6 +439,9 @@ export default function Home() {
                         Logos extraits
                       </AccordionTrigger>
                       <AccordionContent>
+                        {scrapeResult.logos.length === 0 && (
+                          <p className="text-[11px] text-foreground/30 pb-2">Aucun logo détecté sur ce site.</p>
+                        )}
                         <LogoSelector />
                       </AccordionContent>
                     </AccordionItem>
@@ -496,6 +451,9 @@ export default function Home() {
                         Couleurs
                       </AccordionTrigger>
                       <AccordionContent>
+                        {scrapeResult.colors.length === 0 && (
+                          <p className="text-[11px] text-foreground/30 pb-2">Aucune couleur extraite.</p>
+                        )}
                         <ColorPicker />
                       </AccordionContent>
                     </AccordionItem>
@@ -510,6 +468,9 @@ export default function Home() {
                         </span>
                       </AccordionTrigger>
                       <AccordionContent>
+                        {!scrapeResult.font.name && (
+                          <p className="text-[11px] text-foreground/30 pb-2">Aucune typographie détectée.</p>
+                        )}
                         <FontSelector />
                       </AccordionContent>
                     </AccordionItem>
@@ -528,13 +489,9 @@ export default function Home() {
                     <button
                       onClick={handleExportPack}
                       disabled={isExportingPack}
-                      className="w-full h-11 bg-foreground text-background rounded-xl font-semibold text-xs tracking-wide hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full h-11 bg-foreground text-background rounded-xl font-semibold text-xs tracking-wide transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-[inset_0_2px_1px_0_rgba(255,255,255,0.4)] active:shadow-[inset_0_-1px_1px_0_rgba(255,255,255,0.2)] active:scale-[0.97]"
                     >
-                      {isExportingPack ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Download className="w-4 h-4" />
-                      )}
+                      {isExportingPack ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                       {isExportingPack ? "Exportation..." : "Télécharger le pack"}
                     </button>
                   </div>
@@ -542,17 +499,13 @@ export default function Home() {
               )}
 
               {sidebarTab === "contenu" && (
-                <div className="p-5 flex flex-col gap-5">
+                <div className="p-4 flex flex-col gap-5">
                   <div className="flex flex-col gap-2.5">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/30">
-                      Tags
-                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/30">Tags</span>
                     <ChipSelector selected={contentChips} onChange={setContentChips} />
                   </div>
                   <div className="flex flex-col gap-2.5">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/30">
-                      Documents contextuels
-                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/30">Documents contextuels</span>
                     <FileUpload files={contentFiles} onChange={setContentFiles} />
                   </div>
                 </div>
@@ -561,7 +514,7 @@ export default function Home() {
           </aside>
 
           {/* MAIN AREA */}
-          <main className="flex-1 ml-[320px] bg-background" style={{ minHeight: "calc(100vh - 45px)" }}>
+          <main className="flex-1 ml-[344px] bg-background min-h-screen">
             {sidebarTab === "visuels" && (
               <div className="p-12 lg:p-20">
                 {/* Sub-tab switcher */}
@@ -595,14 +548,27 @@ export default function Home() {
                     <PreviewContainer title="01 / IDENTITÉ" id="frame-1-da">
                       <Frame1_DA />
                     </PreviewContainer>
-
                     <PreviewContainer title="02 / INTERFACE" id="frame-2-mockup">
                       <Frame2_Mockup />
                     </PreviewContainer>
-
                     <PreviewContainer title="03 / COUVERTURE" id="frame-3-cover">
                       <Frame3_Cover />
                     </PreviewContainer>
+                  </div>
+                )}
+
+                {visualSubTab === "social" && (
+                  <div className="max-w-3xl mx-auto mb-12 flex items-center justify-between">
+                    <div className="flex bg-foreground/[0.04] rounded-lg p-0.5 gap-0.5 w-fit">
+                    </div>
+                    <button
+                      onClick={handleExportSocialPack}
+                      disabled={isExportingSocialPack}
+                      className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer disabled:opacity-30 transition-all hover:opacity-70 active:scale-[0.97]"
+                    >
+                      {isExportingSocialPack ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                      {isExportingSocialPack ? "Export..." : "Télécharger le pack social"}
+                    </button>
                   </div>
                 )}
 
@@ -611,15 +577,12 @@ export default function Home() {
                     <PreviewContainer title="04 / BROWSER FULL" id="frame-4-social-browser" nativeWidth={1080} nativeHeight={1350}>
                       <Frame4_Social_BrowserFull />
                     </PreviewContainer>
-
                     <PreviewContainer title="05 / HERO SIMPLE" id="frame-5-social-hero" nativeWidth={1080} nativeHeight={723}>
                       <Frame5_Social_HeroSimple />
                     </PreviewContainer>
-
                     <PreviewContainer title="06 / NOUVELLE RÉALISATION" id="frame-6-social-nouvelle" nativeWidth={1080} nativeHeight={1350}>
                       <Frame6_Social_NouvelleReal />
                     </PreviewContainer>
-
                     <PreviewContainer title="07 / TROIS IMAGES" id="frame-7-social-three" nativeWidth={1080} nativeHeight={1350}>
                       <Frame7_Social_ThreeImg />
                     </PreviewContainer>
@@ -629,7 +592,7 @@ export default function Home() {
             )}
 
             {sidebarTab === "contenu" && (
-              <div style={{ height: "calc(100vh - 45px)" }}>
+              <div style={{ height: "100vh" }}>
                 <ContentChat
                   chips={contentChips}
                   onChipsChange={setContentChips}
@@ -649,12 +612,22 @@ export default function Home() {
         </div>
       )}
 
-      {/* HIDDEN FOR EXPORT — only mounted during export to avoid perf overhead */}
+      {/* OFFSCREEN FRAMES FOR EXPORT */}
       {showOffscreenFrames && (
         <div className="frames-offscreen">
           <Frame1_DA id="frame-1-da" />
           <Frame2_Mockup id="frame-2-mockup" />
           <Frame3_Cover id="frame-3-cover" />
+        </div>
+      )}
+
+      {/* OFFSCREEN SOCIAL FRAMES FOR EXPORT */}
+      {showOffscreenSocialFrames && (
+        <div className="frames-offscreen">
+          <Frame4_Social_BrowserFull id="frame-4-social-browser" />
+          <Frame5_Social_HeroSimple id="frame-5-social-hero" />
+          <Frame6_Social_NouvelleReal id="frame-6-social-nouvelle" />
+          <Frame7_Social_ThreeImg id="frame-7-social-three" />
         </div>
       )}
     </main>
@@ -696,10 +669,12 @@ function PreviewContainer({
     if (scrapeResult) {
       setIsExporting(true);
       setShowExportFrame(true);
-      // Wait for the offscreen frame to actually render in the DOM
       await waitForFrames([id]);
       try {
         await exportFrame(id, `${scrapeResult.domain}_${id}`);
+        toast.success("Frame exportée !");
+      } catch {
+        toast.error("Erreur lors de l'export");
       } finally {
         setIsExporting(false);
         setShowExportFrame(false);
@@ -707,25 +682,16 @@ function PreviewContainer({
     }
   };
 
-  // Determine which Frame component to render for export
   const renderExportFrame = () => {
     switch (id) {
-      case "frame-1-da":
-        return <Frame1_DA id="frame-1-da" />;
-      case "frame-2-mockup":
-        return <Frame2_Mockup id="frame-2-mockup" />;
-      case "frame-3-cover":
-        return <Frame3_Cover id="frame-3-cover" />;
-      case "frame-4-social-browser":
-        return <Frame4_Social_BrowserFull id="frame-4-social-browser" />;
-      case "frame-5-social-hero":
-        return <Frame5_Social_HeroSimple id="frame-5-social-hero" />;
-      case "frame-6-social-nouvelle":
-        return <Frame6_Social_NouvelleReal id="frame-6-social-nouvelle" />;
-      case "frame-7-social-three":
-        return <Frame7_Social_ThreeImg id="frame-7-social-three" />;
-      default:
-        return null;
+      case "frame-1-da": return <Frame1_DA id="frame-1-da" />;
+      case "frame-2-mockup": return <Frame2_Mockup id="frame-2-mockup" />;
+      case "frame-3-cover": return <Frame3_Cover id="frame-3-cover" />;
+      case "frame-4-social-browser": return <Frame4_Social_BrowserFull id="frame-4-social-browser" />;
+      case "frame-5-social-hero": return <Frame5_Social_HeroSimple id="frame-5-social-hero" />;
+      case "frame-6-social-nouvelle": return <Frame6_Social_NouvelleReal id="frame-6-social-nouvelle" />;
+      case "frame-7-social-three": return <Frame7_Social_ThreeImg id="frame-7-social-three" />;
+      default: return null;
     }
   };
 
@@ -738,13 +704,9 @@ function PreviewContainer({
         <button
           onClick={handleExport}
           disabled={isExporting}
-          className="text-[11px] font-bold hover:opacity-50 transition-opacity border border-border bg-card px-3 py-1.5 rounded-md shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-30"
+          className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer disabled:opacity-30 transition-all hover:opacity-70 active:scale-[0.97]"
         >
-          {isExporting ? (
-            <Loader2 className="w-3 h-3 animate-spin" />
-          ) : (
-            <Download className="w-3 h-3" />
-          )}
+          {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
           <span>{isExporting ? "Export..." : "Export PNG"}</span>
         </button>
       </div>
@@ -769,7 +731,6 @@ function PreviewContainer({
         </div>
       </div>
 
-      {/* Offscreen frame for individual export */}
       {showExportFrame && (
         <div className="frames-offscreen">{renderExportFrame()}</div>
       )}

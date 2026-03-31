@@ -67,6 +67,25 @@ export const useDAStore = create<DAStore>()(
       setIsLoading: (v: boolean) => set({ isLoading: v }),
       error: null,
       setError: (e: string | null) => set({ error: e }),
+
+      isAddingPage: false,
+      setIsAddingPage: (v: boolean) => set({ isAddingPage: v }),
+
+      isPageInputOpen: false,
+      setIsPageInputOpen: (v: boolean) => set({ isPageInputOpen: v }),
+      removeExtraPage: (index: number) => set((state) => ({
+        scrapeResult: state.scrapeResult
+          ? { ...state.scrapeResult, extraPages: state.scrapeResult.extraPages.filter((_, i) => i !== index) }
+          : null,
+        activePageIndex: 0,
+      })),
+      resetProject: () => set({
+        scrapeResult: null,
+        activePageIndex: 0,
+        isPageInputOpen: false,
+        isAddingPage: false,
+        error: null,
+      }),
     }),
     {
       name: 'da-gen-store',

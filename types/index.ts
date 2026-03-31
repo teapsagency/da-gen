@@ -99,4 +99,12 @@ export type DAStore = {
   setIsLoading: (v: boolean) => void;
   error: string | null;
   setError: (e: string | null) => void;
+
+  isAddingPage: boolean;
+  setIsAddingPage: (v: boolean) => void;
+
+  isPageInputOpen: boolean;
+  setIsPageInputOpen: (v: boolean) => void;
+  removeExtraPage: (index: number) => void;
+  resetProject: () => void;
 };
