@@ -40,7 +40,7 @@ export const useDAStore = create<DAStore>()(
             : state.selectedColors
       })),
 
-      bgColor: '#F2EEE9',
+      bgColor: '#f5f5f5',
       setBgColor: (hex: string) => set({ bgColor: hex }),
 
       fontName: '',

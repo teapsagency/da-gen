@@ -34,6 +34,7 @@ export const Frame3_Cover = ({ id }: { id?: string }) => {
           borderTopRightRadius: "40px",
           borderBottomLeftRadius: "0",
           borderBottomRightRadius: "0",
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
           display: "flex",
           flexDirection: "column",
           gap: "32px",
@@ -128,7 +129,7 @@ export const Frame3_Cover = ({ id }: { id?: string }) => {
                 whiteSpace: "nowrap",
               }}
             >
-              {scrapeResult.domain}
+              {scrapeResult.domain.replace(/^www\./, "")}
             </span>
           </div>
 

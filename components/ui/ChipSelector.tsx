@@ -36,9 +36,9 @@ const CHIP_GROUPS: ChipGroup[] = [
       { id: "Vitrine", label: "Vitrine", unlocks: "tech-cms" },
       { id: "E-commerce", label: "E-commerce", unlocks: "tech-ecom" },
       { id: "Application web", label: "Application web", unlocks: "tech-app" },
-      { id: "Blog / Magazine", label: "Blog", unlocks: "services" },
+      { id: "Blog / Magazine", label: "Blog", unlocks: "sector" },
       { id: "Portfolio", label: "Portfolio", unlocks: "tech-cms" },
-      { id: "Landing page", label: "Landing page", unlocks: "services" },
+      { id: "Landing page", label: "Landing page", unlocks: "sector" },
     ],
   },
   {
@@ -46,10 +46,10 @@ const CHIP_GROUPS: ChipGroup[] = [
     label: "Fonctionnalité principale",
     multi: false,
     chips: [
-      { id: "Authentification", label: "Authentification", unlocks: "services" },
-      { id: "Paiement en ligne", label: "Paiement", unlocks: "services" },
-      { id: "Dashboard / Back-office", label: "Dashboard", unlocks: "services" },
-      { id: "Intégration API", label: "Intégration API", unlocks: "services" },
+      { id: "Authentification", label: "Authentification", unlocks: "sector" },
+      { id: "Paiement en ligne", label: "Paiement", unlocks: "sector" },
+      { id: "Dashboard / Back-office", label: "Dashboard", unlocks: "sector" },
+      { id: "Intégration API", label: "Intégration API", unlocks: "sector" },
     ],
   },
   {
@@ -57,10 +57,10 @@ const CHIP_GROUPS: ChipGroup[] = [
     label: "Technologie",
     multi: false,
     chips: [
-      { id: "WordPress", label: "WordPress", unlocks: "services" },
-      { id: "Webflow", label: "Webflow", unlocks: "services" },
-      { id: "Framer", label: "Framer", unlocks: "services" },
-      { id: "Développement sur-mesure", label: "Sur-mesure", unlocks: "services" },
+      { id: "WordPress", label: "WordPress", unlocks: "sector" },
+      { id: "Webflow", label: "Webflow", unlocks: "sector" },
+      { id: "Framer", label: "Framer", unlocks: "sector" },
+      { id: "Développement sur-mesure", label: "Sur-mesure", unlocks: "sector" },
     ],
   },
   {
@@ -68,10 +68,10 @@ const CHIP_GROUPS: ChipGroup[] = [
     label: "Plateforme e-commerce",
     multi: false,
     chips: [
-      { id: "Shopify", label: "Shopify", unlocks: "services" },
-      { id: "WooCommerce", label: "WooCommerce", unlocks: "services" },
-      { id: "PrestaShop", label: "PrestaShop", unlocks: "services" },
-      { id: "Développement custom", label: "Custom", unlocks: "services" },
+      { id: "Shopify", label: "Shopify", unlocks: "sector" },
+      { id: "WooCommerce", label: "WooCommerce", unlocks: "sector" },
+      { id: "PrestaShop", label: "PrestaShop", unlocks: "sector" },
+      { id: "Développement custom", label: "Custom", unlocks: "sector" },
     ],
   },
   {
@@ -79,17 +79,35 @@ const CHIP_GROUPS: ChipGroup[] = [
     label: "Stack technique",
     multi: false,
     chips: [
-      { id: "Next.js", label: "Next.js", unlocks: "services" },
-      { id: "React", label: "React", unlocks: "services" },
-      { id: "Vue.js", label: "Vue.js", unlocks: "services" },
-      { id: "Autre stack", label: "Autre", unlocks: "services" },
+      { id: "Next.js", label: "Next.js", unlocks: "sector" },
+      { id: "React", label: "React", unlocks: "sector" },
+      { id: "Vue.js", label: "Vue.js", unlocks: "sector" },
+      { id: "Autre stack", label: "Autre", unlocks: "sector" },
+    ],
+  },
+  {
+    id: "sector",
+    label: "Secteur d'activité",
+    multi: false,
+    chips: [
+      { id: "Restauration", label: "Restauration", unlocks: "services" },
+      { id: "Immobilier", label: "Immobilier", unlocks: "services" },
+      { id: "Santé / Bien-être", label: "Santé / Bien-être", unlocks: "services" },
+      { id: "Mode / Beauté", label: "Mode / Beauté", unlocks: "services" },
+      { id: "Sport / Fitness", label: "Sport / Fitness", unlocks: "services" },
+      { id: "Éducation / Formation", label: "Éducation / Formation", unlocks: "services" },
+      { id: "Tourisme / Hôtellerie", label: "Tourisme / Hôtellerie", unlocks: "services" },
+      { id: "Industrie / BTP", label: "Industrie / BTP", unlocks: "services" },
+      { id: "Tech / SaaS", label: "Tech / SaaS", unlocks: "services" },
+      { id: "Commerce de proximité", label: "Commerce de proximité", unlocks: "services" },
+      { id: "Association / ONG", label: "Association / ONG", unlocks: "services" },
+      { id: "Autre secteur", label: "Autre", unlocks: "services" },
     ],
   },
   {
     id: "services",
     label: "Services complémentaires",
     multi: true,
-    maxSelect: 3,
     chips: [
       { id: "SEO", label: "SEO" },
       { id: "Branding", label: "Branding" },
@@ -99,6 +117,14 @@ const CHIP_GROUPS: ChipGroup[] = [
       { id: "Maintenance", label: "Maintenance" },
       { id: "Tunnel de conversion", label: "Tunnel de conversion" },
       { id: "Formation client", label: "Formation" },
+      { id: "Stratégie digitale", label: "Stratégie digitale" },
+      { id: "Analytics & tracking", label: "Analytics & tracking" },
+      { id: "Publicité en ligne", label: "Publicité en ligne" },
+      { id: "Emailing", label: "Emailing" },
+      { id: "Réseaux sociaux", label: "Réseaux sociaux" },
+      { id: "Accessibilité", label: "Accessibilité" },
+      { id: "Hébergement", label: "Hébergement" },
+      { id: "Photographie", label: "Photographie" },
     ],
   },
 ];
@@ -129,12 +155,13 @@ export function ChipSelector({ selected, onChange }: Props) {
 
   const handleSelect = (group: ChipGroup, chipId: string) => {
     if (group.multi) {
-      const maxSelect = group.maxSelect ?? 3;
       if (selected.includes(chipId)) {
         onChange(selected.filter((c) => c !== chipId));
       } else {
-        const currentGroupSelected = group.chips.filter((c) => selected.includes(c.id));
-        if (currentGroupSelected.length >= maxSelect) return;
+        if (group.maxSelect) {
+          const currentGroupSelected = group.chips.filter((c) => selected.includes(c.id));
+          if (currentGroupSelected.length >= group.maxSelect) return;
+        }
         onChange([...selected, chipId]);
       }
     } else {
@@ -157,7 +184,7 @@ export function ChipSelector({ selected, onChange }: Props) {
       {visibleGroups.map((group) => {
         const groupSelectedCount = group.chips.filter((c) => selected.includes(c.id)).length;
         const isMulti = group.multi;
-        const maxSelect = group.maxSelect ?? 3;
+        const maxSelect = group.maxSelect;
 
         return (
           <div key={group.id} className="flex flex-col gap-2">
@@ -165,7 +192,7 @@ export function ChipSelector({ selected, onChange }: Props) {
               <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/25">
                 {group.label}
               </span>
-              {isMulti && (
+              {isMulti && maxSelect && (
                 <span className="text-[10px] text-foreground/20 font-medium tabular-nums">
                   {groupSelectedCount}/{maxSelect}
                 </span>
@@ -174,7 +201,7 @@ export function ChipSelector({ selected, onChange }: Props) {
             <div className="flex flex-wrap gap-1.5">
               {group.chips.map((chip) => {
                 const isSelected = selected.includes(chip.id);
-                const isDisabled = isMulti && !isSelected && groupSelectedCount >= maxSelect;
+                const isDisabled = isMulti && maxSelect ? !isSelected && groupSelectedCount >= maxSelect : false;
 
                 return (
                   <button

@@ -103,7 +103,8 @@ async function captureScreenshots(page: Page) {
 
 /** Navigate to a page, dismiss popups, and capture all screenshots */
 async function navigateAndCapture(page: Page, pageUrl: string, delay: number) {
-  await page.goto(pageUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+  await page.goto(pageUrl, { waitUntil: 'load', timeout: 30000 });
+  await page.waitForNetworkIdle({ idleTime: 500, timeout: 10000 }).catch(() => {});
   await new Promise(resolve => setTimeout(resolve, delay));
   await dismissPopups(page);
   return captureScreenshots(page);
@@ -111,8 +112,13 @@ async function navigateAndCapture(page: Page, pageUrl: string, delay: number) {
 
 export async function scrapeSite(url: string, delay: number = 2000, extraPages: ExtraPage[] = []) {
   let browser = null;
+  const logs: { time: number; msg: string }[] = [];
+  const t0 = Date.now();
+  const log = (msg: string) => { logs.push({ time: Date.now() - t0, msg }); console.log(`[scraper +${Date.now() - t0}ms] ${msg}`); };
+
   try {
     const isDev = process.env.NODE_ENV === 'development' || !process.env.VERCEL;
+    log('Launching browser...');
     const exePath = isDev
       ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
       : await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar');
@@ -123,8 +129,20 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
       executablePath: exePath,
       headless: true,
     });
+    log('Browser launched');
 
     const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+
+    // Log page errors and failed requests
+    page.on('pageerror', (err) => log(`PAGE ERROR: ${err.message}`));
+    page.on('requestfailed', (req) => log(`REQUEST FAILED: ${req.url()} — ${req.failure()?.errorText}`));
+    page.on('response', (res) => {
+      const reqUrl = res.url();
+      if (reqUrl.endsWith('.css') || reqUrl.includes('/css')) {
+        log(`CSS ${res.status()}: ${reqUrl.slice(0, 120)}`);
+      }
+    });
 
     // Intercept font service URLs (Google Fonts, Fontshare, Adobe Fonts)
     const googleFonts: string[] = [];
@@ -137,17 +155,42 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
       if (reqUrl.includes('use.typekit.net')) adobeFonts.push(reqUrl);
     });
 
-    // Navigate and capture main page
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+    // Navigate: wait for all resources (stylesheets, images, scripts)
+    log(`Navigating to ${url} (waitUntil: load)...`);
+    await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+    log('Page loaded, waiting for network idle...');
+    await page.waitForNetworkIdle({ idleTime: 500, timeout: 10000 }).catch(() => log('Network idle timeout (10s) — continuing'));
+    log(`Waiting ${delay}ms (user delay)...`);
     await new Promise(resolve => setTimeout(resolve, delay));
+
+    // Check how many stylesheets are loaded
+    const styleInfo = await page.evaluate(() => {
+      const sheets = Array.from(document.styleSheets);
+      const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+      return {
+        loadedSheets: sheets.length,
+        linkTags: links.length,
+        sheetsWithRules: sheets.filter(s => { try { return s.cssRules.length > 0; } catch { return false; } }).length,
+        failedSheets: links.filter(l => !(l as HTMLLinkElement).sheet).map(l => (l as HTMLLinkElement).href),
+      };
+    });
+    log(`Stylesheets: ${styleInfo.loadedSheets} loaded, ${styleInfo.linkTags} <link> tags, ${styleInfo.sheetsWithRules} with rules`);
+    if (styleInfo.failedSheets.length > 0) {
+      log(`FAILED stylesheets: ${styleInfo.failedSheets.join(', ')}`);
+    }
+
     await dismissPopups(page);
+    log('Popups dismissed');
 
     const title = await page.title();
     const domain = new URL(url).hostname;
+    log(`Title: "${title}", Domain: ${domain}`);
     page.setDefaultTimeout(25000);
 
     // Main page screenshots
+    log('Capturing screenshots...');
     const mainScreenshots = await captureScreenshots(page);
+    log('Screenshots captured');
 
     // Extract colors from desktop hero
     const vibrantColors = await extractColors(mainScreenshots.desktopBuffer);
@@ -343,6 +386,7 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
         mobile: mainScreenshots.mobile,
       },
       extraPages: capturedExtraPages,
+      _logs: logs,
     };
   } finally {
     if (browser) await (browser as any).close();

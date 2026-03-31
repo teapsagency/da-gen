@@ -19,9 +19,14 @@ import {
 import { Frame1_DA } from "@/components/frames/Frame1_DA";
 import { Frame2_Mockup } from "@/components/frames/Frame2_Mockup";
 import { Frame3_Cover } from "@/components/frames/Frame3_Cover";
+import { Frame4_Social_BrowserFull } from "@/components/frames/Frame4_Social_BrowserFull";
+import { Frame5_Social_HeroSimple } from "@/components/frames/Frame5_Social_HeroSimple";
+import { Frame6_Social_NouvelleReal } from "@/components/frames/Frame6_Social_NouvelleReal";
+import { Frame7_Social_ThreeImg } from "@/components/frames/Frame7_Social_ThreeImg";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ContentChat } from "@/components/ContentChat";
 import { FileUpload } from "@/components/ui/FileUpload";
+import { ChipSelector } from "@/components/ui/ChipSelector";
 import { GeneratedContent } from "@/types";
 import { exportFrame, exportAllFrames } from "@/lib/exportFrames";
 import {
@@ -31,6 +36,8 @@ import {
   Loader2,
   ArrowRight,
   TriangleAlert,
+  Terminal,
+  X,
 } from "lucide-react";
 
 const Aurora = dynamic(() => import("@/components/Aurora"), { ssr: false });
@@ -68,23 +75,60 @@ export default function Home() {
     setScrapeResult,
     setError,
   } = useDAStore();
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
   const [isExportingPack, setIsExportingPack] = React.useState(false);
   const [showOffscreenFrames, setShowOffscreenFrames] = React.useState(false);
   const [headerUrl, setHeaderUrl] = React.useState("");
   const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu">("visuels");
+  const [visualSubTab, setVisualSubTab] = React.useState<"desktop" | "social">("desktop");
 
   // Content generation state
   const [contentChips, setContentChips] = React.useState<string[]>([]);
   const [contentFiles, setContentFiles] = React.useState<File[]>([]);
   const [contentBrief, setContentBrief] = React.useState("");
   const [generatedContent, setGeneratedContent] = React.useState<GeneratedContent | null>(null);
+  const [streamingContent, setStreamingContent] = React.useState<string>("");
   const [isGeneratingContent, setIsGeneratingContent] = React.useState(false);
   const [contentError, setContentError] = React.useState<string | null>(null);
+  const [scrapeLogs, setScrapeLogs] = React.useState<{ time: number; msg: string }[]>([]);
+  const [showConsole, setShowConsole] = React.useState(false);
+
+  // Try to parse partial JSON from stream into GeneratedContent
+  const tryParsePartial = React.useCallback((raw: string): GeneratedContent | null => {
+    // Strip markdown code blocks
+    let clean = raw.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
+    // Try to complete partial JSON by closing open braces/brackets
+    const attempts = [clean];
+    let closers = '';
+    for (let i = clean.length - 1; i >= 0; i--) {
+      if (clean[i] === '{') closers += '}';
+      else if (clean[i] === '[') closers += ']';
+      else if (clean[i] === '}' && closers.endsWith('}')) closers = closers.slice(0, -1);
+      else if (clean[i] === ']' && closers.endsWith(']')) closers = closers.slice(0, -1);
+    }
+    // Try adding quote + closers if we're mid-string
+    const lastQuoteIdx = clean.lastIndexOf('"');
+    const afterLastQuote = clean.slice(lastQuoteIdx + 1);
+    if (lastQuoteIdx > 0 && !afterLastQuote.match(/^\s*[,}\]:]/) && afterLastQuote.length < 500) {
+      attempts.push(clean + '"' + closers);
+    }
+    attempts.push(clean + closers);
+
+    for (const attempt of attempts) {
+      try {
+        const parsed = JSON.parse(attempt);
+        if (parsed?.caseStudy) return parsed as GeneratedContent;
+      } catch { /* continue */ }
+    }
+    return null;
+  }, []);
 
   const handleGenerateContent = React.useCallback(async () => {
     if (!scrapeResult) return;
     setIsGeneratingContent(true);
     setContentError(null);
+    setStreamingContent("");
     try {
       const formData = new FormData();
       formData.append("chips", JSON.stringify(contentChips));
@@ -95,16 +139,42 @@ export default function Home() {
       }));
       formData.append("clientBrief", contentBrief);
       contentFiles.forEach((f) => formData.append("files", f));
+
       const res = await fetch("/api/generate-content", { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setGeneratedContent(data);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || "Erreur lors de la génération.");
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("Streaming non supporté");
+
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+        setStreamingContent(accumulated);
+
+        // Try to parse partial content for live preview
+        const partial = tryParsePartial(accumulated);
+        if (partial) setGeneratedContent(partial);
+      }
+
+      // Final parse
+      const clean = accumulated.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
+      const finalContent = JSON.parse(clean);
+      setGeneratedContent(finalContent);
     } catch (err) {
       setContentError(err instanceof Error ? err.message : "Erreur lors de la génération.");
     } finally {
       setIsGeneratingContent(false);
+      setStreamingContent("");
     }
-  }, [scrapeResult, contentChips, contentFiles, contentBrief]);
+  }, [scrapeResult, contentChips, contentFiles, contentBrief, tryParsePartial]);
 
   // States for handling the slide-out unmount of the LoadingOverlay
   const [showLoadingOverlay, setShowLoadingOverlay] = React.useState(false);
@@ -150,6 +220,7 @@ export default function Home() {
         body: JSON.stringify({ url: urlToAnalyze, delay: screenshotDelay }),
       });
       const data = await response.json();
+      if (data._logs) setScrapeLogs(data._logs);
       if (data.error) throw new Error(data.error);
       setScrapeResult(data);
     } catch (err: unknown) {
@@ -225,16 +296,56 @@ export default function Home() {
         )}
 
         <button
+          onClick={() => setShowConsole(!showConsole)}
+          className="p-2 rounded-full hover:bg-foreground/5 transition-all cursor-pointer shrink-0 relative"
+          title="Console"
+        >
+          <Terminal className="w-4 h-4 text-foreground" />
+          {scrapeLogs.length > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-orange-500 rounded-full" />
+          )}
+        </button>
+
+        <button
           onClick={toggleTheme}
           className="p-2 rounded-full hover:bg-foreground/5 transition-all cursor-pointer shrink-0"
         >
-          {theme === "dark" ? (
-            <Sun className="w-4 h-4 text-foreground" />
+          {mounted ? (
+            theme === "dark" ? (
+              <Sun className="w-4 h-4 text-foreground" />
+            ) : (
+              <Moon className="w-4 h-4 text-foreground" />
+            )
           ) : (
-            <Moon className="w-4 h-4 text-foreground" />
+            <div className="w-4 h-4" />
           )}
         </button>
       </nav>
+
+      {/* Console panel */}
+      {showConsole && (
+        <div className="fixed top-11 right-4 z-[101] w-[500px] max-h-[400px] bg-black/95 backdrop-blur-md rounded-lg border border-white/10 shadow-2xl flex flex-col">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+            <span className="text-[11px] font-mono font-bold text-white/70">Console — Scraper logs</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setScrapeLogs([])} className="text-[10px] text-white/40 hover:text-white/70 font-mono cursor-pointer">clear</button>
+              <button onClick={() => setShowConsole(false)} className="text-white/40 hover:text-white/70 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed">
+            {scrapeLogs.length === 0 ? (
+              <span className="text-white/30">Aucun log. Lancez une analyse pour voir les logs du scraper.</span>
+            ) : (
+              scrapeLogs.map((l, i) => (
+                <div key={i} className="flex gap-2">
+                  <span className="text-green-400/70 shrink-0">{(l.time / 1000).toFixed(1)}s</span>
+                  <span className={l.msg.includes('FAILED') || l.msg.includes('ERROR') ? 'text-red-400' : l.msg.includes('CSS') ? 'text-yellow-300' : 'text-white/80'}>{l.msg}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 1. HERO SECTION — stays mounted during loading so the overlay slides on top */}
       {!scrapeResult && (
@@ -307,7 +418,7 @@ export default function Home() {
               style={{ animation: "fadeSlideUp 0.6s ease-out 0.3s both" }}
             >
               <div className="bg-card/70 backdrop-blur-xl p-2.5 rounded-2xl border border-border/50 shadow-2xl shadow-black/[0.06]">
-                <UrlInput />
+                <UrlInput onLogs={setScrapeLogs} />
               </div>
             </div>
 
@@ -464,6 +575,12 @@ export default function Home() {
                 <div className="p-5 flex flex-col gap-5">
                   <div className="flex flex-col gap-2.5">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/30">
+                      Tags
+                    </span>
+                    <ChipSelector selected={contentChips} onChange={setContentChips} />
+                  </div>
+                  <div className="flex flex-col gap-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/30">
                       Documents contextuels
                     </span>
                     <FileUpload files={contentFiles} onChange={setContentFiles} />
@@ -477,19 +594,67 @@ export default function Home() {
           <main className="flex-1 ml-[320px] bg-background" style={{ minHeight: "calc(100vh - 45px)" }}>
             {sidebarTab === "visuels" && (
               <div className="p-12 lg:p-20">
-                <div className="max-w-5xl mx-auto space-y-32">
-                  <PreviewContainer title="01 / IDENTITÉ" id="frame-1-da">
-                    <Frame1_DA />
-                  </PreviewContainer>
-
-                  <PreviewContainer title="02 / INTERFACE" id="frame-2-mockup">
-                    <Frame2_Mockup />
-                  </PreviewContainer>
-
-                  <PreviewContainer title="03 / COUVERTURE" id="frame-3-cover">
-                    <Frame3_Cover />
-                  </PreviewContainer>
+                {/* Sub-tab switcher */}
+                <div className="max-w-5xl mx-auto mb-12">
+                  <div className="flex bg-foreground/[0.04] rounded-lg p-0.5 gap-0.5 w-fit">
+                    <button
+                      onClick={() => setVisualSubTab("desktop")}
+                      className={`px-4 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
+                        visualSubTab === "desktop"
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-foreground/40 hover:text-foreground/60"
+                      }`}
+                    >
+                      Desktop
+                    </button>
+                    <button
+                      onClick={() => setVisualSubTab("social")}
+                      className={`px-4 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
+                        visualSubTab === "social"
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-foreground/40 hover:text-foreground/60"
+                      }`}
+                    >
+                      Réseaux sociaux
+                    </button>
+                  </div>
                 </div>
+
+                {visualSubTab === "desktop" && (
+                  <div className="max-w-5xl mx-auto space-y-32">
+                    <PreviewContainer title="01 / IDENTITÉ" id="frame-1-da">
+                      <Frame1_DA />
+                    </PreviewContainer>
+
+                    <PreviewContainer title="02 / INTERFACE" id="frame-2-mockup">
+                      <Frame2_Mockup />
+                    </PreviewContainer>
+
+                    <PreviewContainer title="03 / COUVERTURE" id="frame-3-cover">
+                      <Frame3_Cover />
+                    </PreviewContainer>
+                  </div>
+                )}
+
+                {visualSubTab === "social" && (
+                  <div className="max-w-3xl mx-auto space-y-32">
+                    <PreviewContainer title="04 / BROWSER FULL" id="frame-4-social-browser" nativeWidth={1080} nativeHeight={1350}>
+                      <Frame4_Social_BrowserFull />
+                    </PreviewContainer>
+
+                    <PreviewContainer title="05 / HERO SIMPLE" id="frame-5-social-hero" nativeWidth={1080} nativeHeight={723}>
+                      <Frame5_Social_HeroSimple />
+                    </PreviewContainer>
+
+                    <PreviewContainer title="06 / NOUVELLE RÉALISATION" id="frame-6-social-nouvelle" nativeWidth={1080} nativeHeight={1350}>
+                      <Frame6_Social_NouvelleReal />
+                    </PreviewContainer>
+
+                    <PreviewContainer title="07 / TROIS IMAGES" id="frame-7-social-three" nativeWidth={1080} nativeHeight={1350}>
+                      <Frame7_Social_ThreeImg />
+                    </PreviewContainer>
+                  </div>
+                )}
               </div>
             )}
 
@@ -530,10 +695,14 @@ function PreviewContainer({
   children,
   title,
   id,
+  nativeWidth = 2373,
+  nativeHeight = 1473,
 }: {
   children: React.ReactNode;
   title: string;
   id: string;
+  nativeWidth?: number;
+  nativeHeight?: number;
 }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [scale, setScale] = React.useState(0.2);
@@ -545,13 +714,13 @@ function PreviewContainer({
     const updateScale = () => {
       if (containerRef.current) {
         const width = containerRef.current.offsetWidth;
-        setScale(width / 2373);
+        setScale(width / nativeWidth);
       }
     };
     updateScale();
     window.addEventListener("resize", updateScale);
     return () => window.removeEventListener("resize", updateScale);
-  }, []);
+  }, [nativeWidth]);
 
   const handleExport = async () => {
     if (scrapeResult) {
@@ -577,6 +746,14 @@ function PreviewContainer({
         return <Frame2_Mockup id="frame-2-mockup" />;
       case "frame-3-cover":
         return <Frame3_Cover id="frame-3-cover" />;
+      case "frame-4-social-browser":
+        return <Frame4_Social_BrowserFull id="frame-4-social-browser" />;
+      case "frame-5-social-hero":
+        return <Frame5_Social_HeroSimple id="frame-5-social-hero" />;
+      case "frame-6-social-nouvelle":
+        return <Frame6_Social_NouvelleReal id="frame-6-social-nouvelle" />;
+      case "frame-7-social-three":
+        return <Frame7_Social_ThreeImg id="frame-7-social-three" />;
       default:
         return null;
     }
@@ -605,15 +782,15 @@ function PreviewContainer({
         ref={containerRef}
         className="overflow-hidden relative shadow-2xl shadow-black/[0.03] dark:shadow-white/[0.01] bg-card border border-border"
         style={{
-          height: `${2373 * scale * (1473 / 2373)}px`,
+          height: `${nativeHeight * scale}px`,
           borderRadius: `${borderRadius * scale}px`,
         }}
       >
         <div
           className="absolute top-0 left-0"
           style={{
-            width: "2373px",
-            height: "1473px",
+            width: `${nativeWidth}px`,
+            height: `${nativeHeight}px`,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
           }}

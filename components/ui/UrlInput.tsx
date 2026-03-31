@@ -10,7 +10,7 @@ const DEFAULT_FIELDS: UrlField[] = [
   { label: "Page produit", value: "", removable: false },
 ];
 
-export const UrlInput = () => {
+export const UrlInput = ({ onLogs }: { onLogs?: (logs: { time: number; msg: string }[]) => void }) => {
   const {
     setUrl,
     setIsLoading,
@@ -82,6 +82,7 @@ export const UrlInput = () => {
         }),
       });
       const data = await response.json();
+      if (data._logs) onLogs?.(data._logs);
       if (data.error) throw new Error(data.error);
       setScrapeResult(data);
     } catch (err: unknown) {
