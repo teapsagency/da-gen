@@ -16,6 +16,8 @@ export function useActiveScreenshots() {
     return {
       desktop: extraPage.desktop,
       desktopFull: extraPage.desktopFull,
+      desktopMid: extraPage.desktop, // extra pages don't have scroll captures
+      desktopLower: extraPage.desktop,
       mobile: extraPage.mobile,
     };
   }

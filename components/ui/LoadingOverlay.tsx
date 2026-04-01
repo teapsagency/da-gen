@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Loader2 } from "lucide-react";
+import { Loader2, Square } from "lucide-react";
+import { stopScrape } from "./UrlInput";
 
 const Prism = dynamic(() => import("@/components/Prism"), { ssr: false });
 
@@ -129,8 +130,8 @@ export const LoadingOverlay = ({
         </div>
       </div>
 
-      {/* Timer — bottom center */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
+      {/* Timer + Stop — bottom center */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3">
         <div
           className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-foreground/[0.04]"
           style={{ backdropFilter: "blur(8px)" }}
@@ -140,6 +141,14 @@ export const LoadingOverlay = ({
             {formatTime(elapsed)}
           </span>
         </div>
+        <button
+          onClick={stopScrape}
+          className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-xs font-bold transition-all cursor-pointer active:scale-95"
+          style={{ backdropFilter: "blur(8px)" }}
+        >
+          <Square className="w-3 h-3 fill-current" />
+          Stopper
+        </button>
       </div>
     </div>
   );

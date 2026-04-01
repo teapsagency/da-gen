@@ -4,10 +4,9 @@ import { toast } from "sonner";
 import { Pipette, Check, Copy } from "lucide-react";
 
 const PRESET_BG_COLORS = [
-  { name: "Sable", hex: "#F2EEE9" },
   { name: "Sombre", hex: "#111111" },
   { name: "Blanc", hex: "#FFFFFF" },
-  { name: "Gris", hex: "#DFDFDF" },
+  { name: "Gris", hex: "#F2F2F2" },
 ];
 
 export const ColorPicker = () => {
@@ -117,8 +116,7 @@ export const ColorPicker = () => {
                 <Check
                   className={`w-3 h-3 ${
                     color.hex === "#FFFFFF" ||
-                    color.hex === "#F2EEE9" ||
-                    color.hex === "#DFDFDF"
+                    color.hex === "#F2F2F2"
                       ? "text-black/40"
                       : "text-white/70"
                   }`}

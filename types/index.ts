@@ -29,6 +29,8 @@ export type ScrapeResult = {
   screenshots: {
     desktop: string;
     desktopFull: string;
+    desktopMid: string;
+    desktopLower: string;
     mobile: string;
   };
   extraPages: PageScreenshots[];
@@ -91,6 +93,12 @@ export type DAStore = {
 
   agencyLogo: string;
   setAgencyLogo: (logo: string) => void;
+
+  cardImage: string | null;
+  setCardImage: (img: string | null) => void;
+
+  cardLogoScale: number;
+  setCardLogoScale: (scale: number) => void;
 
   screenshotDelay: number;
   setScreenshotDelay: (delay: number) => void;

@@ -23,13 +23,15 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
   let rightImage: string;
 
   if (hasMultipleUrls) {
-    leftImage = extraPages[0]?.desktop || activeScreenshots.desktopFull;
+    // 3 pages: catalogue (left), accueil (center), produit (right) — all desktop
+    leftImage = extraPages[0]?.desktop || activeScreenshots.desktop;
     centerImage = activeScreenshots.desktop;
-    rightImage = extraPages[1]?.desktop || activeScreenshots.mobile;
+    rightImage = extraPages[1]?.desktop || activeScreenshots.desktop;
   } else {
-    leftImage = activeScreenshots.desktopFull;
+    // 1 page: different scroll positions, center = hero (top)
+    leftImage = activeScreenshots.desktopMid;
     centerImage = activeScreenshots.desktop;
-    rightImage = activeScreenshots.mobile;
+    rightImage = activeScreenshots.desktopLower;
   }
 
   return (

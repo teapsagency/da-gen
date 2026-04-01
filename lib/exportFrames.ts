@@ -64,9 +64,10 @@ export async function exportAllSocialFrames(clientName: string) {
 
   const frames = [
     { id: 'frame-4-social-browser', name: '04_browser_full', width: 1080, height: 1350 },
-    { id: 'frame-5-social-hero',    name: '05_hero_simple',  width: 1080, height: 723 },
+    { id: 'frame-5-social-hero',    name: '05_hero_simple',  width: 1080, height: 675 },
     { id: 'frame-6-social-nouvelle', name: '06_nouvelle_real', width: 1080, height: 1350 },
     { id: 'frame-7-social-three',   name: '07_three_images', width: 1080, height: 1350 },
+    { id: 'frame-8-social-card',    name: '08_card_site',    width: 800,  height: 1000 },
   ];
 
   for (const frame of frames) {

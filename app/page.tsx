@@ -22,6 +22,7 @@ import { Frame4_Social_BrowserFull } from "@/components/frames/Frame4_Social_Bro
 import { Frame5_Social_HeroSimple } from "@/components/frames/Frame5_Social_HeroSimple";
 import { Frame6_Social_NouvelleReal } from "@/components/frames/Frame6_Social_NouvelleReal";
 import { Frame7_Social_ThreeImg } from "@/components/frames/Frame7_Social_ThreeImg";
+import { Frame8_Social_CardSite } from "@/components/frames/Frame8_Social_CardSite";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ContentChat } from "@/components/ContentChat";
 import { FileUpload } from "@/components/ui/FileUpload";
@@ -40,6 +41,7 @@ import {
   Layers,
   FileText,
   RotateCcw,
+  ImageUp,
 } from "lucide-react";
 
 /** Wait until all frame IDs exist in the DOM, with a safety timeout */
@@ -204,7 +206,7 @@ export default function Home() {
     if (!scrapeResult) return;
     setIsExportingSocialPack(true);
     setShowOffscreenSocialFrames(true);
-    await waitForFrames(["frame-4-social-browser", "frame-5-social-hero", "frame-6-social-nouvelle", "frame-7-social-three"]);
+    await waitForFrames(["frame-4-social-browser", "frame-5-social-hero", "frame-6-social-nouvelle", "frame-7-social-three", "frame-8-social-card"]);
     try {
       await exportAllSocialFrames(scrapeResult.domain);
       toast.success("Pack social téléchargé !");
@@ -483,6 +485,7 @@ export default function Home() {
                         <RadiusSelector />
                       </AccordionContent>
                     </AccordionItem>
+
                   </Accordion>
 
                   <div className="mt-8 mb-6">
@@ -577,7 +580,7 @@ export default function Home() {
                     <PreviewContainer title="04 / BROWSER FULL" id="frame-4-social-browser" nativeWidth={1080} nativeHeight={1350}>
                       <Frame4_Social_BrowserFull />
                     </PreviewContainer>
-                    <PreviewContainer title="05 / HERO SIMPLE" id="frame-5-social-hero" nativeWidth={1080} nativeHeight={723}>
+                    <PreviewContainer title="05 / HERO SIMPLE" id="frame-5-social-hero" nativeWidth={1080} nativeHeight={675}>
                       <Frame5_Social_HeroSimple />
                     </PreviewContainer>
                     <PreviewContainer title="06 / NOUVELLE RÉALISATION" id="frame-6-social-nouvelle" nativeWidth={1080} nativeHeight={1350}>
@@ -585,6 +588,15 @@ export default function Home() {
                     </PreviewContainer>
                     <PreviewContainer title="07 / TROIS IMAGES" id="frame-7-social-three" nativeWidth={1080} nativeHeight={1350}>
                       <Frame7_Social_ThreeImg />
+                    </PreviewContainer>
+                    <PreviewContainer
+                      title="08 / CARD SITE"
+                      id="frame-8-social-card"
+                      nativeWidth={800}
+                      nativeHeight={1000}
+                      actions={<CardImageUploadButton />}
+                    >
+                      <Frame8_Social_CardSite />
                     </PreviewContainer>
                   </div>
                 )}
@@ -628,9 +640,64 @@ export default function Home() {
           <Frame5_Social_HeroSimple id="frame-5-social-hero" />
           <Frame6_Social_NouvelleReal id="frame-6-social-nouvelle" />
           <Frame7_Social_ThreeImg id="frame-7-social-three" />
+          <Frame8_Social_CardSite id="frame-8-social-card" />
         </div>
       )}
     </main>
+  );
+}
+
+function CardImageUploadButton() {
+  const { cardImage, setCardImage, cardLogoScale, setCardLogoScale } = useDAStore();
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setCardImage(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <>
+      {/* Logo scale slider */}
+      <div className="flex items-center gap-2 border border-border bg-card px-3 py-1.5 rounded-md">
+        <span className="text-[10px] font-bold text-foreground/40 whitespace-nowrap">Logo</span>
+        <input
+          type="range"
+          min={0.3}
+          max={2}
+          step={0.05}
+          value={cardLogoScale}
+          onChange={(e) => setCardLogoScale(parseFloat(e.target.value))}
+          className="w-16 h-1 accent-foreground cursor-pointer"
+        />
+      </div>
+      {cardImage && (
+        <button
+          onClick={() => setCardImage(null)}
+          className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer transition-all hover:opacity-70 active:scale-[0.97] text-red-500/60 hover:text-red-500"
+        >
+          <RotateCcw className="w-3 h-3" />
+          <span>Reset</span>
+        </button>
+      )}
+      <button
+        onClick={() => inputRef.current?.click()}
+        className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer transition-all hover:opacity-70 active:scale-[0.97]"
+      >
+        <ImageUp className="w-3 h-3" />
+        <span>Image</span>
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        accept="image/*"
+        onChange={handleFile}
+      />
+    </>
   );
 }
 
@@ -640,12 +707,14 @@ function PreviewContainer({
   id,
   nativeWidth = 2373,
   nativeHeight = 1473,
+  actions,
 }: {
   children: React.ReactNode;
   title: string;
   id: string;
   nativeWidth?: number;
   nativeHeight?: number;
+  actions?: React.ReactNode;
 }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [scale, setScale] = React.useState(0.2);
@@ -691,6 +760,7 @@ function PreviewContainer({
       case "frame-5-social-hero": return <Frame5_Social_HeroSimple id="frame-5-social-hero" />;
       case "frame-6-social-nouvelle": return <Frame6_Social_NouvelleReal id="frame-6-social-nouvelle" />;
       case "frame-7-social-three": return <Frame7_Social_ThreeImg id="frame-7-social-three" />;
+      case "frame-8-social-card": return <Frame8_Social_CardSite id="frame-8-social-card" />;
       default: return null;
     }
   };
@@ -701,14 +771,17 @@ function PreviewContainer({
         <span className="text-[11px] font-bold text-foreground tracking-widest uppercase opacity-20">
           {title}
         </span>
-        <button
-          onClick={handleExport}
-          disabled={isExporting}
-          className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer disabled:opacity-30 transition-all hover:opacity-70 active:scale-[0.97]"
-        >
-          {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-          <span>{isExporting ? "Export..." : "Export PNG"}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {actions}
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer disabled:opacity-30 transition-all hover:opacity-70 active:scale-[0.97]"
+          >
+            {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+            <span>{isExporting ? "Export..." : "Export PNG"}</span>
+          </button>
+        </div>
       </div>
       <div
         ref={containerRef}

@@ -8,14 +8,14 @@ export const Frame5_Social_HeroSimple = ({ id }: { id?: string }) => {
 
   if (!scrapeResult || !activeScreenshots) return null;
 
-  // Figma: 1080×723 — landscape format
+  // 1080×675 — matches desktop viewport ratio (1440×900 = 16:10) so full width is visible
   return (
     <div
       id={id}
       style={{
         position: "relative",
         width: "1080px",
-        height: "723px",
+        height: "675px",
         overflow: "hidden",
       }}
     >
@@ -24,7 +24,7 @@ export const Frame5_Social_HeroSimple = ({ id }: { id?: string }) => {
         alt="Hero"
         style={{
           width: "1080px",
-          height: "723px",
+          height: "675px",
           objectFit: "cover",
           objectPosition: "top center",
           display: "block",

@@ -1,8 +1,16 @@
 import React, { useState } from "react";
 import { useDAStore } from "@/store/daStore";
-import { Loader2, Settings2, Plus, X } from "lucide-react";
+import { Settings2, Plus, X } from "lucide-react";
 
 type UrlField = { label: string; value: string; removable: boolean };
+
+let _scrapeAbort: AbortController | null = null;
+export function stopScrape() {
+  if (_scrapeAbort) {
+    _scrapeAbort.abort();
+    _scrapeAbort = null;
+  }
+}
 
 const DEFAULT_FIELDS: UrlField[] = [
   { label: "Page d'accueil", value: "", removable: false },
@@ -57,12 +65,10 @@ export const UrlInput = ({ onLogs }: { onLogs?: (logs: { time: number; msg: stri
       return;
     }
 
-    // Update display value if we prepended https://
     if (mainUrl !== fields[0].value) {
       updateField(0, mainUrl);
     }
 
-    // Collect extra URLs (skip empty ones)
     const extraPages = fields
       .slice(1)
       .map((f) => ({ label: f.label, url: prepareUrl(f.value) }))
@@ -71,6 +77,11 @@ export const UrlInput = ({ onLogs }: { onLogs?: (logs: { time: number; msg: stri
     setIsLoading(true);
     setError(null);
     setUrl(mainUrl);
+
+    const controller = new AbortController();
+    _scrapeAbort = controller;
+    const collectedLogs: { time: number; msg: string }[] = [];
+
     try {
       const response = await fetch("/api/scrape", {
         method: "POST",
@@ -80,16 +91,56 @@ export const UrlInput = ({ onLogs }: { onLogs?: (logs: { time: number; msg: stri
           delay: screenshotDelay,
           extraPages,
         }),
+        signal: controller.signal,
       });
-      const data = await response.json();
-      if (data._logs) onLogs?.(data._logs);
-      if (data.error) throw new Error(data.error);
-      setScrapeResult(data);
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("Pas de stream disponible");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      const resultChunks: string[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() || "";
+
+        for (const part of parts) {
+          const eventMatch = part.match(/^event: (.+)$/m);
+          const dataMatch = part.match(/^data: (.+)$/m);
+          if (!eventMatch || !dataMatch) continue;
+
+          const event = eventMatch[1];
+          const data = JSON.parse(dataMatch[1]);
+
+          if (event === "log") {
+            collectedLogs.push(data);
+            onLogs?.([...collectedLogs]);
+          } else if (event === "result-chunk") {
+            resultChunks[data.i] = data.chunk;
+          } else if (event === "done") {
+            const result = JSON.parse(resultChunks.join(""));
+            setScrapeResult(result);
+          } else if (event === "error") {
+            throw new Error(data.error);
+          }
+        }
+      }
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "Impossible d'analyser ce site."
-      );
+      if (err instanceof DOMException && err.name === "AbortError") {
+        onLogs?.([...collectedLogs, { time: Date.now(), msg: "⏹ Analyse stoppée par l'utilisateur" }]);
+        setError("Analyse interrompue.");
+      } else {
+        setError(
+          err instanceof Error ? err.message : "Impossible d'analyser ce site."
+        );
+      }
     } finally {
+      _scrapeAbort = null;
       setIsLoading(false);
     }
   };

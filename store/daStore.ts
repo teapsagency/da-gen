@@ -20,7 +20,7 @@ export const useDAStore = create<DAStore>()(
         selectedColors: result.colors.slice(0, 4).map(c => c.hex),
         fontName: result.font.name,
         fontUrl: result.font.url,
-        bgColor: result.siteBgColor || '#F2EEE9',
+        bgColor: result.siteBgColor || '#FFFFFF',
         activePageIndex: 0,
       }),
 
@@ -58,6 +58,12 @@ export const useDAStore = create<DAStore>()(
 
       agencyLogo: '/logo-teaps.svg',
       setAgencyLogo: (logo: string) => set({ agencyLogo: logo }),
+
+      cardImage: null,
+      setCardImage: (img: string | null) => set({ cardImage: img }),
+
+      cardLogoScale: 1,
+      setCardLogoScale: (scale: number) => set({ cardLogoScale: scale }),
 
       screenshotDelay: 2000,
       setScreenshotDelay: (delay: number) => set({ screenshotDelay: delay }),

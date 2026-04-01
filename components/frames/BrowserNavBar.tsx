@@ -10,12 +10,12 @@ type Props = {
 export function BrowserNavBar({ domain, agencyLogo, dotSize = 16, height }: Props) {
   const barHeight = height ?? (dotSize === 16 ? 48 : 36);
   const gap = dotSize >= 16 ? "12px" : "8px";
-  const fontSize = dotSize >= 16 ? "20px" : "16px";
-  const urlPadX = dotSize >= 16 ? "24px" : "18px";
-  const urlPadY = dotSize >= 16 ? "8px" : "5px";
-  const urlGap = dotSize >= 16 ? "12px" : "8px";
-  const lockSize = dotSize >= 16 ? 14 : 10;
-  const logoMaxH = dotSize >= 16 ? "32px" : "22px";
+  const fontSize = dotSize >= 16 ? "20px" : "13px";
+  const urlPadX = dotSize >= 16 ? "24px" : "14px";
+  const urlPadY = dotSize >= 16 ? "8px" : "4px";
+  const urlGap = dotSize >= 16 ? "12px" : "6px";
+  const lockSize = dotSize >= 16 ? 14 : 9;
+  const logoMaxH = dotSize >= 16 ? "32px" : "18px";
 
   return (
     <div
