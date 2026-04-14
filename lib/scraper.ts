@@ -179,6 +179,7 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
     browser = await puppeteer.launch({
       defaultViewport: { width: 1920, height: 1080 },
       headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
     });
     log('Browser launched');
 
