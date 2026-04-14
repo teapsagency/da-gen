@@ -1,5 +1,4 @@
-import puppeteer, { type Page } from 'puppeteer-core';
-import chromium from '@sparticuz/chromium-min';
+import puppeteer, { type Page } from 'puppeteer';
 import { extractColors } from './colorExtractor';
 
 type ExtraPage = { label: string; url: string };
@@ -176,16 +175,9 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
   };
 
   try {
-    const isDev = process.env.NODE_ENV === 'development' || !process.env.VERCEL;
     log('Launching browser...');
-    const exePath = isDev
-      ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-      : await chromium.executablePath('https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar');
-
     browser = await puppeteer.launch({
-      args: isDev ? [] : chromium.args,
       defaultViewport: { width: 1920, height: 1080 },
-      executablePath: exePath,
       headless: true,
     });
     log('Browser launched');

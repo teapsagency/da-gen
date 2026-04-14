@@ -6,15 +6,16 @@ Ce fichier sert de mémoire technique pour les futures sessions avec Gemini CLI.
 Une application web (SaaS) permettant aux agences d'entrer l'URL d'un client. L'outil scrape le site (Puppeteer) pour extraire l'ADN visuel (couleurs, typographie, logos, screenshots) et génère automatiquement 3 "Frames" de présentation (Identité, Mockup, Cover) exportables en haute résolution dans un fichier ZIP.
 
 ## 🏗️ Stack Technique
-- **Framework** : Next.js 14 (App Router)
-- **Langage** : TypeScript
+- **Framework** : Next.js 16 (App Router)
+- **Langage** : TypeScript (strict)
 - **Styling** : Tailwind CSS v4 (Variables CSS basées sur HEX pour compatibilité)
 - **État Global** : Zustand (`store/daStore.ts`)
-- **Scraping** : `puppeteer-core` + `@sparticuz/chromium` (pour Vercel/Serverless)
+- **Scraping** : `puppeteer` (Chromium bundlé téléchargé au `npm install`) — déploiement self-hosted sur Coolify
 - **Extraction Couleurs** : `node-vibrant` (et analyse CSS personnalisée)
-- **Export** : `html2canvas` + `jszip` + `file-saver`
+- **Export** : `html-to-image` + `jszip` + `file-saver`
+- **IA** : `@google/generative-ai` (Gemini Flash, streaming)
 - **Icônes** : `lucide-react`
-- **UI** : Inspiré de shadcn/ui (Radix UI pour les Accordions)
+- **UI** : Inspiré de shadcn/ui (Radix UI), notifications via `sonner`
 
 ## 🎨 Design System & UX (Règles strictes)
 - **Minimalisme** : Style très épuré, typique des SaaS/Fintech modernes. Pas de bordures épaisses ni d'ombres excessives.

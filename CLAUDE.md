@@ -8,7 +8,7 @@ Outil interne pour agence web. Prend une URL → scrape le site → génère aut
 
 - **Next.js 16** (App Router, TypeScript strict)
 - **Tailwind CSS 4** + CSS Variables (thème light/dark)
-- **Puppeteer Core** + `@sparticuz/chromium-min` (scraping serverless Vercel-compatible)
+- **Puppeteer** (scraping, Chromium bundlé auto au `npm install`)
 - **node-vibrant** (extraction palette couleurs)
 - **html-to-image** + **JSZip** (export PNG / ZIP côté client)
 - **Gemini API** (`@google/generative-ai`) pour la génération de contenu en streaming
@@ -22,7 +22,7 @@ Outil interne pour agence web. Prend une URL → scrape le site → génère aut
 - Extraction : logo, palette (6 couleurs via node-vibrant), typographies, couleur de fond
 - Auto-dismiss des bandeaux cookies/GDPR
 - User-agent configuré pour éviter les blocages
-- Timeout Vercel : `maxDuration = 60`
+- Déploiement self-hosted (Coolify) — pas de contrainte serverless
 
 ### Frames visuelles
 - **3 frames desktop** (2373×1473px fixes) : Identity, Mockup, Cover

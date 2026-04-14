@@ -32,9 +32,9 @@ Avant d'écrire la moindre ligne de code, applique ces principes :
 ## 🏗️ STACK TECHNIQUE
 
 ```
-Framework    : Next.js 14 (App Router, TypeScript)
+Framework    : Next.js 16 (App Router, TypeScript)
 Styling      : Tailwind CSS + CSS Variables pour le theming des frames
-Scraping     : Puppeteer-core + @sparticuz/chromium (compatible Vercel/serverless)
+Scraping     : Puppeteer (Chromium bundlé) — déploiement self-hosted Coolify
 Couleurs     : node-vibrant (extraction palette depuis screenshot)
 Export PNG   : html2canvas (capture côté client des frames React)
 Download     : file-saver
@@ -44,7 +44,7 @@ State        : Zustand (store global pour les données scrapées + choix utilisa
 
 **Dépendances à installer :**
 ```bash
-npm install puppeteer-core @sparticuz/chromium node-vibrant html2canvas file-saver zustand
+npm install puppeteer node-vibrant html-to-image file-saver zustand
 npm install -D @types/file-saver
 ```
 
@@ -456,7 +456,7 @@ type ScrapeResult = {
 ```
 
 **Logique Puppeteer dans `scraper.ts` :**
-1. Launch Puppeteer avec `@sparticuz/chromium` pour compatibilité serverless
+1. Launch Puppeteer (Chromium bundlé) — déploiement self-hosted Coolify
 2. `page.setViewport({ width: 1920, height: 1080 })` → screenshot desktop
 3. `page.screenshot({ fullPage: true })` → screenshot fullpage
 4. `page.setViewport({ width: 390, height: 844 })` → screenshot mobile fullpage
@@ -618,7 +618,7 @@ Lance ces commandes dans l'ordre :
 ```bash
 npx create-next-app@latest da-generator --typescript --tailwind --app --src-dir false --import-alias "@/*"
 cd da-generator
-npm install puppeteer-core @sparticuz/chromium node-vibrant html2canvas file-saver zustand
+npm install puppeteer node-vibrant html-to-image file-saver zustand
 npm install -D @types/file-saver
 ```
 
