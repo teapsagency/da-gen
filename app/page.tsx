@@ -27,6 +27,7 @@ import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ContentChat } from "@/components/ContentChat";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { ChipSelector } from "@/components/ui/ChipSelector";
+import { SettingsPanel } from "@/components/ui/SettingsPanel";
 import { GeneratedContent } from "@/types";
 import { exportFrame, exportAllFrames, exportAllSocialFrames } from "@/lib/exportFrames";
 import { toast } from "sonner";
@@ -42,6 +43,7 @@ import {
   FileText,
   RotateCcw,
   ImageUp,
+  Settings,
 } from "lucide-react";
 
 /** Wait until all frame IDs exist in the DOM, with a safety timeout */
@@ -84,7 +86,7 @@ export default function Home() {
   const [showOffscreenFrames, setShowOffscreenFrames] = React.useState(false);
   const [isExportingSocialPack, setIsExportingSocialPack] = React.useState(false);
   const [showOffscreenSocialFrames, setShowOffscreenSocialFrames] = React.useState(false);
-  const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu">("visuels");
+  const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu" | "settings">("visuels");
   const [visualSubTab, setVisualSubTab] = React.useState<"desktop" | "social">("desktop");
 
   // Content generation state
@@ -129,6 +131,9 @@ export default function Home() {
     setContentError(null);
     setStreamingContent("");
     try {
+      const { geminiApiKeys, activeApiKeyId, contentPrompt, geminiModel } = useDAStore.getState();
+      const activeKey = geminiApiKeys.find((k) => k.id === activeApiKeyId) || geminiApiKeys[0];
+      const geminiApiKey = activeKey?.key || '';
       const formData = new FormData();
       formData.append("chips", JSON.stringify(contentChips));
       formData.append("siteData", JSON.stringify({
@@ -137,6 +142,9 @@ export default function Home() {
         siteUrl: scrapeResult.siteUrl,
       }));
       formData.append("clientBrief", contentBrief);
+      if (geminiApiKey) formData.append("apiKey", geminiApiKey);
+      if (contentPrompt) formData.append("prompt", contentPrompt);
+      if (geminiModel) formData.append("model", geminiModel);
       contentFiles.forEach((f) => formData.append("files", f));
 
       const res = await fetch("/api/generate-content", { method: "POST", body: formData });
@@ -286,6 +294,21 @@ export default function Home() {
         <div className="mt-auto flex flex-col items-center gap-1">
           <div className="relative group">
             <button
+              onClick={() => setSidebarTab("settings")}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                sidebarTab === "settings"
+                  ? "bg-foreground/10 text-foreground"
+                  : "text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5"
+              }`}
+            >
+              <Settings className="w-[18px] h-[18px]" />
+            </button>
+            <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+              Paramètres
+            </span>
+          </div>
+          <div className="relative group">
+            <button
               onClick={() => setShowConsole(!showConsole)}
               className="w-10 h-10 rounded-xl flex items-center justify-center text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5 transition-all cursor-pointer relative"
             >
@@ -339,8 +362,36 @@ export default function Home() {
         </div>
       )}
 
+      {/* SETTINGS (accessible anytime, even without a scrape) */}
+      {sidebarTab === "settings" && (
+        <section className="min-h-screen pl-20 py-12 px-8 bg-background">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h1 className="text-[28px] font-bold tracking-tight leading-none" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>
+                  Paramètres
+                </h1>
+                <p className="text-[12.5px] text-foreground/50 mt-2 leading-relaxed">
+                  Configuration locale, stockée dans ton navigateur.
+                </p>
+              </div>
+              <button
+                onClick={() => setSidebarTab("visuels")}
+                className="text-[11px] font-semibold text-foreground/60 hover:text-foreground cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border hover:bg-foreground/5 transition-all"
+              >
+                <X className="w-3.5 h-3.5" />
+                {scrapeResult ? "Retour au projet" : "Fermer"}
+              </button>
+            </div>
+            <div className="bg-card border border-border rounded-xl">
+              <SettingsPanel />
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* HERO SECTION */}
-      {!scrapeResult && (
+      {!scrapeResult && sidebarTab !== "settings" && (
         <section className="min-h-screen flex flex-col items-center justify-center px-6 pl-20 relative overflow-hidden bg-background">
           {/* Line grid background */}
           <div
@@ -404,7 +455,7 @@ export default function Home() {
       {showLoadingOverlay && <LoadingOverlay isExiting={isOverlayExiting} />}
 
       {/* APP VIEW */}
-      {scrapeResult && !isLoading && (
+      {scrapeResult && !isLoading && sidebarTab !== "settings" && (
         <div className="flex min-h-screen">
           {/* SIDEBAR PANEL */}
           <aside className="fixed left-16 top-0 bottom-0 w-[280px] bg-card border-r border-border overflow-hidden z-50 flex flex-col">
