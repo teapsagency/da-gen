@@ -39,6 +39,12 @@ export type ScrapeResult = {
   title: string;
 };
 
+export type GeminiApiKey = {
+  id: string;
+  label: string;
+  key: string;
+};
+
 export type GeneratedContent = {
   caseStudy: {
     title: string;
@@ -115,4 +121,17 @@ export type DAStore = {
   setIsPageInputOpen: (v: boolean) => void;
   removeExtraPage: (index: number) => void;
   resetProject: () => void;
+
+  geminiApiKeys: GeminiApiKey[];
+  activeApiKeyId: string | null;
+  setGeminiApiKeys: (keys: GeminiApiKey[]) => void;
+  setActiveApiKeyId: (id: string | null) => void;
+
+  geminiModel: string;
+  setGeminiModel: (model: string) => void;
+  resetGeminiModel: () => void;
+
+  contentPrompt: string;
+  setContentPrompt: (prompt: string) => void;
+  resetContentPrompt: () => void;
 };

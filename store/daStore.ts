@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DAStore, ScrapeResult } from '@/types';
+import { DAStore, GeminiApiKey, ScrapeResult } from '@/types';
+import { DEFAULT_CONTENT_PROMPT, DEFAULT_GEMINI_MODEL } from '@/lib/defaultPrompt';
+
+type LegacyPersistedState = Partial<{
+  geminiApiKey: string;
+  geminiApiKeyLabel: string;
+  geminiApiKeys: GeminiApiKey[];
+  activeApiKeyId: string | null;
+}>;
 
 export const useDAStore = create<DAStore>()(
   persist(
@@ -92,6 +100,19 @@ export const useDAStore = create<DAStore>()(
         isAddingPage: false,
         error: null,
       }),
+
+      geminiApiKeys: [],
+      activeApiKeyId: null,
+      setGeminiApiKeys: (keys: GeminiApiKey[]) => set({ geminiApiKeys: keys }),
+      setActiveApiKeyId: (id: string | null) => set({ activeApiKeyId: id }),
+
+      geminiModel: DEFAULT_GEMINI_MODEL,
+      setGeminiModel: (model: string) => set({ geminiModel: model }),
+      resetGeminiModel: () => set({ geminiModel: DEFAULT_GEMINI_MODEL }),
+
+      contentPrompt: DEFAULT_CONTENT_PROMPT,
+      setContentPrompt: (prompt: string) => set({ contentPrompt: prompt }),
+      resetContentPrompt: () => set({ contentPrompt: DEFAULT_CONTENT_PROMPT }),
     }),
     {
       name: 'da-gen-store',
@@ -106,7 +127,28 @@ export const useDAStore = create<DAStore>()(
         agencyLogo: state.agencyLogo === '/logo-teaps.svg' ? state.agencyLogo : undefined,
         logoScale: state.logoScale,
         screenshotDelay: state.screenshotDelay,
+        geminiApiKeys: state.geminiApiKeys,
+        activeApiKeyId: state.activeApiKeyId,
+        geminiModel: state.geminiModel,
+        contentPrompt: state.contentPrompt,
       }),
+      version: 2,
+      migrate: (persisted: unknown, version: number) => {
+        const state = (persisted ?? {}) as LegacyPersistedState;
+        if (version < 2 && state.geminiApiKey && !state.geminiApiKeys?.length) {
+          const id = `key_${Date.now()}`;
+          return {
+            ...state,
+            geminiApiKeys: [{
+              id,
+              label: state.geminiApiKeyLabel || 'Clé principale',
+              key: state.geminiApiKey,
+            }],
+            activeApiKeyId: id,
+          };
+        }
+        return state;
+      },
     }
   )
 );
