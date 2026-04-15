@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
     const clientApiKey = (formData.get('apiKey') as string || '').trim();
     const clientPrompt = (formData.get('prompt') as string || '').trim();
     const clientModel = (formData.get('model') as string || '').trim();
+    const sitemapUrls = JSON.parse(formData.get('sitemap') as string || '[]') as string[];
     const files = formData.getAll('files') as File[];
 
     const apiKey = clientApiKey || process.env.GEMINI_API_KEY;
@@ -46,6 +47,9 @@ export async function POST(request: NextRequest) {
       brief: clientBrief ? `## Brief client (fourni par l'agence)\n${clientBrief}` : '',
       fileContext: fileContext ? `## Documents complémentaires\n${fileContext}` : '',
       pdfInfo: pdfParts.length > 0 ? `(${pdfParts.length} fichier(s) PDF joint(s) ci-dessous)` : '',
+      sitemap: sitemapUrls.length > 0
+        ? `## Sitemap du site client (pages internes disponibles)\nIntègre 2 à 4 de ces URLs comme liens Markdown dans les paragraphes de l'étude de cas (intro / challenge / solution / results). **Ne les utilise pas dans le post social.** Voir règles détaillées plus bas.\n\n${sitemapUrls.slice(0, 80).join('\n')}`
+        : '',
     });
 
     const parts: Part[] = [{ text: prompt }, ...pdfParts];

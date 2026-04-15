@@ -8,6 +8,7 @@ export const PROMPT_PLACEHOLDERS = [
   '{{brief}}',
   '{{fileContext}}',
   '{{pdfInfo}}',
+  '{{sitemap}}',
 ] as const;
 
 export const DEFAULT_CONTENT_PROMPT = `Tu es rédacteur pour TEAPS, agence digitale basée à Toulon. Tu rédiges une étude de cas + un post social à partir des infos ci-dessous. Tu écris comme un artisan qui décrit son travail, pas comme un commercial qui vend un produit.
@@ -25,6 +26,7 @@ export const DEFAULT_CONTENT_PROMPT = `Tu es rédacteur pour TEAPS, agence digit
 {{brief}}
 {{fileContext}}
 {{pdfInfo}}
+{{sitemap}}
 
 ## Règles absolues (non négociables)
 
@@ -64,6 +66,17 @@ Solution : "Nous avons créé un site Shopify moderne et ergonomique, parfaiteme
 - **services** : 3 items max, libellés courts ("Refonte web", "UX/UI", "Intégration Shopify")
 - **platform** : techno principale identifiable ("Shopify", "WordPress", "Next.js"…), sinon "Site sur-mesure"
 
+### Liens internes vers le site du client (étude de cas uniquement)
+
+Si une sitemap est fournie plus haut, **intègre 2 à 4 liens internes pertinents** dans les paragraphes **intro / challenge / solution / results** (pas dans le post social). Objectif : maillage SEO sur le site de l'agence qui publiera l'étude de cas.
+
+Règles :
+- Format **Markdown** : \`[texte d'ancre naturel](URL absolue de la sitemap)\`
+- L'ancre doit être une formulation naturelle du texte (ex : "leur boutique en ligne", "la page de présentation de l'atelier"), jamais l'URL brute ni "cliquez ici".
+- Répartis les liens sur plusieurs paragraphes, pas tous groupés. 1 lien maximum par phrase.
+- Priorise les pages significatives (accueil, à propos, collections, pages produit/service clés) plutôt que mentions légales / cgv / panier.
+- Si la sitemap est absente, n'invente jamais d'URL — rédige sans liens.
+
 ## Structure du post social (LinkedIn / Instagram)
 
 Rédige un post naturel et varié. **Ne suis pas toujours la même recette mécanique.** Adapte l'amorce au projet : parfois une question, parfois une anecdote, parfois le résultat.
@@ -98,10 +111,10 @@ Un objet JSON strictement valide, rien d'autre. Pas de \`\`\`json, pas de texte 
   "caseStudy": {
     "title": "Nom ou Nom – accroche courte",
     "tagline": "Phrase simple et directe (12-18 mots)",
-    "intro": "Paragraphe narratif (60-100 mots).",
-    "challenge": "Paragraphe (50-80 mots).",
-    "solution": "Paragraphe (60-100 mots).",
-    "results": "Paragraphe (50-80 mots), sans chiffres inventés.",
+    "intro": "Paragraphe narratif (60-100 mots), peut contenir des liens Markdown [ancre](url) vers la sitemap.",
+    "challenge": "Paragraphe (50-80 mots), peut contenir des liens Markdown [ancre](url).",
+    "solution": "Paragraphe (60-100 mots), peut contenir des liens Markdown [ancre](url).",
+    "results": "Paragraphe (50-80 mots), sans chiffres inventés, peut contenir des liens Markdown [ancre](url).",
     "services": ["Service 1", "Service 2", "Service 3"],
     "platform": "Technologie / CMS principal"
   },
@@ -119,6 +132,7 @@ export type PromptVars = {
   brief: string;
   fileContext: string;
   pdfInfo: string;
+  sitemap: string;
 };
 
 export function renderPrompt(template: string, vars: PromptVars): string {
@@ -129,5 +143,6 @@ export function renderPrompt(template: string, vars: PromptVars): string {
     .replaceAll('{{chips}}', vars.chips)
     .replaceAll('{{brief}}', vars.brief)
     .replaceAll('{{fileContext}}', vars.fileContext)
-    .replaceAll('{{pdfInfo}}', vars.pdfInfo);
+    .replaceAll('{{pdfInfo}}', vars.pdfInfo)
+    .replaceAll('{{sitemap}}', vars.sitemap);
 }

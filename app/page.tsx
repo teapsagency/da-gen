@@ -28,6 +28,8 @@ import { ContentChat } from "@/components/ContentChat";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { ChipSelector } from "@/components/ui/ChipSelector";
 import { SettingsPanel } from "@/components/ui/SettingsPanel";
+import { SitemapPanel } from "@/components/ui/SitemapPanel";
+import { useProjectPersistence } from "@/lib/useProjectPersistence";
 import { GeneratedContent } from "@/types";
 import { exportFrame, exportAllFrames, exportAllSocialFrames } from "@/lib/exportFrames";
 import { toast } from "sonner";
@@ -82,6 +84,10 @@ export default function Home() {
 
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
+
+  // Persist project (scrapeResult, screenshots, customizations) to IndexedDB
+  // so it survives page reloads. Light state stays in localStorage via Zustand persist.
+  useProjectPersistence();
   const [isExportingPack, setIsExportingPack] = React.useState(false);
   const [showOffscreenFrames, setShowOffscreenFrames] = React.useState(false);
   const [isExportingSocialPack, setIsExportingSocialPack] = React.useState(false);
@@ -89,15 +95,23 @@ export default function Home() {
   const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu" | "settings">("visuels");
   const [visualSubTab, setVisualSubTab] = React.useState<"desktop" | "social">("desktop");
 
-  // Content generation state
-  const [contentChips, setContentChips] = React.useState<string[]>([]);
+  // Content generation state — chips/brief/result persisted in store (and IDB).
+  // Files are kept locally (File objects can't be serialised). Streaming/error/loading
+  // are ephemeral runtime state, not persisted.
+  const contentChips = useDAStore((s) => s.contentChips);
+  const setContentChips = useDAStore((s) => s.setContentChips);
+  const contentBrief = useDAStore((s) => s.contentBrief);
+  const setContentBrief = useDAStore((s) => s.setContentBrief);
+  const generatedContent = useDAStore((s) => s.generatedContent);
+  const setGeneratedContent = useDAStore((s) => s.setGeneratedContent);
   const [contentFiles, setContentFiles] = React.useState<File[]>([]);
-  const [contentBrief, setContentBrief] = React.useState("");
-  const [generatedContent, setGeneratedContent] = React.useState<GeneratedContent | null>(null);
   const [streamingContent, setStreamingContent] = React.useState<string>("");
   const [isGeneratingContent, setIsGeneratingContent] = React.useState(false);
   const [contentError, setContentError] = React.useState<string | null>(null);
-  const [scrapeLogs, setScrapeLogs] = React.useState<{ time: number; msg: string }[]>([]);
+  const scrapeLogs = useDAStore((s) => s.scrapeLogs);
+  const setScrapeLogs = useDAStore((s) => s.setScrapeLogs);
+  const clearScrapeLogs = useDAStore((s) => s.clearScrapeLogs);
+  const sitemapCount = useDAStore((s) => s.sitemapUrls.length);
   const [showConsole, setShowConsole] = React.useState(false);
 
   const tryParsePartial = React.useCallback((raw: string): GeneratedContent | null => {
@@ -131,7 +145,7 @@ export default function Home() {
     setContentError(null);
     setStreamingContent("");
     try {
-      const { geminiApiKeys, activeApiKeyId, contentPrompt, geminiModel } = useDAStore.getState();
+      const { geminiApiKeys, activeApiKeyId, contentPrompt, geminiModel, sitemapUrls, includeSitemapInContent } = useDAStore.getState();
       const activeKey = geminiApiKeys.find((k) => k.id === activeApiKeyId) || geminiApiKeys[0];
       const geminiApiKey = activeKey?.key || '';
       const formData = new FormData();
@@ -145,6 +159,8 @@ export default function Home() {
       if (geminiApiKey) formData.append("apiKey", geminiApiKey);
       if (contentPrompt) formData.append("prompt", contentPrompt);
       if (geminiModel) formData.append("model", geminiModel);
+      const sitemapToSend = includeSitemapInContent ? sitemapUrls : [];
+      formData.append("sitemap", JSON.stringify(sitemapToSend));
       contentFiles.forEach((f) => formData.append("files", f));
 
       const res = await fetch("/api/generate-content", { method: "POST", body: formData });
@@ -343,7 +359,7 @@ export default function Home() {
           <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
             <span className="text-[11px] font-mono font-bold text-white/70">Console — Scraper logs</span>
             <div className="flex items-center gap-2">
-              <button onClick={() => setScrapeLogs([])} className="text-[10px] text-white/40 hover:text-white/70 font-mono cursor-pointer">clear</button>
+              <button onClick={clearScrapeLogs} className="text-[10px] text-white/40 hover:text-white/70 font-mono cursor-pointer">clear</button>
               <button onClick={() => setShowConsole(false)} className="text-white/40 hover:text-white/70 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
             </div>
           </div>
@@ -553,15 +569,56 @@ export default function Home() {
               )}
 
               {sidebarTab === "contenu" && (
-                <div className="p-4 flex flex-col gap-5">
-                  <div className="flex flex-col gap-2.5">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/30">Tags</span>
-                    <ChipSelector selected={contentChips} onChange={setContentChips} />
-                  </div>
-                  <div className="flex flex-col gap-2.5">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/30">Documents contextuels</span>
-                    <FileUpload files={contentFiles} onChange={setContentFiles} />
-                  </div>
+                <div className="p-4">
+                  <Accordion type="multiple" defaultValue={["tags", "sitemap"]} className="w-full">
+                    <AccordionItem value="tags" className="border-border">
+                      <AccordionTrigger className="text-[13px] font-semibold hover:no-underline py-3">
+                        <span className="flex items-center gap-2">
+                          Tags
+                          {contentChips.length > 0 && (
+                            <span className="text-[10px] font-normal text-foreground/40">({contentChips.length})</span>
+                          )}
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="pb-1">
+                          <ChipSelector selected={contentChips} onChange={setContentChips} />
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    <AccordionItem value="documents" className="border-border">
+                      <AccordionTrigger className="text-[13px] font-semibold hover:no-underline py-3">
+                        <span className="flex items-center gap-2">
+                          Documents contextuels
+                          {contentFiles.length > 0 && (
+                            <span className="text-[10px] font-normal text-foreground/40">({contentFiles.length})</span>
+                          )}
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="pb-1">
+                          <FileUpload files={contentFiles} onChange={setContentFiles} />
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+
+                    <AccordionItem value="sitemap" className="border-border">
+                      <AccordionTrigger className="text-[13px] font-semibold hover:no-underline py-3">
+                        <span className="flex items-center gap-2">
+                          Sitemap
+                          {sitemapCount > 0 && (
+                            <span className="text-[10px] font-normal text-foreground/40">({sitemapCount})</span>
+                          )}
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="pb-1">
+                          <SitemapPanel />
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 </div>
               )}
             </div>

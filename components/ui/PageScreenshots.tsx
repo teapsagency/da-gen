@@ -14,6 +14,7 @@ export const PageScreenshots = () => {
     isPageInputOpen,
     setIsPageInputOpen,
     removeExtraPage,
+    appendScrapeLog,
   } = useDAStore();
   const [addUrl, setAddUrl] = React.useState("");
   const [addLabel, setAddLabel] = React.useState("");
@@ -30,7 +31,14 @@ export const PageScreenshots = () => {
     if (!addUrl.trim()) return;
     let url = addUrl.trim();
     if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-    try { new URL(url); } catch { return; }
+    try {
+      new URL(url);
+    } catch {
+      const msg = `URL invalide: ${url}`;
+      setAddError(msg);
+      toast.error(msg);
+      return;
+    }
 
     const label = addLabel.trim() || (() => {
       try { return new URL(url).pathname.split("/").filter(Boolean).pop() || "Page"; }
@@ -39,14 +47,63 @@ export const PageScreenshots = () => {
 
     setIsAddingPage(true);
     setAddError("");
+    const t0 = Date.now();
+    const log = (msg: string) => appendScrapeLog({ time: Date.now() - t0, msg });
+    log(`+page ${label}: ${url}`);
     try {
       const res = await fetch("/api/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+
+      // API returns a Server-Sent Events stream (same as UrlInput)
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || `HTTP ${res.status}`);
+      }
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("Pas de stream disponible");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      const resultChunks: string[] = [];
+      let data: typeof scrapeResult | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() || "";
+
+        for (const part of parts) {
+          const eventMatch = part.match(/^event: (.+)$/m);
+          const dataMatch = part.match(/^data: (.+)$/m);
+          if (!eventMatch || !dataMatch) continue;
+
+          const event = eventMatch[1];
+          let payload: { time?: number; msg?: string; error?: string; i?: number; chunk?: string };
+          try {
+            payload = JSON.parse(dataMatch[1]);
+          } catch (e) {
+            log(`PARSE ERROR: ${(e as Error).message} | raw: ${dataMatch[1].slice(0, 100)}`);
+            continue;
+          }
+
+          if (event === "log" && payload.msg !== undefined && payload.time !== undefined) {
+            appendScrapeLog({ time: payload.time, msg: `[+page] ${payload.msg}` });
+          } else if (event === "result-chunk" && payload.i !== undefined && payload.chunk !== undefined) {
+            resultChunks[payload.i] = payload.chunk;
+          } else if (event === "done") {
+            data = JSON.parse(resultChunks.join(""));
+          } else if (event === "error") {
+            throw new Error(payload.error || "Erreur backend inconnue");
+          }
+        }
+      }
+
+      if (!data) throw new Error("Aucune donnée reçue (stream terminé sans 'done')");
 
       const newPage: PageScreenshotsType = {
         label,
@@ -65,10 +122,14 @@ export const PageScreenshots = () => {
       setAddUrl("");
       setAddLabel("");
       setIsPageInputOpen(false);
+      log(`+page OK (${Math.round((Date.now() - t0) / 1000)}s)`);
       toast.success("Page ajoutée !");
-    } catch {
-      setAddError("Impossible d'analyser cette URL.");
-      toast.error("Impossible d'analyser cette URL.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Impossible d'analyser cette URL.";
+      log(`+page FAILED: ${msg}`);
+      console.error("[handleAddPage] Failed:", err);
+      setAddError(msg);
+      toast.error(msg);
     } finally {
       setIsAddingPage(false);
     }

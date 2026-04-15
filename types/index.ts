@@ -122,6 +122,18 @@ export type DAStore = {
   removeExtraPage: (index: number) => void;
   resetProject: () => void;
 
+  scrapeLogs: { time: number; msg: string }[];
+  setScrapeLogs: (logs: { time: number; msg: string }[]) => void;
+  appendScrapeLog: (entry: { time: number; msg: string }) => void;
+  clearScrapeLogs: () => void;
+
+  generatedContent: GeneratedContent | null;
+  setGeneratedContent: (c: GeneratedContent | null) => void;
+  contentChips: string[];
+  setContentChips: (chips: string[]) => void;
+  contentBrief: string;
+  setContentBrief: (brief: string) => void;
+
   geminiApiKeys: GeminiApiKey[];
   activeApiKeyId: string | null;
   setGeminiApiKeys: (keys: GeminiApiKey[]) => void;
@@ -134,4 +146,12 @@ export type DAStore = {
   contentPrompt: string;
   setContentPrompt: (prompt: string) => void;
   resetContentPrompt: () => void;
+
+  sitemapUrls: string[];
+  sitemapSource: string | null;
+  sitemapStatus: 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
+  sitemapError: string | null;
+  includeSitemapInContent: boolean;
+  setSitemap: (data: { urls: string[]; source: string | null; status: 'idle' | 'loading' | 'loaded' | 'empty' | 'error'; error?: string | null }) => void;
+  setIncludeSitemapInContent: (v: boolean) => void;
 };
