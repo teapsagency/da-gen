@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, Square } from "lucide-react";
 import { stopScrape } from "./UrlInput";
+import { SnakeGame } from "./SnakeGame";
 
 const Prism = dynamic(() => import("@/components/Prism"), { ssr: false });
 
@@ -87,7 +88,7 @@ export const LoadingOverlay = ({
         <Prism />
       </div>
 
-      <div className="relative z-10 flex flex-col items-center max-w-sm w-full px-6 text-center gap-6">
+      <div className="relative z-10 flex flex-col items-center max-w-sm w-full px-6 text-center gap-5">
         {/* Animated pulsing icon box */}
         <div className="w-16 h-16 rounded-2xl bg-card/60 backdrop-blur-xl border border-border shadow-2xl flex items-center justify-center animate-pulse">
           <Loader2 className="w-8 h-8 text-foreground animate-spin" />
@@ -127,6 +128,11 @@ export const LoadingOverlay = ({
               {Math.round(progress)}%
             </span>
           </div>
+        </div>
+
+        {/* Snake game while waiting */}
+        <div className="mt-2">
+          <SnakeGame />
         </div>
       </div>
 

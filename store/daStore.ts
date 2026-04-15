@@ -1,13 +1,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DAStore, GeminiApiKey, ScrapeResult } from '@/types';
+import { DAStore, GeminiApiKey, GeneratedContent, ScrapeResult } from '@/types';
 import { DEFAULT_CONTENT_PROMPT, DEFAULT_GEMINI_MODEL } from '@/lib/defaultPrompt';
+import { clearProject } from '@/lib/projectStorage';
 
 type LegacyPersistedState = Partial<{
   geminiApiKey: string;
   geminiApiKeyLabel: string;
   geminiApiKeys: GeminiApiKey[];
   activeApiKeyId: string | null;
+  contentPrompt: string;
 }>;
 
 export const useDAStore = create<DAStore>()(
@@ -30,6 +32,10 @@ export const useDAStore = create<DAStore>()(
         fontUrl: result.font.url,
         bgColor: result.siteBgColor || '#FFFFFF',
         activePageIndex: 0,
+        sitemapUrls: [],
+        sitemapSource: null,
+        sitemapStatus: 'idle',
+        sitemapError: null,
       }),
 
       selectedLogo: '',
@@ -93,13 +99,39 @@ export const useDAStore = create<DAStore>()(
           : null,
         activePageIndex: 0,
       })),
-      resetProject: () => set({
-        scrapeResult: null,
-        activePageIndex: 0,
-        isPageInputOpen: false,
-        isAddingPage: false,
-        error: null,
-      }),
+      resetProject: () => {
+        clearProject();
+        set({
+          scrapeResult: null,
+          activePageIndex: 0,
+          isPageInputOpen: false,
+          isAddingPage: false,
+          error: null,
+          selectedLogo: '',
+          cardImage: null,
+          cardLogoScale: 1,
+          localFontFile: null,
+          sitemapUrls: [],
+          sitemapSource: null,
+          sitemapStatus: 'idle',
+          sitemapError: null,
+          generatedContent: null,
+          contentChips: [],
+          contentBrief: '',
+        });
+      },
+
+      scrapeLogs: [],
+      setScrapeLogs: (logs) => set({ scrapeLogs: logs }),
+      appendScrapeLog: (entry) => set((state) => ({ scrapeLogs: [...state.scrapeLogs, entry] })),
+      clearScrapeLogs: () => set({ scrapeLogs: [] }),
+
+      generatedContent: null,
+      setGeneratedContent: (c: GeneratedContent | null) => set({ generatedContent: c }),
+      contentChips: [],
+      setContentChips: (chips: string[]) => set({ contentChips: chips }),
+      contentBrief: '',
+      setContentBrief: (brief: string) => set({ contentBrief: brief }),
 
       geminiApiKeys: [],
       activeApiKeyId: null,
@@ -113,6 +145,19 @@ export const useDAStore = create<DAStore>()(
       contentPrompt: DEFAULT_CONTENT_PROMPT,
       setContentPrompt: (prompt: string) => set({ contentPrompt: prompt }),
       resetContentPrompt: () => set({ contentPrompt: DEFAULT_CONTENT_PROMPT }),
+
+      sitemapUrls: [],
+      sitemapSource: null,
+      sitemapStatus: 'idle',
+      sitemapError: null,
+      includeSitemapInContent: true,
+      setSitemap: ({ urls, source, status, error = null }) => set({
+        sitemapUrls: urls,
+        sitemapSource: source,
+        sitemapStatus: status,
+        sitemapError: error,
+      }),
+      setIncludeSitemapInContent: (v: boolean) => set({ includeSitemapInContent: v }),
     }),
     {
       name: 'da-gen-store',
@@ -131,13 +176,14 @@ export const useDAStore = create<DAStore>()(
         activeApiKeyId: state.activeApiKeyId,
         geminiModel: state.geminiModel,
         contentPrompt: state.contentPrompt,
+        includeSitemapInContent: state.includeSitemapInContent,
       }),
-      version: 2,
+      version: 3,
       migrate: (persisted: unknown, version: number) => {
-        const state = (persisted ?? {}) as LegacyPersistedState;
+        let state = (persisted ?? {}) as LegacyPersistedState & { contentPrompt?: string };
         if (version < 2 && state.geminiApiKey && !state.geminiApiKeys?.length) {
           const id = `key_${Date.now()}`;
-          return {
+          state = {
             ...state,
             geminiApiKeys: [{
               id,
@@ -146,6 +192,11 @@ export const useDAStore = create<DAStore>()(
             }],
             activeApiKeyId: id,
           };
+        }
+        // v3 : reset contentPrompt so users pick up the new sitemap / internal-links instructions.
+        // Users who had customized their prompt can re-edit from Settings.
+        if (version < 3) {
+          state = { ...state, contentPrompt: DEFAULT_CONTENT_PROMPT };
         }
         return state;
       },
