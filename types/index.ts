@@ -94,6 +94,11 @@ export type DAStore = {
   localFontFile: string | null;
   setLocalFontFile: (file: string | null) => void;
 
+  // Custom fonts imported by the user, keyed by font name — so an imported
+  // file stays tied to its typeface when switching between detected fonts.
+  importedFonts: Record<string, string>;
+  importFont: (name: string, dataUrl: string) => void;
+
   theme: 'dark' | 'light';
   toggleTheme: () => void;
 
@@ -105,6 +110,9 @@ export type DAStore = {
 
   cardLogoScale: number;
   setCardLogoScale: (scale: number) => void;
+
+  cardImageOpacity: number;
+  setCardImageOpacity: (opacity: number) => void;
 
   screenshotDelay: number;
   setScreenshotDelay: (delay: number) => void;

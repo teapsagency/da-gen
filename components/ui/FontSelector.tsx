@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDAStore } from "@/store/daStore";
+import { loadFontFile, cleanFontName } from "@/lib/fontName";
 import { Upload, Check, TriangleAlert, Loader } from "lucide-react";
 
 // Only show logo when source is confirmed by URL
@@ -12,9 +13,9 @@ const getFontSource = (fontUrl?: string): "google" | "fontshare" | null => {
   return null;
 };
 
-// Font names are now already normalized by the scraper (e.g. "Bricolage Grotesque")
-// so toDisplayName is identity — kept for safety with legacy data
-const toDisplayName = (name: string): string => name;
+// Clean up font names — the scraper normalizes new scrapes, but this also
+// repairs legacy projects with raw names (e.g. "_Satoshi_Variable" → "Satoshi").
+const toDisplayName = (name: string): string => cleanFontName(name) || name;
 
 // "Bricolage Grotesque" → "Bricolage+Grotesque"
 const toGoogleFontsSlug = (name: string): string =>
@@ -23,13 +24,47 @@ const toGoogleFontsSlug = (name: string): string =>
 const buildGoogleFontsUrl = (fontName: string): string =>
   `https://fonts.googleapis.com/css2?family=${toGoogleFontsSlug(fontName)}:wght@400;500;600;700&display=swap`;
 
+// "Satoshi Variable" → "satoshi" (Fontshare slugs drop the "Variable" suffix)
+const toFontshareSlug = (name: string): string =>
+  name
+    .toLowerCase()
+    .replace(/\b(variable[- ]?font|variable|vf)\b/g, "")
+    .trim()
+    .replace(/ +/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
 const buildFontshareUrl = (fontName: string): string =>
-  `https://api.fontshare.com/v2/css?f[]=${fontName.toLowerCase().replace(/ /g, "-")}@400,500,600,700&display=swap`;
+  `https://api.fontshare.com/v2/css?f[]=${toFontshareSlug(fontName)}@400,500,600,700&display=swap`;
+
+// Fetch font CSS — direct first (Google Fonts allows cross-origin fetch), then
+// via the server proxy for CDNs that block it (notably Fontshare, whose CSS is
+// served with a restrictive Access-Control-Allow-Origin).
+const fetchFontCss = async (url: string): Promise<string | null> => {
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const text = await res.text();
+      if (text.includes("@font-face")) return text;
+    }
+  } catch {
+    /* CORS or network error — fall through to the proxy */
+  }
+  try {
+    const res = await fetch(`/api/font-css?url=${encodeURIComponent(url)}`);
+    if (res.ok) {
+      const text = await res.text();
+      if (text.includes("@font-face")) return text;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+};
 
 export const FontSelector = () => {
-  const { scrapeResult, fontName, setFont, setLocalFontFile, localFontFile } =
+  const { scrapeResult, fontName, setFont, importFont, importedFonts, localFontFile } =
     useDAStore();
-  const [customFont, setCustomFont] = useState("");
   const [fontStatus, setFontStatus] = useState<
     Record<string, "loading" | "ok" | "unavailable">
   >({});
@@ -51,25 +86,20 @@ export const FontSelector = () => {
       // Helper to test and inject a CSS URL
       const tryLoadStylesheet = async (testUrl: string): Promise<boolean> => {
         if (!testUrl) return false;
-        try {
-          const res = await fetch(testUrl, { method: "GET" });
-          if (!res.ok) return false;
-          
-          const text = await res.text();
-          if (!text.includes("@font-face")) return false;
+        const text = await fetchFontCss(testUrl);
+        if (!text) return false;
 
-          // Inject as <style> for immediate parsing, avoiding link.onload race conditions
-          const existing = document.querySelector(`style[data-url="${testUrl}"]`) || document.querySelector(`link[href="${testUrl}"]`);
-          if (!existing) {
-            const style = document.createElement("style");
-            style.setAttribute("data-url", testUrl);
-            style.textContent = text;
-            document.head.appendChild(style);
-          }
-          return true;
-        } catch {
-          return false;
+        // Inject as <style> for immediate parsing, avoiding link.onload race conditions
+        const existing =
+          document.querySelector(`style[data-url="${testUrl}"]`) ||
+          document.querySelector(`link[href="${testUrl}"]`);
+        if (!existing) {
+          const style = document.createElement("style");
+          style.setAttribute("data-url", testUrl);
+          style.textContent = text;
+          document.head.appendChild(style);
         }
+        return true;
       };
 
       let finalUrl: string | undefined = undefined;
@@ -115,7 +145,7 @@ export const FontSelector = () => {
             document.fonts.load(`400 16px "${displayName}"`),
             new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 3000)),
           ]);
-        } catch (e) {
+        } catch {
           // ignore error, we know the CSS is valid
         }
 
@@ -150,72 +180,15 @@ export const FontSelector = () => {
     validateFont(font);
   };
 
-  const [customFontLoading, setCustomFontLoading] = useState(false);
-
-  const handleCustomFont = async () => {
-    if (!customFont) return;
-    const input = customFont.trim();
-    setCustomFontLoading(true);
-
-    try {
-      // Detect if the input is a URL
-      if (input.startsWith("http")) {
-        // Fetch the CSS to extract the font-family name
-        const res = await fetch(input, { method: "GET" });
-        if (!res.ok) throw new Error("fetch failed");
-        const css = await res.text();
-
-        // Extract font-family from @font-face rules
-        const familyMatch = css.match(/font-family:\s*['"]?([^'";]+)['"]?/);
-        const name = familyMatch ? familyMatch[1].trim() : "Custom Font";
-
-        // Inject stylesheet
-        const existing = document.querySelector(`style[data-url="${input}"]`);
-        if (!existing) {
-          const style = document.createElement("style");
-          style.setAttribute("data-url", input);
-          style.textContent = css;
-          document.head.appendChild(style);
-        }
-
-        setFont(name, input);
-        setFontStatus((s) => ({ ...s, [name]: "ok" }));
-
-        // Determine source for logo
-        if (input.includes("fonts.googleapis.com")) {
-          setFontSources((s) => ({ ...s, [name]: "google" }));
-        } else if (input.includes("fontshare.com") || input.includes("api.fontshare")) {
-          setFontSources((s) => ({ ...s, [name]: "fontshare" }));
-        }
-      } else {
-        // Treat as font name — try Google Fonts URL
-        const url = buildGoogleFontsUrl(input);
-        setFont(input, url);
-        validateFont({ name: input, url });
-      }
-    } catch {
-      // Fallback: treat as font name
-      const url = buildGoogleFontsUrl(input);
-      setFont(input, url);
-      validateFont({ name: input, url });
-    } finally {
-      setCustomFontLoading(false);
-      setCustomFont("");
-    }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        const name = file.name.split(".")[0];
-        setLocalFontFile(base64);
-        setFont(name, undefined);
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    const { name, dataUrl } = await loadFontFile(file);
+    // Tie the imported file to the currently selected typeface so it persists
+    // and is restored when switching back to it. Fall back to the file's own
+    // family name if no font is active yet.
+    importFont(fontName || name, dataUrl);
+    e.target.value = "";
   };
 
   if (!scrapeResult) return null;
@@ -235,24 +208,25 @@ export const FontSelector = () => {
             const source = getFontSource(sourceUrl) ?? fontSources[displayName];
             const status = fontStatus[displayName];
             const isActive = fontName === displayName;
-            const isUnavailable = status === "unavailable";
+            // A typeface with an imported file counts as available.
+            const hasImported = !!importedFonts[displayName];
+            const isUnavailable = status === "unavailable" && !hasImported;
             return (
               <button
                 key={font.name}
                 onClick={() => handleFontClick(font)}
                 className={`h-8 px-3 rounded-lg border text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
                   isActive
-                    ? isUnavailable
-                      ? "border-amber-400 bg-amber-500/5 text-amber-600 dark:text-amber-400"
-                      : "border-foreground bg-foreground/5 text-foreground"
+                    ? "border-foreground bg-foreground/5 text-foreground"
                     : "border-border text-foreground/50 hover:border-foreground/20 hover:text-foreground/80"
                 }`}
               >
                 {status === "loading" && (
                   <Loader className="w-3 h-3 animate-spin" />
                 )}
-                {status === "ok" && isActive && <Check className="w-3 h-3" />}
-                {isUnavailable && <TriangleAlert className="w-3 h-3" />}
+                {hasImported && <Upload className="w-3 h-3 text-emerald-500" />}
+                {status === "ok" && isActive && !hasImported && <Check className="w-3 h-3" />}
+                {isUnavailable && <TriangleAlert className="w-3 h-3 text-amber-500" />}
                 {source === "google" && status !== "loading" && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -280,65 +254,55 @@ export const FontSelector = () => {
           })}
         </div>
 
-        {/* Unavailable font warning for active font */}
-        {fontName && fontStatus[fontName] === "unavailable" && (
-          <div className="bg-amber-500/5 border border-amber-500/15 rounded-lg p-2.5 mt-1">
-            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium flex gap-2 leading-relaxed">
-              <TriangleAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+        {/* Unavailable font warning for active font — with inline import */}
+        {fontName && fontStatus[fontName] === "unavailable" && !localFontFile && (
+          <div className="border border-border rounded-lg p-2.5 mt-1 flex flex-col gap-2.5">
+            <p className="text-[11px] text-foreground/70 font-medium flex gap-2 leading-relaxed">
+              <TriangleAlert className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-500" />
               Police « {fontName} » introuvable sur Google Fonts &amp;
               Fontshare. Importez le fichier .ttf/.otf pour préserver le rendu à
-              l'export.
+              l&apos;export.
             </p>
+            <label className="flex items-center justify-center gap-2 h-9 border border-amber-500/30 bg-amber-500/10 rounded-lg hover:bg-amber-500/20 transition-all cursor-pointer">
+              <Upload className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                Importer la police « {fontName} »
+              </span>
+              <input
+                type="file"
+                className="hidden"
+                accept=".ttf,.otf,.woff,.woff2"
+                onChange={handleFileUpload}
+              />
+            </label>
           </div>
         )}
       </div>
 
-      {/* Upload font */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-border">
-        <span className="text-xs font-medium text-foreground/40">
-          Police personnalisée
-        </span>
-        <label className="flex items-center justify-center h-10 border border-dashed border-border rounded-xl hover:border-foreground/20 hover:bg-foreground/[0.02] transition-all cursor-pointer group">
-          <div className="flex items-center gap-2">
-            <Upload className="w-3.5 h-3.5 text-foreground/15 group-hover:text-foreground/30 transition-colors" />
-            <span className="text-xs font-medium text-foreground/30 group-hover:text-foreground/50 transition-colors">
-              {localFontFile
-                ? "✓ Police chargée"
-                : "Importer .ttf, .otf, .woff"}
-            </span>
-          </div>
-          <input
-            type="file"
-            className="hidden"
-            accept=".ttf,.otf,.woff,.woff2"
-            onChange={handleFileUpload}
-          />
-        </label>
-      </div>
-
-      {/* Manual font — URL or name */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-border">
-        <span className="text-xs font-medium text-foreground/40">
-          Ajouter une police
-        </span>
-        <div className="flex gap-1.5">
-          <input
-            type="text"
-            value={customFont}
-            onChange={(e) => setCustomFont(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleCustomFont()}
-            placeholder="Lien ou nom (Google, Fontshare, Adobe...)"
-            className="flex-1 h-9 bg-background border border-border rounded-lg px-3 text-xs outline-none focus:border-foreground/20 font-medium placeholder:text-foreground/20"
-          />
-          <button
-            onClick={handleCustomFont}
-            disabled={!customFont || customFontLoading}
-            className="h-9 px-4 bg-foreground text-background rounded-lg text-xs font-bold hover:opacity-90 transition-all cursor-pointer disabled:opacity-30 flex items-center justify-center"
-          >
-            {customFontLoading ? <Loader className="w-3.5 h-3.5 animate-spin" /> : "OK"}
-          </button>
+      {/* Imported font — shown once a custom file is loaded, lets the user
+          see its state and swap it. Initial import happens from the
+          "police introuvable" warning above. */}
+      {localFontFile && (
+        <div className="flex flex-col gap-2 pt-2 border-t border-border">
+          <span className="text-xs font-medium text-foreground/40">
+            Police importée
+          </span>
+          <label className="flex items-center justify-center h-10 border border-dashed border-border rounded-xl hover:border-foreground/20 hover:bg-foreground/[0.02] transition-all cursor-pointer group">
+            <div className="flex items-center gap-2">
+              <Check className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="text-xs font-medium text-foreground/50 group-hover:text-foreground/80 transition-colors">
+                « {fontName} » importée — remplacer
+              </span>
+            </div>
+            <input
+              type="file"
+              className="hidden"
+              accept=".ttf,.otf,.woff,.woff2"
+              onChange={handleFileUpload}
+            />
+          </label>
         </div>
-      </div>
+      )}
     </div>
   );
 };

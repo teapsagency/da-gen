@@ -3,7 +3,8 @@ import { useDAStore } from "@/store/daStore";
 import { useActiveScreenshots } from "@/lib/useActiveScreenshots";
 
 export const Frame8_Social_CardSite = ({ id }: { id?: string }) => {
-  const { scrapeResult, selectedLogo, cardImage, cardLogoScale } = useDAStore();
+  const { scrapeResult, selectedLogo, cardImage, cardLogoScale, cardImageOpacity } =
+    useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
@@ -18,9 +19,10 @@ export const Frame8_Social_CardSite = ({ id }: { id?: string }) => {
         width: "800px",
         height: "1000px",
         overflow: "hidden",
+        background: "#000",
       }}
     >
-      {/* Background image */}
+      {/* Background image — opacity controlled, blended over the black backdrop */}
       <img
         src={bgImage}
         alt=""
@@ -32,15 +34,7 @@ export const Frame8_Social_CardSite = ({ id }: { id?: string }) => {
           objectFit: "cover",
           objectPosition: "center",
           display: "block",
-        }}
-      />
-
-      {/* Dark overlay 50% */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(0, 0, 0, 0.5)",
+          opacity: cardImageOpacity,
         }}
       />
 

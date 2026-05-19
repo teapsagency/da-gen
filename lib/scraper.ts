@@ -1,5 +1,6 @@
 import puppeteer, { type Page } from 'puppeteer';
 import { extractColors } from './colorExtractor';
+import { cleanFontName } from './fontName';
 
 type ExtraPage = { label: string; url: string };
 
@@ -401,16 +402,10 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
       return "#FFFFFF";
     });
 
-    // Normalize font names (camelCase → spaced)
-    const normalizeFontName = (name: string): string => {
-      return name
-        .replace(/([a-z])([A-Z])/g, '$1 $2')
-        .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
-        .trim();
-    };
-
-    const fontsWithUrls = extractedFonts.fontNames.map(name => {
-      const displayName = normalizeFontName(name);
+    // Normalize font names: strip build-tool artifacts (Next.js next/font
+    // emits family names like "__Satoshi_Variable_e8ce4c"), camelCase, etc.
+    const mappedFonts = extractedFonts.fontNames.map(name => {
+      const displayName = cleanFontName(name);
       const searchName = displayName.toLowerCase().replace(/ +/g, '+');
       const googleUrl = googleFonts.find(u => u.toLowerCase().includes(searchName));
       const fontshareUrl = fontshareFonts.find(u => u.toLowerCase().includes(searchName));
@@ -424,6 +419,15 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
         url: fontUrl,
         isSelfHosted: hasFontFace && !fontUrl,
       };
+    });
+
+    // Deduplicate: distinct weights/styles can collapse to the same family name
+    const seenFonts = new Set<string>();
+    const fontsWithUrls = mappedFonts.filter(f => {
+      const key = f.name.toLowerCase();
+      if (!f.name || seenFonts.has(key)) return false;
+      seenFonts.add(key);
+      return true;
     });
 
     const primaryFont = fontsWithUrls[0];

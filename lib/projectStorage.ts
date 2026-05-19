@@ -11,7 +11,9 @@ export type ProjectSnapshot = {
   activePageIndex: number;
   cardImage: string | null;
   cardLogoScale: number;
+  cardImageOpacity: number;
   localFontFile: string | null;
+  importedFonts: Record<string, string>;
   sitemapUrls: string[];
   sitemapSource: string | null;
   sitemapStatus: 'idle' | 'loading' | 'loaded' | 'empty' | 'error';

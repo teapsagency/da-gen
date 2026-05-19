@@ -59,13 +59,30 @@ export const useDAStore = create<DAStore>()(
 
       fontName: '',
       fontUrl: undefined,
-      setFont: (name: string, url?: string) => set({ fontName: name, fontUrl: url, localFontFile: null }),
+      // Switching font: restore a previously imported file for this typeface
+      // if there is one, otherwise clear the local font.
+      setFont: (name: string, url?: string) => set((state) => {
+        const imported = state.importedFonts[name];
+        return {
+          fontName: name,
+          fontUrl: imported ? undefined : url,
+          localFontFile: imported ?? null,
+        };
+      }),
 
       borderRadius: 28,
       setBorderRadius: (radius: number) => set({ borderRadius: radius }),
 
       localFontFile: null,
       setLocalFontFile: (file: string | null) => set({ localFontFile: file, fontUrl: undefined }),
+
+      importedFonts: {},
+      importFont: (name: string, dataUrl: string) => set((state) => ({
+        fontName: name,
+        fontUrl: undefined,
+        localFontFile: dataUrl,
+        importedFonts: { ...state.importedFonts, [name]: dataUrl },
+      })),
 
       theme: typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
       toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
@@ -78,6 +95,9 @@ export const useDAStore = create<DAStore>()(
 
       cardLogoScale: 1,
       setCardLogoScale: (scale: number) => set({ cardLogoScale: scale }),
+
+      cardImageOpacity: 0.5,
+      setCardImageOpacity: (opacity: number) => set({ cardImageOpacity: opacity }),
 
       screenshotDelay: 2000,
       setScreenshotDelay: (delay: number) => set({ screenshotDelay: delay }),
@@ -110,7 +130,9 @@ export const useDAStore = create<DAStore>()(
           selectedLogo: '',
           cardImage: null,
           cardLogoScale: 1,
+          cardImageOpacity: 0.5,
           localFontFile: null,
+          importedFonts: {},
           sitemapUrls: [],
           sitemapSource: null,
           sitemapStatus: 'idle',

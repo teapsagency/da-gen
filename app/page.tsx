@@ -30,6 +30,7 @@ import { ChipSelector } from "@/components/ui/ChipSelector";
 import { SettingsPanel } from "@/components/ui/SettingsPanel";
 import { SitemapPanel } from "@/components/ui/SitemapPanel";
 import { useProjectPersistence } from "@/lib/useProjectPersistence";
+import { localFontFaceCss } from "@/lib/fontName";
 import { GeneratedContent } from "@/types";
 import { exportFrame, exportAllFrames, exportAllSocialFrames } from "@/lib/exportFrames";
 import { toast } from "sonner";
@@ -245,11 +246,11 @@ export default function Home() {
   return (
     <main className="min-h-screen transition-colors duration-300 bg-background text-foreground">
       {/* FONT LOADING */}
-      {fontUrl && <link rel="stylesheet" href={fontUrl} crossOrigin="anonymous" />}
+      {/* No crossOrigin: a plain cross-origin <link> stylesheet loads & applies
+          fine; forcing CORS would break CDNs like Fontshare. */}
+      {fontUrl && <link rel="stylesheet" href={fontUrl} />}
       {localFontFile && (
-        <style dangerouslySetInnerHTML={{
-          __html: `@font-face { font-family: 'LocalFont'; src: url('${localFontFile}'); }`,
-        }} />
+        <style dangerouslySetInnerHTML={{ __html: localFontFaceCss(localFontFile) }} />
       )}
 
       {/* ICON RAIL */}
@@ -756,7 +757,14 @@ export default function Home() {
 }
 
 function CardImageUploadButton() {
-  const { cardImage, setCardImage, cardLogoScale, setCardLogoScale } = useDAStore();
+  const {
+    cardImage,
+    setCardImage,
+    cardLogoScale,
+    setCardLogoScale,
+    cardImageOpacity,
+    setCardImageOpacity,
+  } = useDAStore();
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -779,6 +787,19 @@ function CardImageUploadButton() {
           step={0.05}
           value={cardLogoScale}
           onChange={(e) => setCardLogoScale(parseFloat(e.target.value))}
+          className="w-16 h-1 accent-foreground cursor-pointer"
+        />
+      </div>
+      {/* Background image opacity slider */}
+      <div className="flex items-center gap-2 border border-border bg-card px-3 py-1.5 rounded-md">
+        <span className="text-[10px] font-bold text-foreground/40 whitespace-nowrap">Opacité</span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={cardImageOpacity}
+          onChange={(e) => setCardImageOpacity(parseFloat(e.target.value))}
           className="w-16 h-1 accent-foreground cursor-pointer"
         />
       </div>
