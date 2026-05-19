@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI, Part } from '@google/generative-ai';
 import { DEFAULT_CONTENT_PROMPT, DEFAULT_GEMINI_MODEL, renderPrompt } from '@/lib/defaultPrompt';
 
+// AI generation streams for a while.
+export const maxDuration = 120;
+
+const MAX_FILES = 6;
+const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB per file
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -12,7 +18,9 @@ export async function POST(request: NextRequest) {
     const clientPrompt = (formData.get('prompt') as string || '').trim();
     const clientModel = (formData.get('model') as string || '').trim();
     const sitemapUrls = JSON.parse(formData.get('sitemap') as string || '[]') as string[];
-    const files = formData.getAll('files') as File[];
+    const files = (formData.getAll('files') as File[])
+      .filter((f) => f && f.size > 0 && f.size <= MAX_FILE_SIZE)
+      .slice(0, MAX_FILES);
 
     const apiKey = clientApiKey || process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -55,7 +63,11 @@ export async function POST(request: NextRequest) {
     const parts: Part[] = [{ text: prompt }, ...pdfParts];
 
     const modelName = clientModel || process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
-    const model = genAI.getGenerativeModel({ model: modelName });
+    // responseMimeType forces a clean JSON output (no ```json fences / preamble).
+    const model = genAI.getGenerativeModel({
+      model: modelName,
+      generationConfig: { responseMimeType: 'application/json' },
+    });
     const result = await model.generateContentStream(parts);
 
     const encoder = new TextEncoder();

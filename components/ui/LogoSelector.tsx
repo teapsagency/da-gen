@@ -52,7 +52,7 @@ export const LogoSelector = () => {
               ) {
                 format = extension === "JPEG" ? "JPG" : extension;
               }
-            } catch (e) {
+            } catch {
               // Ignore invalid URLs
             }
           }

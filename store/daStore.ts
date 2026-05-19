@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DAStore, GeminiApiKey, GeneratedContent, ScrapeResult } from '@/types';
 import { DEFAULT_CONTENT_PROMPT, DEFAULT_GEMINI_MODEL } from '@/lib/defaultPrompt';
-import { clearProject } from '@/lib/projectStorage';
 
 type LegacyPersistedState = Partial<{
   geminiApiKey: string;
@@ -18,6 +17,34 @@ export const useDAStore = create<DAStore>()(
       // Input
       url: '',
       setUrl: (url: string) => set({ url }),
+
+      // Identity of the project currently being edited (null = new/unsaved).
+      activeProjectId: null,
+      setActiveProjectId: (id: string | null) => set({ activeProjectId: id }),
+      loadProjectData: (p) => set({
+        scrapeResult: p.scrapeResult,
+        selectedLogo: p.selectedLogo,
+        activePageIndex: p.activePageIndex,
+        selectedColors: p.selectedColors ?? [],
+        fontName: p.fontName ?? '',
+        fontUrl: p.fontUrl,
+        bgColor: p.bgColor ?? '#f5f5f5',
+        borderRadius: p.borderRadius ?? 28,
+        logoScale: p.logoScale ?? 1,
+        cardImage: p.cardImage,
+        cardLogoScale: p.cardLogoScale ?? 1,
+        cardImageOpacity: p.cardImageOpacity ?? 0.5,
+        localFontFile: p.localFontFile,
+        importedFonts: p.importedFonts ?? {},
+        sitemapUrls: p.sitemapUrls ?? [],
+        sitemapSource: p.sitemapSource ?? null,
+        sitemapStatus: p.sitemapStatus ?? 'idle',
+        sitemapError: p.sitemapError ?? null,
+        generatedContent: p.generatedContent ?? null,
+        contentChips: p.contentChips ?? [],
+        contentBrief: p.contentBrief ?? '',
+        activeProjectId: p.id,
+      }),
 
       activePageIndex: 0,
       setActivePageIndex: (index: number) => set({ activePageIndex: index }),
@@ -59,13 +86,30 @@ export const useDAStore = create<DAStore>()(
 
       fontName: '',
       fontUrl: undefined,
-      setFont: (name: string, url?: string) => set({ fontName: name, fontUrl: url, localFontFile: null }),
+      // Switching font: restore a previously imported file for this typeface
+      // if there is one, otherwise clear the local font.
+      setFont: (name: string, url?: string) => set((state) => {
+        const imported = state.importedFonts[name];
+        return {
+          fontName: name,
+          fontUrl: imported ? undefined : url,
+          localFontFile: imported ?? null,
+        };
+      }),
 
       borderRadius: 28,
       setBorderRadius: (radius: number) => set({ borderRadius: radius }),
 
       localFontFile: null,
       setLocalFontFile: (file: string | null) => set({ localFontFile: file, fontUrl: undefined }),
+
+      importedFonts: {},
+      importFont: (name: string, dataUrl: string) => set((state) => ({
+        fontName: name,
+        fontUrl: undefined,
+        localFontFile: dataUrl,
+        importedFonts: { ...state.importedFonts, [name]: dataUrl },
+      })),
 
       theme: typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
       toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
@@ -78,6 +122,9 @@ export const useDAStore = create<DAStore>()(
 
       cardLogoScale: 1,
       setCardLogoScale: (scale: number) => set({ cardLogoScale: scale }),
+
+      cardImageOpacity: 0.5,
+      setCardImageOpacity: (opacity: number) => set({ cardImageOpacity: opacity }),
 
       screenshotDelay: 2000,
       setScreenshotDelay: (delay: number) => set({ screenshotDelay: delay }),
@@ -99,18 +146,28 @@ export const useDAStore = create<DAStore>()(
           : null,
         activePageIndex: 0,
       })),
+      // "Nouveau projet" — clears the editing canvas but keeps the saved
+      // history intact. The current project stays available in the history.
       resetProject: () => {
-        clearProject();
         set({
+          activeProjectId: null,
           scrapeResult: null,
           activePageIndex: 0,
           isPageInputOpen: false,
           isAddingPage: false,
           error: null,
           selectedLogo: '',
+          selectedColors: [],
+          fontName: '',
+          fontUrl: undefined,
+          bgColor: '#f5f5f5',
+          borderRadius: 28,
+          logoScale: 1,
           cardImage: null,
           cardLogoScale: 1,
+          cardImageOpacity: 0.5,
           localFontFile: null,
+          importedFonts: {},
           sitemapUrls: [],
           sitemapSource: null,
           sitemapStatus: 'idle',
@@ -163,14 +220,11 @@ export const useDAStore = create<DAStore>()(
       name: 'da-gen-store',
       partialize: (state) => ({
         url: state.url,
-        selectedColors: state.selectedColors,
-        bgColor: state.bgColor,
-        fontName: state.fontName,
-        fontUrl: state.fontUrl,
-        borderRadius: state.borderRadius,
+        // selectedColors / bgColor / font / borderRadius / logoScale are now
+        // per-project (stored in IndexedDB with each project), not global.
+        activeProjectId: state.activeProjectId,
         theme: state.theme,
         agencyLogo: state.agencyLogo === '/logo-teaps.svg' ? state.agencyLogo : undefined,
-        logoScale: state.logoScale,
         screenshotDelay: state.screenshotDelay,
         geminiApiKeys: state.geminiApiKeys,
         activeApiKeyId: state.activeApiKeyId,

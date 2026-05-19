@@ -1,5 +1,11 @@
 import { NextRequest } from 'next/server';
 import { scrapeSite } from '@/lib/scraper';
+import { validateExternalUrl } from '@/lib/security';
+
+// Scraping is long-running (navigation + screenshots + extra pages).
+export const maxDuration = 300;
+
+const MAX_EXTRA_PAGES = 6;
 
 export async function POST(req: NextRequest) {
   const { url, delay, extraPages } = await req.json();
@@ -8,15 +14,22 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'URL is required' }, { status: 400 });
   }
 
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(url);
-  } catch {
-    return Response.json({ error: 'URL invalide. Vérifiez le format (ex: https://example.com)' }, { status: 400 });
+  const validated = validateExternalUrl(url);
+  if ('error' in validated) {
+    return Response.json({ error: validated.error }, { status: 400 });
   }
+  const parsedUrl = validated.url;
 
-  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-    return Response.json({ error: 'Seuls les protocoles HTTP et HTTPS sont supportés.' }, { status: 400 });
+  // Validate extra pages: must be valid http(s), not internal, same host.
+  const safeExtraPages: { label: string; url: string }[] = [];
+  if (Array.isArray(extraPages)) {
+    for (const ep of extraPages.slice(0, MAX_EXTRA_PAGES)) {
+      if (!ep || typeof ep.url !== 'string') continue;
+      const v = validateExternalUrl(ep.url);
+      if ('error' in v) continue;
+      if (v.url.host !== parsedUrl.host) continue;
+      safeExtraPages.push({ label: String(ep.label ?? ''), url: v.url.href });
+    }
   }
 
   const encoder = new TextEncoder();
@@ -27,7 +40,7 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        const result = await scrapeSite(parsedUrl.href, delay, extraPages || [], sendLog);
+        const result = await scrapeSite(parsedUrl.href, delay, safeExtraPages, sendLog);
 
         const json = JSON.stringify(result);
         const CHUNK_SIZE = 64 * 1024;

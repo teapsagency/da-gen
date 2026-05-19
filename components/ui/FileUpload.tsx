@@ -39,12 +39,13 @@ export function FileUpload({ files, onChange }: Props) {
 
   const getExt = (name: string) => `.${name.split(".").pop()?.toLowerCase() ?? "file"}`;
 
-  const extColors: Record<string, { bg: string; text: string }> = {
-    ".pdf": { bg: "rgba(255, 82, 82, 0.12)", text: "rgb(153, 27, 27)" },
-    ".md": { bg: "rgba(66, 133, 244, 0.12)", text: "rgb(12, 47, 96)" },
-    ".txt": { bg: "rgba(120, 120, 120, 0.12)", text: "rgb(80, 80, 80)" },
-    ".html": { bg: "rgba(255, 152, 0, 0.12)", text: "rgb(153, 80, 0)" },
-    ".json": { bg: "rgba(76, 175, 80, 0.12)", text: "rgb(27, 94, 32)" },
+  // Tailwind classes (dark-mode aware) instead of hard-coded rgb().
+  const extBadge: Record<string, string> = {
+    ".pdf": "bg-red-500/10 text-red-600 dark:text-red-400",
+    ".md": "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    ".txt": "bg-foreground/10 text-foreground/60",
+    ".html": "bg-orange-500/10 text-orange-600 dark:text-orange-400",
+    ".json": "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   };
 
   const formatSize = (bytes: number) => {
@@ -92,7 +93,7 @@ export function FileUpload({ files, onChange }: Props) {
         <div className="flex flex-col gap-1.5">
           {files.map((file, i) => {
             const ext = getExt(file.name);
-            const colors = extColors[ext] ?? extColors[".txt"];
+            const badge = extBadge[ext] ?? extBadge[".txt"];
             const nameWithoutExt = file.name.replace(/\.[^.]+$/, "");
 
             return (
@@ -107,10 +108,7 @@ export function FileUpload({ files, onChange }: Props) {
                   <span className="text-[10px] text-foreground/30 font-medium">
                     {formatSize(file.size)}
                   </span>
-                  <span
-                    className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full w-fit"
-                    style={{ background: colors.bg, color: colors.text }}
-                  >
+                  <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full w-fit ${badge}`}>
                     {ext}
                   </span>
                 </div>

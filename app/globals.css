@@ -154,3 +154,10 @@ details summary::-webkit-details-marker {
   mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent);
   -webkit-mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent);
 }
+
+/* Keyboard focus — visible ring on every interactive element.
+   :focus-visible only triggers for keyboard navigation, not mouse clicks. */
+*:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}

@@ -51,19 +51,18 @@ export const AgencyLogoUpload = () => {
         {/* Custom uploaded logo tile */}
         {isCustom && (
           <div className="relative group">
-            <button
-              onClick={() => {}}
-              className="w-14 h-14 rounded-xl border-2 border-foreground ring-1 ring-foreground/10 p-2 transition-all duration-200 flex items-center justify-center bg-white cursor-default"
+            <div
+              className="w-14 h-14 rounded-xl border-2 border-foreground ring-1 ring-foreground/10 p-2 flex items-center justify-center bg-white"
             >
               <img
                 src={agencyLogo}
-                alt="Custom logo"
+                alt="Logo agence importé"
                 className="max-w-full max-h-full object-contain"
               />
               <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-foreground flex items-center justify-center z-10">
                 <Check className="w-2.5 h-2.5 text-background" />
               </div>
-            </button>
+            </div>
             <button
               onClick={() => setAgencyLogo(DEFAULT_LOGO)}
               className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-background border border-border text-foreground/30 hover:text-red-500 hover:border-red-500/30 transition-all flex items-center justify-center cursor-pointer z-10"

@@ -62,9 +62,53 @@ export type GeneratedContent = {
   };
 };
 
+export type SitemapStatus = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
+
+// The slice of state that belongs to a single project (persisted in IndexedDB).
+// Includes the visual customisations so each project keeps its own look.
+export type ProjectSnapshot = {
+  scrapeResult: ScrapeResult | null;
+  selectedLogo: string;
+  activePageIndex: number;
+  selectedColors: string[];
+  fontName: string;
+  fontUrl: string | undefined;
+  bgColor: string;
+  borderRadius: number;
+  logoScale: number;
+  cardImage: string | null;
+  cardLogoScale: number;
+  cardImageOpacity: number;
+  localFontFile: string | null;
+  importedFonts: Record<string, string>;
+  sitemapUrls: string[];
+  sitemapSource: string | null;
+  sitemapStatus: SitemapStatus;
+  sitemapError: string | null;
+  generatedContent: GeneratedContent | null;
+  contentChips: string[];
+  contentBrief: string;
+};
+
+// A persisted project with its identity & timestamp.
+export type StoredProject = ProjectSnapshot & { id: string; savedAt: number };
+
+// Lightweight descriptor used to render the history list without loading
+// the heavy base64 payload of every project.
+export type ProjectMeta = {
+  id: string;
+  domain: string;
+  title: string;
+  savedAt: number;
+};
+
 export type DAStore = {
   url: string;
   setUrl: (url: string) => void;
+
+  activeProjectId: string | null;
+  setActiveProjectId: (id: string | null) => void;
+  loadProjectData: (project: StoredProject) => void;
 
   activePageIndex: number;
   setActivePageIndex: (index: number) => void;
@@ -94,6 +138,11 @@ export type DAStore = {
   localFontFile: string | null;
   setLocalFontFile: (file: string | null) => void;
 
+  // Custom fonts imported by the user, keyed by font name — so an imported
+  // file stays tied to its typeface when switching between detected fonts.
+  importedFonts: Record<string, string>;
+  importFont: (name: string, dataUrl: string) => void;
+
   theme: 'dark' | 'light';
   toggleTheme: () => void;
 
@@ -105,6 +154,9 @@ export type DAStore = {
 
   cardLogoScale: number;
   setCardLogoScale: (scale: number) => void;
+
+  cardImageOpacity: number;
+  setCardImageOpacity: (opacity: number) => void;
 
   screenshotDelay: number;
   setScreenshotDelay: (delay: number) => void;
