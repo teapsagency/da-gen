@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { validateExternalUrl } from "@/lib/security";
 
 export const runtime = "nodejs";
 
@@ -13,36 +14,17 @@ export const runtime = "nodejs";
  * served with `ACAO: *`, so the browser loads them fine once the CSS is in.
  */
 
-// Blocks obvious internal / private targets (basic SSRF guard).
-const isBlockedHost = (host: string): boolean => {
-  const h = host.toLowerCase().replace(/^\[|\]$/g, "");
-  if (h === "localhost" || h.endsWith(".localhost") || h === "::1") return true;
-  if (/^(127|10|0)\./.test(h)) return true;
-  if (/^192\.168\./.test(h)) return true;
-  if (/^169\.254\./.test(h)) return true;
-  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
-  return false;
-};
-
 export async function GET(req: NextRequest) {
   const target = req.nextUrl.searchParams.get("url");
   if (!target) {
     return new Response("missing url param", { status: 400 });
   }
 
-  let parsed: URL;
-  try {
-    parsed = new URL(target);
-  } catch {
-    return new Response("invalid url", { status: 400 });
+  const validated = validateExternalUrl(target);
+  if ("error" in validated) {
+    return new Response(validated.error, { status: 400 });
   }
-
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    return new Response("unsupported protocol", { status: 400 });
-  }
-  if (isBlockedHost(parsed.hostname)) {
-    return new Response("blocked host", { status: 403 });
-  }
+  const parsed = validated.url;
 
   try {
     const upstream = await fetch(parsed.toString(), {

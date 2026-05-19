@@ -24,7 +24,7 @@ const CHIP_GROUPS: ChipGroup[] = [
     multi: false,
     chips: [
       { id: "Refonte", label: "Refonte", unlocks: "site-type" },
-      { id: "Création de 0", label: "Création de 0", unlocks: "site-type" },
+      { id: "Création de zéro", label: "Création de zéro", unlocks: "site-type" },
       { id: "Ajout de fonctionnalités", label: "Ajout de fonctionnalités", unlocks: "feature-type" },
     ],
   },

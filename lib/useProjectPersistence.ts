@@ -1,73 +1,103 @@
 "use client";
 
 import { useEffect } from 'react';
+import { toast } from 'sonner';
 import { useDAStore } from '@/store/daStore';
-import { loadProject, saveProject, type ProjectSnapshot } from './projectStorage';
+import type { DAStore, ProjectSnapshot } from '@/types';
+import { loadProject, listProjects, saveProject, newProjectId } from './projectStorage';
 
 const SAVE_DEBOUNCE_MS = 800;
 
+// Extracts the project-persisted slice from the store.
+const pickSnapshot = (s: DAStore): ProjectSnapshot => ({
+  scrapeResult: s.scrapeResult,
+  selectedLogo: s.selectedLogo,
+  activePageIndex: s.activePageIndex,
+  selectedColors: s.selectedColors,
+  fontName: s.fontName,
+  fontUrl: s.fontUrl,
+  bgColor: s.bgColor,
+  borderRadius: s.borderRadius,
+  logoScale: s.logoScale,
+  cardImage: s.cardImage,
+  cardLogoScale: s.cardLogoScale,
+  cardImageOpacity: s.cardImageOpacity,
+  localFontFile: s.localFontFile,
+  importedFonts: s.importedFonts,
+  sitemapUrls: s.sitemapUrls,
+  sitemapSource: s.sitemapSource,
+  sitemapStatus: s.sitemapStatus,
+  sitemapError: s.sitemapError,
+  generatedContent: s.generatedContent,
+  contentChips: s.contentChips,
+  contentBrief: s.contentBrief,
+});
+
+// Shallow per-field comparison — Zustand replaces references on mutation, so
+// this reliably detects a real change without stringifying heavy base64 blobs.
+const snapshotsEqual = (a: ProjectSnapshot, b: ProjectSnapshot): boolean => {
+  const keys = Object.keys(a) as (keyof ProjectSnapshot)[];
+  return keys.every((k) => a[k] === b[k]);
+};
+
 /**
- * Hydrates project data (scrapeResult + heavy/per-project state) from IndexedDB
- * on mount, and auto-saves snapshots back to IDB when the user changes anything
- * project-related. Light state (settings, theme, etc.) lives in localStorage
- * via Zustand's persist middleware.
+ * Hydrates the active project from IndexedDB on mount and auto-saves it back
+ * (debounced) whenever its data changes. Projects are keyed by id, so the
+ * history accumulates every scraped site. Light app settings (theme, API keys,
+ * …) live in localStorage via Zustand's persist middleware.
  */
 export function useProjectPersistence() {
   useEffect(() => {
     let cancelled = false;
     let saveTimer: number | undefined;
     let hydrated = false;
+    let lastSaved: ProjectSnapshot | null = null;
+    let quotaWarned = false;
 
-    // 1. Hydrate from IDB
-    loadProject().then((snap) => {
-      if (cancelled) return;
-      if (snap && snap.scrapeResult) {
-        useDAStore.setState({
-          scrapeResult: snap.scrapeResult,
-          selectedLogo: snap.selectedLogo,
-          activePageIndex: snap.activePageIndex,
-          cardImage: snap.cardImage,
-          cardLogoScale: snap.cardLogoScale,
-          cardImageOpacity: snap.cardImageOpacity ?? 0.5,
-          localFontFile: snap.localFontFile,
-          importedFonts: snap.importedFonts ?? {},
-          sitemapUrls: snap.sitemapUrls,
-          sitemapSource: snap.sitemapSource,
-          sitemapStatus: snap.sitemapStatus,
-          sitemapError: snap.sitemapError,
-          generatedContent: snap.generatedContent ?? null,
-          contentChips: snap.contentChips ?? [],
-          contentBrief: snap.contentBrief ?? '',
-        });
+    // 1. Restore the last active project, or the most recent one as a fallback
+    //    (also covers the v1→v2 migration, where there is no active id yet).
+    (async () => {
+      const activeId = useDAStore.getState().activeProjectId;
+      let project = activeId ? await loadProject(activeId) : null;
+      if (!project) {
+        const metas = await listProjects();
+        if (metas.length) project = await loadProject(metas[0].id);
       }
+      if (cancelled) return;
+      if (project && project.scrapeResult) {
+        useDAStore.getState().loadProjectData(project);
+      }
+      lastSaved = pickSnapshot(useDAStore.getState());
       hydrated = true;
-    });
+    })();
 
-    // 2. Subscribe — debounced save when project state mutates
+    // 2. Auto-save the active project when its persisted slice changes.
     const unsubscribe = useDAStore.subscribe((state) => {
       if (!hydrated) return;
-      if (!state.scrapeResult) return; // nothing to save until first scrape
+      if (!state.scrapeResult) return; // nothing to save until a scrape exists
 
+      // A fresh scrape has no project id yet → mint one (re-triggers this).
+      if (!state.activeProjectId) {
+        useDAStore.getState().setActiveProjectId(newProjectId());
+        return;
+      }
+
+      const snap = pickSnapshot(state);
+      if (lastSaved && snapshotsEqual(snap, lastSaved)) return;
+
+      const projectId = state.activeProjectId;
       window.clearTimeout(saveTimer);
-      saveTimer = window.setTimeout(() => {
-        const snap: ProjectSnapshot = {
-          scrapeResult: state.scrapeResult,
-          selectedLogo: state.selectedLogo,
-          activePageIndex: state.activePageIndex,
-          cardImage: state.cardImage,
-          cardLogoScale: state.cardLogoScale,
-          cardImageOpacity: state.cardImageOpacity,
-          localFontFile: state.localFontFile,
-          importedFonts: state.importedFonts,
-          sitemapUrls: state.sitemapUrls,
-          sitemapSource: state.sitemapSource,
-          sitemapStatus: state.sitemapStatus,
-          sitemapError: state.sitemapError,
-          generatedContent: state.generatedContent,
-          contentChips: state.contentChips,
-          contentBrief: state.contentBrief,
-        };
-        saveProject(snap);
+      saveTimer = window.setTimeout(async () => {
+        const ok = await saveProject(projectId, snap);
+        if (ok) {
+          lastSaved = snap;
+          quotaWarned = false;
+        } else if (!quotaWarned) {
+          quotaWarned = true;
+          toast.error(
+            "Sauvegarde impossible : stockage du navigateur saturé. Le projet ne sera pas conservé après fermeture.",
+          );
+        }
       }, SAVE_DEBOUNCE_MS);
     });
 

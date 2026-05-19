@@ -5,7 +5,7 @@ import {
   Loader2, ArrowUp, Copy, Check,
   ChevronDown, ChevronUp, Paperclip, X,
   Linkedin, Instagram,
-  FileText, Braces, Code, Eye,
+  FileText, Braces, Code, Eye, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { GeneratedContent } from "@/types";
@@ -87,7 +87,7 @@ export function ContentChat({
   return (
     <div className="flex flex-col h-full">
       {/* Results area */}
-      <div className={`flex-1 overflow-y-auto px-8 lg:px-16 ${hasContent ? "py-10" : "flex items-end pb-4"}`}>
+      <div className={`flex-1 overflow-y-auto px-8 lg:px-16 py-10 ${!hasContent && !isGenerating ? "flex items-center justify-center" : ""}`}>
         {hasContent ? (
           <div className="max-w-7xl mx-auto flex gap-6 items-start">
             {/* Left: Cas client */}
@@ -244,8 +244,10 @@ export function ContentChat({
             </ResultSection>
             </div>
           </div>
+        ) : isGenerating ? (
+          <ContentSkeleton />
         ) : (
-          <div className="w-full" />
+          <ContentEmptyState />
         )}
       </div>
 
@@ -272,14 +274,15 @@ export function ContentChat({
               <div className="flex flex-wrap gap-2 px-4 pt-4">
                 {files.map((file, i) => {
                   const ext = `.${file.name.split(".").pop()?.toLowerCase() ?? "file"}`;
-                  const extColors: Record<string, { bg: string; text: string }> = {
-                    ".pdf": { bg: "rgba(255, 82, 82, 0.10)", text: "rgb(153, 27, 27)" },
-                    ".md": { bg: "rgba(66, 133, 244, 0.10)", text: "rgb(12, 47, 96)" },
-                    ".txt": { bg: "rgba(120, 120, 120, 0.10)", text: "rgb(80, 80, 80)" },
-                    ".html": { bg: "rgba(255, 152, 0, 0.10)", text: "rgb(153, 80, 0)" },
-                    ".json": { bg: "rgba(76, 175, 80, 0.10)", text: "rgb(27, 94, 32)" },
+                  // Tailwind classes (dark-mode aware) instead of hard-coded rgb().
+                  const extStyles: Record<string, { badge: string; icon: string }> = {
+                    ".pdf": { badge: "bg-red-500/10 text-red-600 dark:text-red-400", icon: "text-red-500" },
+                    ".md": { badge: "bg-blue-500/10 text-blue-600 dark:text-blue-400", icon: "text-blue-500" },
+                    ".txt": { badge: "bg-foreground/10 text-foreground/60", icon: "text-foreground/40" },
+                    ".html": { badge: "bg-orange-500/10 text-orange-600 dark:text-orange-400", icon: "text-orange-500" },
+                    ".json": { badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", icon: "text-emerald-500" },
                   };
-                  const colors = extColors[ext] ?? extColors[".txt"];
+                  const style = extStyles[ext] ?? extStyles[".txt"];
                   const extIcons: Record<string, React.ReactNode> = {
                     ".pdf": <FileText className="w-4 h-4" />,
                     ".md": <FileText className="w-4 h-4" />,
@@ -301,7 +304,7 @@ export function ContentChat({
                       className="group flex flex-col gap-1.5 px-3 py-2.5 border border-border rounded-xl min-w-[120px] max-w-[180px]"
                     >
                       <div className="flex items-start justify-between gap-1.5">
-                        <span style={{ color: colors.text }}>{icon}</span>
+                        <span className={style.icon}>{icon}</span>
                         <button
                           onClick={() => onRemoveFile(i)}
                           className="shrink-0 opacity-0 group-hover:opacity-100 text-foreground/30 hover:text-foreground/60 hover:bg-foreground/[0.05] rounded-full p-1 transition-all cursor-pointer"
@@ -315,10 +318,7 @@ export function ContentChat({
                       <span className="text-[10px] text-foreground/30 font-medium">
                         {formatSize(file.size)}
                       </span>
-                      <span
-                        className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full w-fit"
-                        style={{ background: colors.bg, color: colors.text }}
-                      >
+                      <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full w-fit ${style.badge}`}>
                         {ext}
                       </span>
                     </div>
@@ -530,6 +530,62 @@ function CopyButton({ value, label }: { value: string; label: string }) {
       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
       {copied ? "Copié !" : label}
     </button>
+  );
+}
+
+// ─── Empty / loading states ──────────────────────────────────────────────────
+
+function ContentEmptyState() {
+  return (
+    <div className="max-w-md mx-auto text-center flex flex-col items-center gap-4">
+      <div className="w-12 h-12 rounded-2xl bg-foreground/[0.04] border border-border flex items-center justify-center">
+        <Sparkles className="w-5 h-5 text-foreground/30" />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <h3 className="text-sm font-bold text-foreground">Générez le contenu de présentation</h3>
+        <p className="text-[12px] text-foreground/40 leading-relaxed">
+          À partir du site analysé, l&apos;IA rédige une étude de cas structurée
+          (introduction, défi, solution, résultats) et un post prêt à publier
+          pour LinkedIn et Instagram.
+        </p>
+      </div>
+      <p className="text-[11px] text-foreground/30 font-medium">
+        Décrivez le projet ci-dessous, puis lancez la génération.
+      </p>
+    </div>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div className="flex-1 min-w-0 bg-card border border-border rounded-2xl p-5 flex flex-col gap-5">
+      <div className="flex items-center gap-3">
+        <div className="h-4 w-16 rounded-full bg-foreground/[0.06] animate-pulse" />
+        <div className="h-4 w-32 rounded-full bg-foreground/[0.06] animate-pulse" />
+      </div>
+      {[["w-full", "w-[92%]", "w-[70%]"], ["w-[85%]", "w-full", "w-[55%]"]].map((widths, i) => (
+        <div key={i} className="flex flex-col gap-2.5">
+          {widths.map((w) => (
+            <div key={w} className={`h-3 rounded-full bg-foreground/[0.06] animate-pulse ${w}`} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ContentSkeleton() {
+  return (
+    <div className="max-w-7xl mx-auto w-full flex flex-col gap-3">
+      <p className="text-[11px] font-semibold text-foreground/35 flex items-center gap-2">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        Rédaction du contenu en cours…
+      </p>
+      <div className="flex gap-6 items-start">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    </div>
   );
 }
 

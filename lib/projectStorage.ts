@@ -1,27 +1,24 @@
-import type { GeneratedContent, ScrapeResult } from '@/types';
+import type { ProjectSnapshot, ProjectMeta, StoredProject } from '@/types';
+
+export type { ProjectSnapshot, ProjectMeta, StoredProject };
 
 const DB_NAME = 'da-gen';
-const STORE = 'project';
-const KEY = 'current';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+const PROJECTS = 'projects'; // id -> StoredProject (heavy)
+const META = 'meta';         // id -> ProjectMeta (light, for the history list)
+const LEGACY_STORE = 'project';
+const LEGACY_KEY = 'current';
 
-export type ProjectSnapshot = {
-  scrapeResult: ScrapeResult | null;
-  selectedLogo: string;
-  activePageIndex: number;
-  cardImage: string | null;
-  cardLogoScale: number;
-  cardImageOpacity: number;
-  localFontFile: string | null;
-  importedFonts: Record<string, string>;
-  sitemapUrls: string[];
-  sitemapSource: string | null;
-  sitemapStatus: 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
-  sitemapError: string | null;
-  generatedContent: GeneratedContent | null;
-  contentChips: string[];
-  contentBrief: string;
-};
+/** Generates a collision-resistant project id. */
+export const newProjectId = (): string =>
+  `proj_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+const metaOf = (id: string, savedAt: number, snap: ProjectSnapshot): ProjectMeta => ({
+  id,
+  savedAt,
+  domain: snap.scrapeResult?.domain ?? '',
+  title: snap.scrapeResult?.title?.trim() || snap.scrapeResult?.domain || 'Projet sans titre',
+});
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -34,35 +31,64 @@ function getDb(): Promise<IDBDatabase> {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
-      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+      const tx = req.transaction;
+      if (!db.objectStoreNames.contains(PROJECTS)) db.createObjectStore(PROJECTS);
+      if (!db.objectStoreNames.contains(META)) db.createObjectStore(META);
+
+      // Migrate the legacy single project (v1) into the multi-project model.
+      if (tx && db.objectStoreNames.contains(LEGACY_STORE)) {
+        try {
+          const legacy = tx.objectStore(LEGACY_STORE);
+          const getReq = legacy.get(LEGACY_KEY);
+          getReq.onsuccess = () => {
+            const old = getReq.result as ProjectSnapshot | undefined;
+            if (old && old.scrapeResult) {
+              const id = newProjectId();
+              const savedAt = Date.now();
+              tx.objectStore(PROJECTS).put({ ...old, id, savedAt }, id);
+              tx.objectStore(META).put(metaOf(id, savedAt, old), id);
+            }
+            legacy.delete(LEGACY_KEY); // free the duplicated payload
+          };
+        } catch { /* migration is best-effort */ }
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
+  // Don't cache a rejected promise forever — allow a retry after a transient failure.
+  dbPromise.catch(() => { dbPromise = null; });
   return dbPromise;
 }
 
-export async function saveProject(snapshot: ProjectSnapshot): Promise<void> {
+/** Persists a project (heavy data + light meta). Returns false on failure (e.g. quota). */
+export async function saveProject(id: string, snapshot: ProjectSnapshot): Promise<boolean> {
   try {
     const db = await getDb();
+    const savedAt = Date.now();
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).put(snapshot, KEY);
+      const tx = db.transaction([PROJECTS, META], 'readwrite');
+      tx.objectStore(PROJECTS).put({ ...snapshot, id, savedAt }, id);
+      tx.objectStore(META).put(metaOf(id, savedAt, snapshot), id);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
+    return true;
   } catch (e) {
     console.warn('[projectStorage] save failed:', e);
+    return false;
   }
 }
 
-export async function loadProject(): Promise<ProjectSnapshot | null> {
+/** Loads a single project by id. */
+export async function loadProject(id: string): Promise<StoredProject | null> {
   try {
     const db = await getDb();
-    return await new Promise<ProjectSnapshot | null>((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readonly');
-      const req = tx.objectStore(STORE).get(KEY);
-      req.onsuccess = () => resolve((req.result as ProjectSnapshot) ?? null);
+    return await new Promise<StoredProject | null>((resolve, reject) => {
+      const tx = db.transaction(PROJECTS, 'readonly');
+      const req = tx.objectStore(PROJECTS).get(id);
+      req.onsuccess = () => resolve((req.result as StoredProject) ?? null);
       req.onerror = () => reject(req.error);
     });
   } catch (e) {
@@ -71,16 +97,51 @@ export async function loadProject(): Promise<ProjectSnapshot | null> {
   }
 }
 
-export async function clearProject(): Promise<void> {
+/** Lists every saved project (light meta only), most recent first. */
+export async function listProjects(): Promise<ProjectMeta[]> {
+  try {
+    const db = await getDb();
+    const metas = await new Promise<ProjectMeta[]>((resolve, reject) => {
+      const tx = db.transaction(META, 'readonly');
+      const req = tx.objectStore(META).getAll();
+      req.onsuccess = () => resolve((req.result as ProjectMeta[]) ?? []);
+      req.onerror = () => reject(req.error);
+    });
+    return metas.sort((a, b) => b.savedAt - a.savedAt);
+  } catch (e) {
+    console.warn('[projectStorage] list failed:', e);
+    return [];
+  }
+}
+
+/** Deletes a single project. */
+export async function deleteProject(id: string): Promise<void> {
   try {
     const db = await getDb();
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE, 'readwrite');
-      tx.objectStore(STORE).delete(KEY);
+      const tx = db.transaction([PROJECTS, META], 'readwrite');
+      tx.objectStore(PROJECTS).delete(id);
+      tx.objectStore(META).delete(id);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
   } catch (e) {
-    console.warn('[projectStorage] clear failed:', e);
+    console.warn('[projectStorage] delete failed:', e);
+  }
+}
+
+/** Wipes the whole project history. */
+export async function clearAllProjects(): Promise<void> {
+  try {
+    const db = await getDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([PROJECTS, META], 'readwrite');
+      tx.objectStore(PROJECTS).clear();
+      tx.objectStore(META).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    console.warn('[projectStorage] clear all failed:', e);
   }
 }

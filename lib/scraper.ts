@@ -96,16 +96,21 @@ async function dismissPopups(page: Page) {
 
 /** Take desktop (viewport), desktop full page, scroll-position captures, and mobile screenshots */
 async function captureScreenshots(page: Page) {
+  // JPEG q88 — site screenshots have no transparency; this keeps payloads
+  // ~5-10× smaller than PNG while staying crisp enough for presentation frames.
+  const JPEG = { type: 'jpeg' as const, quality: 88 };
+  const dataUrl = (buf: Buffer) => `data:image/jpeg;base64,${buf.toString('base64')}`;
+
   // Desktop viewport (hero / top of page)
   await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1.5 });
-  const desktopBuf = Buffer.from(await page.screenshot());
+  const desktopBuf = Buffer.from(await page.screenshot(JPEG));
 
   // Desktop full page (cap body height to avoid memory issues)
   await page.evaluate(() => {
     document.body.style.maxHeight = '6000px';
     document.body.style.overflow = 'hidden';
   });
-  const desktopFullBuf = Buffer.from(await page.screenshot({ fullPage: true }));
+  const desktopFullBuf = Buffer.from(await page.screenshot({ fullPage: true, ...JPEG }));
 
   // Reset body constraints
   await page.evaluate(() => {
@@ -121,13 +126,13 @@ async function captureScreenshots(page: Page) {
   const scrollMid = Math.min(Math.round(totalHeight * 0.4), totalHeight - viewportH);
   await page.evaluate((y) => window.scrollTo(0, y), Math.max(0, scrollMid));
   await new Promise(resolve => setTimeout(resolve, 300));
-  const desktopMidBuf = Buffer.from(await page.screenshot());
+  const desktopMidBuf = Buffer.from(await page.screenshot(JPEG));
 
   // Lower-page capture (~70% scroll)
   const scrollLower = Math.min(Math.round(totalHeight * 0.7), totalHeight - viewportH);
   await page.evaluate((y) => window.scrollTo(0, y), Math.max(0, scrollLower));
   await new Promise(resolve => setTimeout(resolve, 300));
-  const desktopLowerBuf = Buffer.from(await page.screenshot());
+  const desktopLowerBuf = Buffer.from(await page.screenshot(JPEG));
 
   // Reset scroll
   await page.evaluate(() => window.scrollTo(0, 0));
@@ -139,7 +144,7 @@ async function captureScreenshots(page: Page) {
     document.body.style.maxHeight = '6000px';
     document.body.style.overflow = 'hidden';
   });
-  const mobileBuf = Buffer.from(await page.screenshot({ fullPage: true }));
+  const mobileBuf = Buffer.from(await page.screenshot({ fullPage: true, ...JPEG }));
 
   // Reset for potential next navigation
   await page.evaluate(() => {
@@ -148,11 +153,11 @@ async function captureScreenshots(page: Page) {
   });
 
   return {
-    desktop: `data:image/png;base64,${desktopBuf.toString('base64')}`,
-    desktopFull: `data:image/png;base64,${desktopFullBuf.toString('base64')}`,
-    desktopMid: `data:image/png;base64,${desktopMidBuf.toString('base64')}`,
-    desktopLower: `data:image/png;base64,${desktopLowerBuf.toString('base64')}`,
-    mobile: `data:image/png;base64,${mobileBuf.toString('base64')}`,
+    desktop: dataUrl(desktopBuf),
+    desktopFull: dataUrl(desktopFullBuf),
+    desktopMid: dataUrl(desktopMidBuf),
+    desktopLower: dataUrl(desktopLowerBuf),
+    mobile: dataUrl(mobileBuf),
     desktopBuffer: desktopBuf,
   };
 }
@@ -258,7 +263,7 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
 
     // Extract logos (multiple candidates)
     log('Extracting logos...');
-    let logoCandidates = await page.evaluate(() => {
+    const logoCandidates = await page.evaluate(() => {
       const candidates: string[] = [];
 
       const icon = document.querySelector('link[rel="icon"], link[rel="shortcut icon"]') as HTMLLinkElement;
@@ -294,20 +299,25 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
     log(`Found ${logoCandidates.length} logo candidates`);
     const logosBase64: string[] = [];
     for (const src of logoCandidates.slice(0, 8)) {
+      if (src.startsWith('data:')) {
+        logosBase64.push(src);
+        continue;
+      }
+      let logoPage: Page | undefined;
       try {
-        if (src.startsWith('data:')) {
-          logosBase64.push(src);
-          continue;
-        }
-        const logoPage = await browser.newPage();
+        logoPage = await browser.newPage();
         const response = await logoPage.goto(src, { timeout: 10000 });
         const buffer = await response?.buffer();
         if (buffer) {
           const contentType = response?.headers()['content-type'] || 'image/png';
           logosBase64.push(`data:${contentType};base64,${buffer.toString('base64')}`);
         }
-        await logoPage.close();
       } catch { /* skip failed logos */ }
+      finally {
+        // Always close the tab, even if goto/buffer threw — avoids leaking
+        // Chromium pages across the loop.
+        if (logoPage) await logoPage.close().catch(() => {});
+      }
     }
 
     log(`Logos fetched: ${logosBase64.length}`);

@@ -28,8 +28,10 @@ import { ContentChat } from "@/components/ContentChat";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { ChipSelector } from "@/components/ui/ChipSelector";
 import { SettingsPanel } from "@/components/ui/SettingsPanel";
+import { HistoryPanel } from "@/components/ui/HistoryPanel";
 import { SitemapPanel } from "@/components/ui/SitemapPanel";
 import { useProjectPersistence } from "@/lib/useProjectPersistence";
+import { listProjects } from "@/lib/projectStorage";
 import { localFontFaceCss } from "@/lib/fontName";
 import { GeneratedContent } from "@/types";
 import { exportFrame, exportAllFrames, exportAllSocialFrames } from "@/lib/exportFrames";
@@ -47,6 +49,8 @@ import {
   RotateCcw,
   ImageUp,
   Settings,
+  History,
+  Plus,
 } from "lucide-react";
 
 /** Wait until all frame IDs exist in the DOM, with a safety timeout */
@@ -93,7 +97,16 @@ export default function Home() {
   const [showOffscreenFrames, setShowOffscreenFrames] = React.useState(false);
   const [isExportingSocialPack, setIsExportingSocialPack] = React.useState(false);
   const [showOffscreenSocialFrames, setShowOffscreenSocialFrames] = React.useState(false);
-  const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu" | "settings">("visuels");
+  const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu" | "settings" | "historique">("visuels");
+
+  // How many projects are saved — drives the "reprendre un projet" shortcut
+  // on the home screen. Refreshed whenever the home screen is shown.
+  const [historyCount, setHistoryCount] = React.useState(0);
+  React.useEffect(() => {
+    if (!scrapeResult) {
+      listProjects().then((p) => setHistoryCount(p.length));
+    }
+  }, [scrapeResult, sidebarTab]);
   const [visualSubTab, setVisualSubTab] = React.useState<"desktop" | "social">("desktop");
 
   // Content generation state — chips/brief/result persisted in store (and IDB).
@@ -116,7 +129,7 @@ export default function Home() {
   const [showConsole, setShowConsole] = React.useState(false);
 
   const tryParsePartial = React.useCallback((raw: string): GeneratedContent | null => {
-    let clean = raw.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
+    const clean = raw.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
     const attempts = [clean];
     let closers = '';
     for (let i = clean.length - 1; i >= 0; i--) {
@@ -184,8 +197,19 @@ export default function Home() {
         if (partial) setGeneratedContent(partial);
       }
 
+      // Final parse — but never let a malformed tail wipe a valid partial.
       const clean = accumulated.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim();
-      setGeneratedContent(JSON.parse(clean));
+      try {
+        const final = JSON.parse(clean);
+        if (final?.caseStudy) setGeneratedContent(final);
+      } catch {
+        const partial = tryParsePartial(accumulated);
+        if (partial) {
+          setGeneratedContent(partial);
+        } else {
+          throw new Error("La réponse de l'IA est incomplète ou invalide. Relancez la génération.");
+        }
+      }
     } catch (err) {
       setContentError(err instanceof Error ? err.message : "Erreur lors de la génération.");
     } finally {
@@ -193,6 +217,14 @@ export default function Home() {
       setStreamingContent("");
     }
   }, [scrapeResult, contentChips, contentFiles, contentBrief, tryParsePartial]);
+
+  // "Nouveau projet" — clears the editing canvas and returns to the home
+  // screen. No confirmation needed: the current project stays safe in the
+  // history and can be reopened anytime.
+  const handleResetProject = React.useCallback(() => {
+    resetProject();
+    setSidebarTab("visuels");
+  }, [resetProject]);
 
   const [showLoadingOverlay, setShowLoadingOverlay] = React.useState(false);
   const [isOverlayExiting, setIsOverlayExiting] = React.useState(false);
@@ -266,6 +298,8 @@ export default function Home() {
             <div className="relative group">
               <button
                 onClick={() => setSidebarTab("visuels")}
+                aria-label="Visuels"
+                aria-current={sidebarTab === "visuels"}
                 className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                   sidebarTab === "visuels"
                     ? "bg-foreground/10 text-foreground"
@@ -281,6 +315,8 @@ export default function Home() {
             <div className="relative group">
               <button
                 onClick={() => setSidebarTab("contenu")}
+                aria-label="Contenu"
+                aria-current={sidebarTab === "contenu"}
                 className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                   sidebarTab === "contenu"
                     ? "bg-foreground/10 text-foreground"
@@ -295,10 +331,11 @@ export default function Home() {
             </div>
             <div className="relative group">
               <button
-                onClick={resetProject}
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-foreground/20 hover:text-red-400 hover:bg-red-500/5 transition-all cursor-pointer"
+                onClick={handleResetProject}
+                aria-label="Nouveau projet"
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-emerald-500/70 hover:text-emerald-500 hover:bg-emerald-500/10 transition-all cursor-pointer"
               >
-                <RotateCcw className="w-[16px] h-[16px]" />
+                <Plus className="w-[18px] h-[18px]" />
               </button>
               <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
                 Nouveau projet
@@ -311,7 +348,26 @@ export default function Home() {
         <div className="mt-auto flex flex-col items-center gap-1">
           <div className="relative group">
             <button
+              onClick={() => setSidebarTab("historique")}
+              aria-label="Historique des projets"
+              aria-current={sidebarTab === "historique"}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                sidebarTab === "historique"
+                  ? "bg-foreground/10 text-foreground"
+                  : "text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5"
+              }`}
+            >
+              <History className="w-[18px] h-[18px]" />
+            </button>
+            <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+              Historique
+            </span>
+          </div>
+          <div className="relative group">
+            <button
               onClick={() => setSidebarTab("settings")}
+              aria-label="Paramètres"
+              aria-current={sidebarTab === "settings"}
               className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                 sidebarTab === "settings"
                   ? "bg-foreground/10 text-foreground"
@@ -327,6 +383,8 @@ export default function Home() {
           <div className="relative group">
             <button
               onClick={() => setShowConsole(!showConsole)}
+              aria-label="Console"
+              aria-expanded={showConsole}
               className="w-10 h-10 rounded-xl flex items-center justify-center text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5 transition-all cursor-pointer relative"
             >
               <Terminal className="w-[18px] h-[18px]" />
@@ -341,6 +399,7 @@ export default function Home() {
           <div className="relative group">
             <button
               onClick={toggleTheme}
+              aria-label={mounted ? (theme === "dark" ? "Passer en mode clair" : "Passer en mode sombre") : "Changer de thème"}
               className="w-10 h-10 rounded-xl flex items-center justify-center text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5 transition-all cursor-pointer"
             >
               {mounted ? (
@@ -407,8 +466,34 @@ export default function Home() {
         </section>
       )}
 
+      {/* HISTORY (accessible anytime) */}
+      {sidebarTab === "historique" && (
+        <section className="min-h-screen pl-20 py-12 px-8 bg-background">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h1 className="text-[28px] font-bold tracking-tight leading-none" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>
+                  Historique
+                </h1>
+                <p className="text-[12.5px] text-foreground/50 mt-2 leading-relaxed">
+                  Tous tes projets, enregistrés localement dans ce navigateur.
+                </p>
+              </div>
+              <button
+                onClick={() => setSidebarTab("visuels")}
+                className="text-[11px] font-semibold text-foreground/60 hover:text-foreground cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border hover:bg-foreground/5 transition-all"
+              >
+                <X className="w-3.5 h-3.5" />
+                {scrapeResult ? "Retour au projet" : "Fermer"}
+              </button>
+            </div>
+            <HistoryPanel onProjectOpen={() => setSidebarTab("visuels")} />
+          </div>
+        </section>
+      )}
+
       {/* HERO SECTION */}
-      {!scrapeResult && sidebarTab !== "settings" && (
+      {!scrapeResult && sidebarTab !== "settings" && sidebarTab !== "historique" && (
         <section className="min-h-screen flex flex-col items-center justify-center px-6 pl-20 relative overflow-hidden bg-background">
           {/* Line grid background */}
           <div
@@ -459,6 +544,21 @@ export default function Home() {
               <UrlInput onLogs={setScrapeLogs} />
             </div>
 
+            {/* Shortcut to the project history */}
+            {historyCount > 0 && (
+              <button
+                onClick={() => setSidebarTab("historique")}
+                className="group inline-flex items-center gap-2 text-[12px] font-semibold text-foreground/40 hover:text-foreground transition-colors cursor-pointer -mt-4"
+                style={{ animation: "fadeSlideUp 0.5s ease-out 0.32s both" }}
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>Reprendre un projet</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-foreground/[0.06] text-foreground/50 group-hover:bg-foreground/10 transition-colors">
+                  {historyCount}
+                </span>
+              </button>
+            )}
+
             {error && (
               <div className="p-4 bg-red-500/5 text-red-500 rounded-xl text-xs font-bold border border-red-500/10 w-full max-w-lg" style={{ animation: "fadeSlideUp 0.3s ease-out both" }}>
                 {error}
@@ -472,7 +572,7 @@ export default function Home() {
       {showLoadingOverlay && <LoadingOverlay isExiting={isOverlayExiting} />}
 
       {/* APP VIEW */}
-      {scrapeResult && !isLoading && sidebarTab !== "settings" && (
+      {scrapeResult && !isLoading && sidebarTab !== "settings" && sidebarTab !== "historique" && (
         <div className="flex min-h-screen">
           {/* SIDEBAR PANEL */}
           <aside className="fixed left-16 top-0 bottom-0 w-[280px] bg-card border-r border-border overflow-hidden z-50 flex flex-col">
@@ -670,9 +770,7 @@ export default function Home() {
                 )}
 
                 {visualSubTab === "social" && (
-                  <div className="max-w-3xl mx-auto mb-12 flex items-center justify-between">
-                    <div className="flex bg-foreground/[0.04] rounded-lg p-0.5 gap-0.5 w-fit">
-                    </div>
+                  <div className="max-w-3xl mx-auto mb-12 flex items-center justify-end">
                     <button
                       onClick={handleExportSocialPack}
                       disabled={isExportingSocialPack}

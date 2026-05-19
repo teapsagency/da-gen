@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { validateExternalUrl } from '@/lib/security';
+
+export const maxDuration = 60;
 
 const UA = 'Mozilla/5.0 (compatible; DA-Gen/1.0)';
 const MAX_URLS = 200;
 
 async function fetchText(url: string, timeoutMs = 8000): Promise<string | null> {
+  // Guards every fetch — incl. nested sitemaps & robots.txt Sitemap: entries —
+  // against internal SSRF targets.
+  const v = validateExternalUrl(url);
+  if ('error' in v) return null;
   try {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await fetch(url, {
+    const res = await fetch(v.url.href, {
       headers: { 'User-Agent': UA, Accept: 'text/xml, application/xml, text/plain, */*' },
       signal: controller.signal,
     });
@@ -95,12 +102,11 @@ export async function POST(request: NextRequest) {
     if (!siteUrl) {
       return NextResponse.json({ error: 'siteUrl manquant.' }, { status: 400 });
     }
-    let base: URL;
-    try {
-      base = new URL(siteUrl);
-    } catch {
-      return NextResponse.json({ error: 'URL invalide.' }, { status: 400 });
+    const validated = validateExternalUrl(siteUrl);
+    if ('error' in validated) {
+      return NextResponse.json({ error: validated.error }, { status: 400 });
     }
+    const base = validated.url;
 
     const result = await resolveSitemap(base);
     if (!result) {

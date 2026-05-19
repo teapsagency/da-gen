@@ -37,19 +37,10 @@ const toFontshareSlug = (name: string): string =>
 const buildFontshareUrl = (fontName: string): string =>
   `https://api.fontshare.com/v2/css?f[]=${toFontshareSlug(fontName)}@400,500,600,700&display=swap`;
 
-// Fetch font CSS — direct first (Google Fonts allows cross-origin fetch), then
-// via the server proxy for CDNs that block it (notably Fontshare, whose CSS is
-// served with a restrictive Access-Control-Allow-Origin).
+// Fetch font CSS through the same-origin server proxy. Going through the proxy
+// for everything (Google Fonts included) avoids the noisy cross-origin CORS
+// errors a direct fetch produces for fonts that don't exist on a given CDN.
 const fetchFontCss = async (url: string): Promise<string | null> => {
-  try {
-    const res = await fetch(url);
-    if (res.ok) {
-      const text = await res.text();
-      if (text.includes("@font-face")) return text;
-    }
-  } catch {
-    /* CORS or network error — fall through to the proxy */
-  }
   try {
     const res = await fetch(`/api/font-css?url=${encodeURIComponent(url)}`);
     if (res.ok) {
@@ -57,7 +48,7 @@ const fetchFontCss = async (url: string): Promise<string | null> => {
       if (text.includes("@font-face")) return text;
     }
   } catch {
-    /* ignore */
+    /* network error — treat as unavailable */
   }
   return null;
 };
