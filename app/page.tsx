@@ -561,7 +561,7 @@ export default function Home() {
               <UrlInput onLogs={setScrapeLogs} />
             </div>
 
-            {/* Recent projects — the 3 most recent, click to reopen. */}
+            {/* Recent projects — the 5 most recent, click to reopen. */}
             {recentProjects.length > 0 && (
               <div
                 className="w-full max-w-lg flex flex-col gap-2 -mt-4"
@@ -571,7 +571,7 @@ export default function Home() {
                   Projets récents
                 </span>
                 <div className="flex flex-col rounded-xl border border-border bg-card/40 overflow-hidden">
-                  {recentProjects.slice(0, 3).map((p, i, arr) => (
+                  {recentProjects.slice(0, 5).map((p, i, arr) => (
                     <button
                       key={p.id}
                       onClick={() => handleOpenProject(p.id)}
@@ -591,15 +591,13 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
-                {recentProjects.length > 3 && (
-                  <button
-                    onClick={() => setSidebarTab("historique")}
-                    className="self-center text-[11px] font-semibold text-foreground/40 hover:text-foreground transition-colors cursor-pointer flex items-center gap-1.5 mt-1"
-                  >
-                    <History className="w-3 h-3" />
-                    Voir tout l&apos;historique ({recentProjects.length})
-                  </button>
-                )}
+                <button
+                  onClick={() => setSidebarTab("historique")}
+                  className="self-center text-[11px] font-semibold text-foreground/40 hover:text-foreground transition-colors cursor-pointer flex items-center gap-1.5 mt-1"
+                >
+                  <History className="w-3 h-3" />
+                  Voir tous les projets ({recentProjects.length})
+                </button>
               </div>
             )}
 
