@@ -11,24 +11,7 @@ import {
   deleteProject,
   clearAllProjects,
 } from "@/lib/projectStorage";
-
-// "il y a 3 h", "hier", "12 mai 2026"
-const formatWhen = (ts: number): string => {
-  const diff = Date.now() - ts;
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "à l'instant";
-  if (min < 60) return `il y a ${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `il y a ${h} h`;
-  const d = Math.floor(h / 24);
-  if (d === 1) return "hier";
-  if (d < 7) return `il y a ${d} j`;
-  return new Date(ts).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-};
+import { formatWhen } from "@/lib/format";
 
 export function HistoryPanel({ onProjectOpen }: { onProjectOpen: () => void }) {
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
