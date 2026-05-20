@@ -31,7 +31,9 @@ import { SettingsPanel } from "@/components/ui/SettingsPanel";
 import { HistoryPanel } from "@/components/ui/HistoryPanel";
 import { SitemapPanel } from "@/components/ui/SitemapPanel";
 import { useProjectPersistence } from "@/lib/useProjectPersistence";
-import { listProjects } from "@/lib/projectStorage";
+import { listProjects, loadProject } from "@/lib/projectStorage";
+import { formatWhen } from "@/lib/format";
+import type { ProjectMeta } from "@/types";
 import { localFontFaceCss } from "@/lib/fontName";
 import { GeneratedContent } from "@/types";
 import { exportFrame, exportAllFrames, exportAllSocialFrames } from "@/lib/exportFrames";
@@ -51,6 +53,7 @@ import {
   Settings,
   History,
   Plus,
+  Globe,
 } from "lucide-react";
 
 /** Wait until all frame IDs exist in the DOM, with a safety timeout */
@@ -99,14 +102,28 @@ export default function Home() {
   const [showOffscreenSocialFrames, setShowOffscreenSocialFrames] = React.useState(false);
   const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu" | "settings" | "historique">("visuels");
 
-  // How many projects are saved — drives the "reprendre un projet" shortcut
-  // on the home screen. Refreshed whenever the home screen is shown.
-  const [historyCount, setHistoryCount] = React.useState(0);
+  // Saved projects — drives the recent-projects shortlist on the home screen.
+  // Refreshed every time the home screen comes back into view.
+  const [recentProjects, setRecentProjects] = React.useState<ProjectMeta[]>([]);
   React.useEffect(() => {
     if (!scrapeResult) {
-      listProjects().then((p) => setHistoryCount(p.length));
+      listProjects().then(setRecentProjects);
     }
   }, [scrapeResult, sidebarTab]);
+
+  const loadProjectData = useDAStore((s) => s.loadProjectData);
+  const handleOpenProject = React.useCallback(
+    async (id: string) => {
+      const project = await loadProject(id);
+      if (project && project.scrapeResult) {
+        loadProjectData(project);
+        setSidebarTab("visuels");
+      } else {
+        toast.error("Projet introuvable.");
+      }
+    },
+    [loadProjectData],
+  );
   const [visualSubTab, setVisualSubTab] = React.useState<"desktop" | "social">("desktop");
 
   // Content generation state — chips/brief/result persisted in store (and IDB).
@@ -544,19 +561,46 @@ export default function Home() {
               <UrlInput onLogs={setScrapeLogs} />
             </div>
 
-            {/* Shortcut to the project history */}
-            {historyCount > 0 && (
-              <button
-                onClick={() => setSidebarTab("historique")}
-                className="group inline-flex items-center gap-2 text-[12px] font-semibold text-foreground/40 hover:text-foreground transition-colors cursor-pointer -mt-4"
+            {/* Recent projects — the 3 most recent, click to reopen. */}
+            {recentProjects.length > 0 && (
+              <div
+                className="w-full max-w-lg flex flex-col gap-2 -mt-4"
                 style={{ animation: "fadeSlideUp 0.5s ease-out 0.32s both" }}
               >
-                <History className="w-3.5 h-3.5" />
-                <span>Reprendre un projet</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-foreground/[0.06] text-foreground/50 group-hover:bg-foreground/10 transition-colors">
-                  {historyCount}
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-foreground/25 px-1">
+                  Projets récents
                 </span>
-              </button>
+                <div className="flex flex-col rounded-xl border border-border bg-card/40 overflow-hidden">
+                  {recentProjects.slice(0, 3).map((p, i, arr) => (
+                    <button
+                      key={p.id}
+                      onClick={() => handleOpenProject(p.id)}
+                      className={`group flex items-center justify-between gap-3 px-3.5 py-2.5 hover:bg-foreground/[0.04] transition-colors cursor-pointer text-left ${
+                        i < arr.length - 1 ? "border-b border-border" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Globe className="w-3.5 h-3.5 shrink-0 text-foreground/30 group-hover:text-foreground/60 transition-colors" />
+                        <span className="text-[12px] font-bold text-foreground/75 group-hover:text-foreground truncate">
+                          {p.domain || "Projet"}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-medium text-foreground/30 shrink-0">
+                        {formatWhen(p.savedAt)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {recentProjects.length > 3 && (
+                  <button
+                    onClick={() => setSidebarTab("historique")}
+                    className="self-center text-[11px] font-semibold text-foreground/40 hover:text-foreground transition-colors cursor-pointer flex items-center gap-1.5 mt-1"
+                  >
+                    <History className="w-3 h-3" />
+                    Voir tout l&apos;historique ({recentProjects.length})
+                  </button>
+                )}
+              </div>
             )}
 
             {error && (
