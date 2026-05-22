@@ -41,7 +41,7 @@ export const SitemapPanel = () => {
         error: err instanceof Error ? err.message : 'Erreur réseau',
       });
     }
-  }, [scrapeResult?.siteUrl, setSitemap]);
+  }, [scrapeResult, setSitemap]);
 
   // Auto-fetch once when we have a site and nothing has been attempted
   React.useEffect(() => {

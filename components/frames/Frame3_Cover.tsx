@@ -3,10 +3,13 @@ import { useDAStore } from "@/store/daStore";
 import { useActiveScreenshots } from "@/lib/useActiveScreenshots";
 
 export const Frame3_Cover = ({ id }: { id?: string }) => {
-  const { scrapeResult, bgColor, agencyLogo, borderRadius } = useDAStore();
+  const { scrapeResult, bgColor, agencyLogo, borderRadius, desktopPadding } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
+
+  // Marge bgColor autour de la fenêtre ; 0 = fenêtre bord à bord.
+  const pad = desktopPadding ? 58 : 0;
 
   return (
     <div
@@ -20,9 +23,9 @@ export const Frame3_Cover = ({ id }: { id?: string }) => {
         height: "1473px",
         background: bgColor,
         borderRadius: `${borderRadius}px`,
-        paddingTop: "58px",
-        paddingLeft: "58px",
-        paddingRight: "58px",
+        paddingTop: `${pad}px`,
+        paddingLeft: `${pad}px`,
+        paddingRight: `${pad}px`,
         paddingBottom: "0",
       }}
     >

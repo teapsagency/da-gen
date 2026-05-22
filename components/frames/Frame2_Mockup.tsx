@@ -3,10 +3,13 @@ import { useDAStore } from "@/store/daStore";
 import { useActiveScreenshots } from "@/lib/useActiveScreenshots";
 
 export const Frame2_Mockup = ({ id }: { id?: string }) => {
-  const { scrapeResult, bgColor, borderRadius } = useDAStore();
+  const { scrapeResult, bgColor, borderRadius, desktopPadding } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
+
+  // Marge bgColor autour des mockups ; 0 = contenu bord à bord.
+  const pad = desktopPadding ? 58 : 0;
 
   // Figma specs:
   // - Frame: 2373×1473, padding 58px, overflow clipped
@@ -32,8 +35,8 @@ export const Frame2_Mockup = ({ id }: { id?: string }) => {
       <div
         style={{
           position: "absolute",
-          left: "58px",
-          top: "58px",
+          left: `${pad}px`,
+          top: `${pad}px`,
           width: "1709px",
           bottom: "0",
           borderRadius: "32px 32px 0 0",
@@ -61,8 +64,8 @@ export const Frame2_Mockup = ({ id }: { id?: string }) => {
       <div
         style={{
           position: "absolute",
-          right: "58px",
-          top: "208px",
+          right: `${pad}px`,
+          top: `${pad + 150}px`,
           width: "718px",
           height: "1562px",
           borderRadius: "32px",

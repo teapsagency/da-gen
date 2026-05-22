@@ -26,6 +26,8 @@ export const useDAStore = create<DAStore>()(
         selectedLogo: p.selectedLogo,
         activePageIndex: p.activePageIndex,
         selectedColors: p.selectedColors ?? [],
+        colorsOrientation: p.colorsOrientation ?? 'horizontal',
+        desktopPadding: p.desktopPadding ?? true,
         fontName: p.fontName ?? '',
         fontUrl: p.fontUrl,
         bgColor: p.bgColor ?? '#f5f5f5',
@@ -80,6 +82,13 @@ export const useDAStore = create<DAStore>()(
             ? [...state.selectedColors, hex]
             : state.selectedColors
       })),
+      setSelectedColors: (colors: string[]) => set({ selectedColors: colors }),
+
+      colorsOrientation: 'horizontal',
+      setColorsOrientation: (orientation) => set({ colorsOrientation: orientation }),
+
+      desktopPadding: true,
+      setDesktopPadding: (enabled) => set({ desktopPadding: enabled }),
 
       bgColor: '#f5f5f5',
       setBgColor: (hex: string) => set({ bgColor: hex }),
@@ -158,6 +167,8 @@ export const useDAStore = create<DAStore>()(
           error: null,
           selectedLogo: '',
           selectedColors: [],
+          colorsOrientation: 'horizontal',
+          desktopPadding: true,
           fontName: '',
           fontUrl: undefined,
           bgColor: '#f5f5f5',

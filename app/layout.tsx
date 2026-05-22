@@ -1,7 +1,6 @@
 "use client";
 
 import "./globals.css";
-import { useEffect, useState } from "react";
 import { useDAStore } from "@/store/daStore";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -10,18 +9,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Zustand's persist middleware rehydrates synchronously on the client, so the
+  // persisted theme is available on the first client render. The server renders
+  // the default ('light'); suppressHydrationWarning silences the attribute diff
+  // on <html> while the client paints the correct theme.
   const theme = useDAStore((state) => state.theme);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   return (
     <html
       lang="fr"
-      data-theme={mounted ? theme : "light"}
-      className={mounted && theme === "dark" ? "dark" : ""}
+      data-theme={theme}
+      className={theme === "dark" ? "dark" : ""}
       suppressHydrationWarning
     >
       <head>

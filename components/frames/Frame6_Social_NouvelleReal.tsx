@@ -41,7 +41,7 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: "52px",
+          gap: "8px",
         }}
       >
         <span
@@ -58,9 +58,8 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
         </span>
         <span
           style={{
-            fontFamily: "'Instrument Serif', serif",
-            fontStyle: "italic",
-            fontWeight: 400,
+            fontFamily: "'Cabinet Grotesk', sans-serif",
+            fontWeight: 700,
             fontSize: "128px",
             color: "#000000",
             lineHeight: 1,

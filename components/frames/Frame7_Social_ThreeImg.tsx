@@ -80,31 +80,33 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
             )}
           </div>
 
-          <span
-            style={{
-              fontFamily: "'Cabinet Grotesk', sans-serif",
-              fontWeight: 700,
-              fontSize: "128px",
-              color: "#111111",
-              lineHeight: 1,
-              whiteSpace: "nowrap",
-            }}
-          >
-            Nouvelle
-          </span>
-          <span
-            style={{
-              fontFamily: "'Instrument Serif', serif",
-              fontStyle: "italic",
-              fontWeight: 400,
-              fontSize: "128px",
-              color: "#000000",
-              lineHeight: 1,
-              whiteSpace: "nowrap",
-            }}
-          >
-            Réalisation
-          </span>
+          {/* Title — same typeface for both words, tightly stacked */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+            <span
+              style={{
+                fontFamily: "'Cabinet Grotesk', sans-serif",
+                fontWeight: 700,
+                fontSize: "128px",
+                color: "#111111",
+                lineHeight: 1,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Nouvelle
+            </span>
+            <span
+              style={{
+                fontFamily: "'Cabinet Grotesk', sans-serif",
+                fontWeight: 700,
+                fontSize: "128px",
+                color: "#111111",
+                lineHeight: 1,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Réalisation
+            </span>
+          </div>
           <span
             style={{
               fontFamily: "'Archivo', sans-serif",
@@ -124,7 +126,7 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
 
         {/* Images row */}
         <div style={{ position: "relative", width: "1642px", height: "493px" }}>
-          {/* Left image — rotated -3deg */}
+          {/* Left image — rotated -3deg, white card frame (no navbar) */}
           <div
             style={{
               position: "absolute",
@@ -133,14 +135,18 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
               width: "662px",
               height: "442px",
               transform: "rotate(-3deg)",
-              borderRadius: "8px",
+              background: "#ffffff",
+              borderRadius: "32px",
               overflow: "hidden",
+              padding: "18px",
+              boxSizing: "border-box",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
             }}
           >
-            <img src={leftImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block" }} />
+            <img src={leftImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block", borderRadius: "8px" }} />
           </div>
 
-          {/* Right image — rotated +3deg */}
+          {/* Right image — rotated +3deg, white card frame (no navbar) */}
           <div
             style={{
               position: "absolute",
@@ -149,11 +155,15 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
               width: "662px",
               height: "442px",
               transform: "rotate(3deg)",
-              borderRadius: "8px",
+              background: "#ffffff",
+              borderRadius: "32px",
               overflow: "hidden",
+              padding: "18px",
+              boxSizing: "border-box",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
             }}
           >
-            <img src={rightImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block" }} />
+            <img src={rightImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block", borderRadius: "8px" }} />
           </div>
 
           {/* Center browser window */}

@@ -71,6 +71,8 @@ export type ProjectSnapshot = {
   selectedLogo: string;
   activePageIndex: number;
   selectedColors: string[];
+  colorsOrientation: 'horizontal' | 'vertical';
+  desktopPadding: boolean;
   fontName: string;
   fontUrl: string | undefined;
   bgColor: string;
@@ -124,6 +126,17 @@ export type DAStore = {
 
   selectedColors: string[];
   toggleColor: (hex: string) => void;
+  setSelectedColors: (colors: string[]) => void;
+
+  // Orientation des bandeaux de l'asset "Couleurs" : horizontal = strips
+  // empilés (flex column), vertical = bandes côte à côte (flex row).
+  colorsOrientation: 'horizontal' | 'vertical';
+  setColorsOrientation: (orientation: 'horizontal' | 'vertical') => void;
+
+  // Marge bgColor autour des visuels desktop (Interface / Couverture).
+  // false = le contenu remplit la frame bord à bord (plus propre sur fond blanc).
+  desktopPadding: boolean;
+  setDesktopPadding: (enabled: boolean) => void;
 
   bgColor: string;
   setBgColor: (hex: string) => void;

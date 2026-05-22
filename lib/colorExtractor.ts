@@ -1,8 +1,6 @@
-// @ts-ignore
 import { Vibrant } from 'node-vibrant/node';
 
 export async function extractColors(screenshotBuffer: Buffer) {
-  // @ts-ignore
   const palette = await Vibrant.from(screenshotBuffer).getPalette();
   return [
     palette.Vibrant,

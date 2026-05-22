@@ -1,32 +1,13 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React from "react";
 import { useDAStore } from "@/store/daStore";
 import { Check } from "lucide-react";
-import { Slider } from "@/components/ui/slider";
 
 export const LogoSelector = () => {
   const {
     scrapeResult,
     selectedLogo,
     setSelectedLogo,
-    logoScale,
-    setLogoScale,
   } = useDAStore();
-  const [localScale, setLocalScale] = useState(logoScale);
-
-  useEffect(() => {
-    setLocalScale(logoScale);
-  }, [logoScale]);
-
-  const handleSliderChange = useCallback((value: number[]) => {
-    setLocalScale(value[0]);
-  }, []);
-
-  const handleSliderCommit = useCallback(
-    (value: number[]) => {
-      setLogoScale(value[0]);
-    },
-    [setLogoScale],
-  );
 
   if (!scrapeResult || scrapeResult.logos.length <= 1) return null;
 
@@ -86,40 +67,6 @@ export const LogoSelector = () => {
             </button>
           );
         })}
-      </div>
-
-      {/* Logo scale slider */}
-      <div className="flex flex-col gap-2 pt-2 border-t border-border">
-        <span className="text-xs font-medium text-foreground/40">
-          Taille du logo
-        </span>
-        <div className="flex items-center gap-2">
-          <Slider
-            value={[localScale]}
-            onValueChange={handleSliderChange}
-            onValueCommit={handleSliderCommit}
-            min={0.3}
-            max={5}
-            step={0.05}
-            className="flex-1"
-          />
-          <div className="flex items-center">
-            <input
-              type="number"
-              value={Math.round(localScale * 100)}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!isNaN(v) && v > 0) {
-                  const clamped = Math.min(v, 1000) / 100;
-                  setLocalScale(clamped);
-                  setLogoScale(clamped);
-                }
-              }}
-              className="w-12 h-7 bg-background border border-border rounded-md px-1.5 text-xs text-right font-medium tabular-nums outline-none focus:border-foreground/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-            <span className="text-[10px] text-foreground/30 font-medium ml-1">%</span>
-          </div>
-        </div>
       </div>
     </div>
   );
