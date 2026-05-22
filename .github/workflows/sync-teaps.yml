@@ -1,0 +1,12 @@
+name: Sync teapsagency fork
+on:
+  push:
+    branches: [main]
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fast-forward le fork de teapsagency
+        env:
+          GH_TOKEN: ${{ secrets.TEAPS_SYNC_TOKEN }}
+        run: gh api -X POST repos/teapsagency/da-gen/merge-upstream -f branch=main
