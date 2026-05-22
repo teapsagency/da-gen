@@ -1,7 +1,8 @@
 import React, { useState, useCallback } from "react";
 import { useDAStore } from "@/store/daStore";
 import { toast } from "sonner";
-import { Pipette, Check, Copy } from "lucide-react";
+import { Pipette, Check, Copy, GripVertical } from "lucide-react";
+import { getTextColor } from "@/lib/contrastUtils";
 
 const PRESET_BG_COLORS = [
   { name: "Sombre", hex: "#111111" },
@@ -10,10 +11,28 @@ const PRESET_BG_COLORS = [
 ];
 
 export const ColorPicker = () => {
-  const { scrapeResult, selectedColors, toggleColor, bgColor, setBgColor } =
+  const { scrapeResult, selectedColors, toggleColor, setSelectedColors, bgColor, setBgColor } =
     useDAStore();
 
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  // Réordonne les couleurs sélectionnées (drag & drop) : l'ordre détermine
+  // celui des bandeaux dans l'asset "Couleurs" et des swatches de l'identité.
+  const handleReorderDrop = (target: number) => {
+    if (dragIndex === null || dragIndex === target) {
+      setDragIndex(null);
+      setOverIndex(null);
+      return;
+    }
+    const next = [...selectedColors];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(target, 0, moved);
+    setSelectedColors(next);
+    setDragIndex(null);
+    setOverIndex(null);
+  };
 
   const handleCopy = useCallback((hex: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -81,6 +100,48 @@ export const ColorPicker = () => {
           {selectedColors.length}/4 sélectionnées
         </span>
       </div>
+
+      {/* Selected colors order — drag to reorder */}
+      {selectedColors.length > 1 && (
+        <div className="flex flex-col gap-2 pt-2 border-t border-border">
+          <span className="text-xs font-medium text-foreground/40">
+            Ordre des couleurs
+          </span>
+          <div className="flex gap-1.5">
+            {selectedColors.map((hex, i) => (
+              <div
+                key={`${hex}-${i}`}
+                draggable
+                onDragStart={() => setDragIndex(i)}
+                onDragEnter={() => setOverIndex(i)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => handleReorderDrop(i)}
+                onDragEnd={() => {
+                  setDragIndex(null);
+                  setOverIndex(null);
+                }}
+                title="Glisser pour réorganiser"
+                className={`flex-1 h-10 rounded-lg border-2 relative cursor-grab active:cursor-grabbing transition-all flex items-center justify-center ${
+                  dragIndex === i
+                    ? "opacity-40 border-foreground"
+                    : overIndex === i
+                      ? "border-foreground"
+                      : "border-transparent"
+                }`}
+                style={{ backgroundColor: hex }}
+              >
+                <GripVertical
+                  className="w-3.5 h-3.5 opacity-50"
+                  style={{ color: getTextColor(hex) }}
+                />
+              </div>
+            ))}
+          </div>
+          <span className="text-[10px] text-foreground/25 font-medium">
+            Glisser les bandeaux pour changer l’ordre
+          </span>
+        </div>
+      )}
 
       {/* Background color */}
       <div className="flex flex-col gap-2 pt-2 border-t border-border">

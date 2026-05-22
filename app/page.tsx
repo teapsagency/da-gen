@@ -16,6 +16,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Frame1_DA } from "@/components/frames/Frame1_DA";
+import { FrameColors } from "@/components/frames/FrameColors";
 import { Frame2_Mockup } from "@/components/frames/Frame2_Mockup";
 import { Frame3_Cover } from "@/components/frames/Frame3_Cover";
 import { Frame4_Social_BrowserFull } from "@/components/frames/Frame4_Social_BrowserFull";
@@ -36,7 +37,7 @@ import { formatWhen } from "@/lib/format";
 import type { ProjectMeta } from "@/types";
 import { localFontFaceCss } from "@/lib/fontName";
 import { GeneratedContent } from "@/types";
-import { exportFrame, exportAllFrames, exportAllSocialFrames } from "@/lib/exportFrames";
+import { exportFrame, exportFullPack } from "@/lib/exportFrames";
 import { toast } from "sonner";
 import {
   Download,
@@ -54,6 +55,8 @@ import {
   History,
   Plus,
   Globe,
+  StretchHorizontal,
+  StretchVertical,
 } from "lucide-react";
 
 /** Wait until all frame IDs exist in the DOM, with a safety timeout */
@@ -98,7 +101,6 @@ export default function Home() {
   useProjectPersistence();
   const [isExportingPack, setIsExportingPack] = React.useState(false);
   const [showOffscreenFrames, setShowOffscreenFrames] = React.useState(false);
-  const [isExportingSocialPack, setIsExportingSocialPack] = React.useState(false);
   const [showOffscreenSocialFrames, setShowOffscreenSocialFrames] = React.useState(false);
   const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu" | "settings" | "historique">("visuels");
 
@@ -124,7 +126,7 @@ export default function Home() {
     },
     [loadProjectData],
   );
-  const [visualSubTab, setVisualSubTab] = React.useState<"desktop" | "social">("desktop");
+  const [visualSubTab, setVisualSubTab] = React.useState<"charte" | "desktop" | "social">("charte");
 
   // Content generation state — chips/brief/result persisted in store (and IDB).
   // Files are kept locally (File objects can't be serialised). Streaming/error/loading
@@ -264,33 +266,23 @@ export default function Home() {
     if (!scrapeResult) return;
     setIsExportingPack(true);
     setShowOffscreenFrames(true);
-    await waitForFrames(["frame-1-da", "frame-2-mockup", "frame-3-cover"]);
+    setShowOffscreenSocialFrames(true);
+    await waitForFrames([
+      "frame-1-da", "frame-colors", "frame-2-mockup", "frame-3-cover",
+      "frame-4-social-browser", "frame-5-social-hero", "frame-6-social-nouvelle", "frame-7-social-three", "frame-8-social-card",
+    ]);
     try {
-      await exportAllFrames(scrapeResult.domain);
+      await exportFullPack(scrapeResult.domain);
       toast.success("Pack téléchargé !");
     } catch {
       toast.error("Erreur lors de l'export");
     } finally {
       setIsExportingPack(false);
       setShowOffscreenFrames(false);
-    }
-  }, [scrapeResult]);
-
-  const handleExportSocialPack = useCallback(async () => {
-    if (!scrapeResult) return;
-    setIsExportingSocialPack(true);
-    setShowOffscreenSocialFrames(true);
-    await waitForFrames(["frame-4-social-browser", "frame-5-social-hero", "frame-6-social-nouvelle", "frame-7-social-three", "frame-8-social-card"]);
-    try {
-      await exportAllSocialFrames(scrapeResult.domain);
-      toast.success("Pack social téléchargé !");
-    } catch {
-      toast.error("Erreur lors de l'export");
-    } finally {
-      setIsExportingSocialPack(false);
       setShowOffscreenSocialFrames(false);
     }
   }, [scrapeResult]);
+
 
   return (
     <main className="min-h-screen transition-colors duration-300 bg-background text-foreground">
@@ -620,6 +612,16 @@ export default function Home() {
           <aside className="fixed left-16 top-0 bottom-0 w-[280px] bg-card border-r border-border overflow-hidden z-50 flex flex-col">
             {/* Project header */}
             <div className="px-4 pt-5 pb-4 border-b border-border shrink-0">
+              {scrapeResult.domain && (
+                <img
+                  src={`https://www.google.com/s2/favicons?domain=${scrapeResult.domain}&sz=64`}
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="w-7 h-7 rounded-md mb-2 border border-border bg-white object-contain"
+                  onError={(e) => { e.currentTarget.style.display = "none"; }}
+                />
+              )}
               <h2 className="text-sm font-bold truncate leading-tight">
                 {scrapeResult.title || "Projet"}
               </h2>
@@ -693,6 +695,7 @@ export default function Home() {
                       </AccordionTrigger>
                       <AccordionContent>
                         <RadiusSelector />
+                        <DesktopPaddingToggle />
                       </AccordionContent>
                     </AccordionItem>
 
@@ -775,6 +778,16 @@ export default function Home() {
                 <div className="max-w-5xl mx-auto mb-12">
                   <div className="flex bg-foreground/[0.04] rounded-lg p-0.5 gap-0.5 w-fit">
                     <button
+                      onClick={() => setVisualSubTab("charte")}
+                      className={`px-4 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
+                        visualSubTab === "charte"
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-foreground/40 hover:text-foreground/60"
+                      }`}
+                    >
+                      Charte Graphique
+                    </button>
+                    <button
                       onClick={() => setVisualSubTab("desktop")}
                       className={`px-4 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
                         visualSubTab === "desktop"
@@ -797,30 +810,25 @@ export default function Home() {
                   </div>
                 </div>
 
-                {visualSubTab === "desktop" && (
+                {visualSubTab === "charte" && (
                   <div className="max-w-5xl mx-auto space-y-32">
-                    <PreviewContainer title="01 / IDENTITÉ" id="frame-1-da">
+                    <PreviewContainer title="01 / IDENTITÉ" id="frame-1-da" actions={<IdentityLogoScaleControl />}>
                       <Frame1_DA />
                     </PreviewContainer>
+                    <PreviewContainer title="02 / COULEURS" id="frame-colors" actions={<ColorsOrientationToggle />}>
+                      <FrameColors />
+                    </PreviewContainer>
+                  </div>
+                )}
+
+                {visualSubTab === "desktop" && (
+                  <div className="max-w-5xl mx-auto space-y-32">
                     <PreviewContainer title="02 / INTERFACE" id="frame-2-mockup">
                       <Frame2_Mockup />
                     </PreviewContainer>
                     <PreviewContainer title="03 / COUVERTURE" id="frame-3-cover">
                       <Frame3_Cover />
                     </PreviewContainer>
-                  </div>
-                )}
-
-                {visualSubTab === "social" && (
-                  <div className="max-w-3xl mx-auto mb-12 flex items-center justify-end">
-                    <button
-                      onClick={handleExportSocialPack}
-                      disabled={isExportingSocialPack}
-                      className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer disabled:opacity-30 transition-all hover:opacity-70 active:scale-[0.97]"
-                    >
-                      {isExportingSocialPack ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-                      {isExportingSocialPack ? "Export..." : "Télécharger le pack social"}
-                    </button>
                   </div>
                 )}
 
@@ -877,6 +885,7 @@ export default function Home() {
       {showOffscreenFrames && (
         <div className="frames-offscreen">
           <Frame1_DA id="frame-1-da" />
+          <FrameColors id="frame-colors" />
           <Frame2_Mockup id="frame-2-mockup" />
           <Frame3_Cover id="frame-3-cover" />
         </div>
@@ -970,6 +979,87 @@ function CardImageUploadButton() {
   );
 }
 
+function DesktopPaddingToggle() {
+  const { desktopPadding, setDesktopPadding } = useDAStore();
+  const options = [
+    { value: true, label: "Avec marge" },
+    { value: false, label: "Sans marge" },
+  ];
+  return (
+    <div className="flex flex-col gap-3 pt-4 mt-4 border-t border-border">
+      <span className="text-xs font-medium text-foreground/40">
+        Marge des visuels desktop
+      </span>
+      <div className="flex gap-1.5">
+        {options.map((opt) => (
+          <button
+            key={String(opt.value)}
+            onClick={() => setDesktopPadding(opt.value)}
+            className={`flex-1 h-8 rounded-lg border text-[11px] font-medium transition-all cursor-pointer ${
+              desktopPadding === opt.value
+                ? "border-foreground bg-foreground/5 text-foreground"
+                : "border-border text-foreground/40 hover:border-foreground/20 hover:text-foreground/70"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <span className="text-[10px] text-foreground/25 font-medium">
+        Concerne Interface &amp; Couverture (utile sur fond blanc)
+      </span>
+    </div>
+  );
+}
+
+function IdentityLogoScaleControl() {
+  const { logoScale, setLogoScale } = useDAStore();
+  return (
+    <div className="flex items-center gap-2 border border-border bg-card px-3 py-1.5 rounded-md">
+      <span className="text-[10px] font-bold text-foreground/40 whitespace-nowrap">Logo</span>
+      <input
+        type="range"
+        min={0.3}
+        max={5}
+        step={0.05}
+        value={logoScale}
+        onChange={(e) => setLogoScale(parseFloat(e.target.value))}
+        className="w-16 h-1 accent-foreground cursor-pointer"
+      />
+    </div>
+  );
+}
+
+function ColorsOrientationToggle() {
+  const { colorsOrientation, setColorsOrientation } = useDAStore();
+
+  const options = [
+    { value: "horizontal" as const, Icon: StretchHorizontal, label: "Bandes horizontales" },
+    { value: "vertical" as const, Icon: StretchVertical, label: "Bandes verticales" },
+  ];
+
+  return (
+    <div className="flex items-center gap-0.5 border border-border bg-card p-0.5 rounded-md">
+      {options.map(({ value, Icon, label }) => (
+        <button
+          key={value}
+          onClick={() => setColorsOrientation(value)}
+          title={label}
+          aria-label={label}
+          aria-pressed={colorsOrientation === value}
+          className={`w-7 h-7 rounded flex items-center justify-center transition-all cursor-pointer ${
+            colorsOrientation === value
+              ? "bg-foreground text-background"
+              : "text-foreground/40 hover:text-foreground/70"
+          }`}
+        >
+          <Icon className="w-3.5 h-3.5" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function PreviewContainer({
   children,
   title,
@@ -1023,6 +1113,7 @@ function PreviewContainer({
   const renderExportFrame = () => {
     switch (id) {
       case "frame-1-da": return <Frame1_DA id="frame-1-da" />;
+      case "frame-colors": return <FrameColors id="frame-colors" />;
       case "frame-2-mockup": return <Frame2_Mockup id="frame-2-mockup" />;
       case "frame-3-cover": return <Frame3_Cover id="frame-3-cover" />;
       case "frame-4-social-browser": return <Frame4_Social_BrowserFull id="frame-4-social-browser" />;

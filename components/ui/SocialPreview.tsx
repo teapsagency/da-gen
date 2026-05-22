@@ -246,7 +246,7 @@ function InstagramPreview({ caption, hashtags, imageUrl, imageContent, agencyLog
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <span className="text-[13px] font-medium" style={{ color: "#8e8e8e" }}>
-              Aperçu de l'image
+              Aperçu de l’image
             </span>
           </div>
         )}
