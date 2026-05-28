@@ -29,7 +29,7 @@ import { ContentChat } from "@/components/ContentChat";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { ChipSelector } from "@/components/ui/ChipSelector";
 import { SettingsPanel } from "@/components/ui/SettingsPanel";
-import { HistoryPanel } from "@/components/ui/HistoryPanel";
+import { HistoryPanel, ProjectFavicon } from "@/components/ui/HistoryPanel";
 import { SitemapPanel } from "@/components/ui/SitemapPanel";
 import { useProjectPersistence } from "@/lib/useProjectPersistence";
 import { listProjects, loadProject } from "@/lib/projectStorage";
@@ -54,7 +54,6 @@ import {
   Settings,
   History,
   Plus,
-  Globe,
   StretchHorizontal,
   StretchVertical,
 } from "lucide-react";
@@ -572,7 +571,7 @@ export default function Home() {
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <Globe className="w-3.5 h-3.5 shrink-0 text-foreground/30 group-hover:text-foreground/60 transition-colors" />
+                        <ProjectFavicon domain={p.domain} />
                         <span className="text-[12px] font-bold text-foreground/75 group-hover:text-foreground truncate">
                           {p.domain || "Projet"}
                         </span>

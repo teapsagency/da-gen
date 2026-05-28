@@ -13,6 +13,29 @@ import {
 } from "@/lib/projectStorage";
 import { formatWhen } from "@/lib/format";
 
+/**
+ * Favicon du site, récupéré via le service Google s2/favicons (cache CDN,
+ * pas d'auth, pas de quota). Fallback sur l'icône Globe en cas d'échec
+ * de chargement (site offline, domaine bizarre, bloqué par adblock…).
+ */
+export function ProjectFavicon({ domain }: { domain: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!domain || failed) {
+    return <Globe className="w-3.5 h-3.5 shrink-0 text-foreground/30" />;
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`}
+      alt=""
+      width={14}
+      height={14}
+      className="w-3.5 h-3.5 shrink-0 rounded-[3px] object-contain"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export function HistoryPanel({ onProjectOpen }: { onProjectOpen: () => void }) {
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +147,7 @@ export function HistoryPanel({ onProjectOpen }: { onProjectOpen: () => void }) {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Globe className="w-3.5 h-3.5 shrink-0 text-foreground/30" />
+                  <ProjectFavicon domain={p.domain} />
                   <span className="text-[13px] font-bold text-foreground truncate">
                     {p.domain || "Projet"}
                   </span>

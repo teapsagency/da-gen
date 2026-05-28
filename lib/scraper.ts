@@ -192,6 +192,17 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
 
+    // Forcer la langue FR : certains sites (ex. captibulle.com) détectent
+    // Accept-Language ou navigator.language côté serveur/JS et redirigent vers /en
+    // si le navigateur ne déclare pas le français. On override les deux.
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.5',
+    });
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'language', { get: () => 'fr-FR' });
+      Object.defineProperty(navigator, 'languages', { get: () => ['fr-FR', 'fr', 'en'] });
+    });
+
     page.on('pageerror', (err: unknown) => log(`PAGE ERROR: ${err instanceof Error ? err.message : String(err)}`));
     page.on('requestfailed', (req) => log(`REQUEST FAILED: ${req.url()} — ${req.failure()?.errorText}`));
     page.on('response', (res) => {
