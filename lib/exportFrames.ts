@@ -22,6 +22,11 @@ export async function captureFrame(
       // Skip font embedding — fonts are already loaded in the page via <link>/<style>
       // This avoids SecurityError when html-to-image tries to read cross-origin cssRules
       skipFonts: true,
+      // Drop any element flagged data-editor-only — overlay boutons, ✕ reset
+      // et inputs cachés du composant EditableImage. Ceinture-et-bretelles :
+      // ils ont déjà opacity:0 hors hover, ce filtre garantit qu'ils ne
+      // peuvent pas se retrouver dans le PNG même si un état hover trainait.
+      filter: (node) => !(node instanceof HTMLElement) || !node.hasAttribute('data-editor-only'),
     });
     return blob;
   } catch (err) {

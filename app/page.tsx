@@ -8,6 +8,7 @@ import { FontSelector } from "@/components/ui/FontSelector";
 import { LogoSelector } from "@/components/ui/LogoSelector";
 import { AgencyLogoUpload } from "@/components/ui/AgencyLogoUpload";
 import { RadiusSelector } from "@/components/ui/RadiusSelector";
+import { EditableValue, percentFormat, percentParse } from "@/components/ui/EditableValue";
 import { PageScreenshots } from "@/components/ui/PageScreenshots";
 import {
   Accordion,
@@ -851,6 +852,7 @@ export default function Home() {
                       nativeWidth={800}
                       nativeHeight={1000}
                       actions={<CardImageUploadButton />}
+                      actionsBelow
                     >
                       <Frame8_Social_CardSite />
                     </PreviewContainer>
@@ -924,57 +926,87 @@ function CardImageUploadButton() {
   };
 
   return (
-    <>
-      {/* Logo scale slider */}
-      <div className="flex items-center gap-2 border border-border bg-card px-3 py-1.5 rounded-md">
-        <span className="text-[10px] font-bold text-foreground/40 whitespace-nowrap">Logo</span>
-        <input
-          type="range"
-          min={0.3}
-          max={2}
-          step={0.05}
-          value={cardLogoScale}
-          onChange={(e) => setCardLogoScale(parseFloat(e.target.value))}
-          className="w-16 h-1 accent-foreground cursor-pointer"
-        />
+    // Wrapper pleine largeur : sliders groupés à gauche, boutons à droite.
+    // Le justify-between sépare les deux groupes aux extrémités de la ligne ;
+    // flex-wrap laisse passer sur deux lignes si le viewport est étroit.
+    <div className="flex items-center justify-between gap-2 w-full flex-wrap">
+      {/* Groupe sliders */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Logo scale slider */}
+        <div className="flex items-center gap-2 border border-border bg-card px-3 py-1.5 rounded-md">
+          <span className="text-[10px] font-bold text-foreground/40 whitespace-nowrap">Logo</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={Math.min(1, cardLogoScale)}
+            onChange={(e) => setCardLogoScale(parseFloat(e.target.value))}
+            className="w-32 h-1 accent-foreground cursor-pointer"
+          />
+          <EditableValue
+            value={cardLogoScale}
+            min={0}
+            max={1}
+            step={0.01}
+            onChange={setCardLogoScale}
+            format={percentFormat}
+            parse={percentParse}
+            inputWidth={42}
+          />
+        </div>
+        {/* Background image opacity slider */}
+        <div className="flex items-center gap-2 border border-border bg-card px-3 py-1.5 rounded-md">
+          <span className="text-[10px] font-bold text-foreground/40 whitespace-nowrap">Opacité</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={cardImageOpacity}
+            onChange={(e) => setCardImageOpacity(parseFloat(e.target.value))}
+            className="w-32 h-1 accent-foreground cursor-pointer"
+          />
+          <EditableValue
+            value={cardImageOpacity}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={setCardImageOpacity}
+            format={percentFormat}
+            parse={percentParse}
+            inputWidth={42}
+          />
+        </div>
       </div>
-      {/* Background image opacity slider */}
-      <div className="flex items-center gap-2 border border-border bg-card px-3 py-1.5 rounded-md">
-        <span className="text-[10px] font-bold text-foreground/40 whitespace-nowrap">Opacité</span>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.05}
-          value={cardImageOpacity}
-          onChange={(e) => setCardImageOpacity(parseFloat(e.target.value))}
-          className="w-16 h-1 accent-foreground cursor-pointer"
-        />
-      </div>
-      {cardImage && (
+
+      {/* Groupe boutons */}
+      <div className="flex items-center gap-2">
+        {cardImage && (
+          <button
+            onClick={() => setCardImage(null)}
+            className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer transition-all hover:opacity-70 active:scale-[0.97] text-red-500/60 hover:text-red-500"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span>Reset</span>
+          </button>
+        )}
         <button
-          onClick={() => setCardImage(null)}
-          className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer transition-all hover:opacity-70 active:scale-[0.97] text-red-500/60 hover:text-red-500"
+          onClick={() => inputRef.current?.click()}
+          className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer transition-all hover:opacity-70 active:scale-[0.97]"
         >
-          <RotateCcw className="w-3 h-3" />
-          <span>Reset</span>
+          <ImageUp className="w-3 h-3" />
+          <span>Image de fond</span>
         </button>
-      )}
-      <button
-        onClick={() => inputRef.current?.click()}
-        className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer transition-all hover:opacity-70 active:scale-[0.97]"
-      >
-        <ImageUp className="w-3 h-3" />
-        <span>Image</span>
-      </button>
-      <input
-        ref={inputRef}
-        type="file"
-        className="hidden"
-        accept="image/*"
-        onChange={handleFile}
-      />
-    </>
+        <input
+          ref={inputRef}
+          type="file"
+          className="hidden"
+          accept="image/*"
+          onChange={handleFile}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -1018,12 +1050,22 @@ function IdentityLogoScaleControl() {
       <span className="text-[10px] font-bold text-foreground/40 whitespace-nowrap">Logo</span>
       <input
         type="range"
-        min={0.3}
-        max={5}
-        step={0.05}
-        value={logoScale}
+        min={0}
+        max={1}
+        step={0.01}
+        value={Math.min(1, logoScale)}
         onChange={(e) => setLogoScale(parseFloat(e.target.value))}
-        className="w-16 h-1 accent-foreground cursor-pointer"
+        className="w-24 h-1 accent-foreground cursor-pointer"
+      />
+      <EditableValue
+        value={logoScale}
+        min={0}
+        max={1}
+        step={0.01}
+        onChange={setLogoScale}
+        format={percentFormat}
+        parse={percentParse}
+        inputWidth={42}
       />
     </div>
   );
@@ -1066,6 +1108,7 @@ function PreviewContainer({
   nativeWidth = 2373,
   nativeHeight = 1473,
   actions,
+  actionsBelow = false,
 }: {
   children: React.ReactNode;
   title: string;
@@ -1073,6 +1116,13 @@ function PreviewContainer({
   nativeWidth?: number;
   nativeHeight?: number;
   actions?: React.ReactNode;
+  /**
+   * When true, the `actions` slot is moved to a dedicated row below the
+   * title (export button stays inline). Useful for frames that need a lot
+   * of controls (Frame8 with two sliders + reset + upload) and would
+   * otherwise cram the title row.
+   */
+  actionsBelow?: boolean;
 }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [scale, setScale] = React.useState(0.2);
@@ -1126,21 +1176,31 @@ function PreviewContainer({
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-700">
-      <div className="flex items-center justify-between px-2">
-        <span className="text-[11px] font-bold text-foreground tracking-widest uppercase opacity-20">
-          {title}
-        </span>
-        <div className="flex items-center gap-2">
-          {actions}
-          <button
-            onClick={handleExport}
-            disabled={isExporting}
-            className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer disabled:opacity-30 transition-all hover:opacity-70 active:scale-[0.97]"
-          >
-            {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-            <span>{isExporting ? "Export..." : "Export PNG"}</span>
-          </button>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between px-2">
+          <span className="text-[11px] font-bold text-foreground tracking-widest uppercase opacity-20">
+            {title}
+          </span>
+          <div className="flex items-center gap-2">
+            {!actionsBelow && actions}
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer disabled:opacity-30 transition-all hover:opacity-70 active:scale-[0.97]"
+            >
+              {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+              <span>{isExporting ? "Export..." : "Export PNG"}</span>
+            </button>
+          </div>
         </div>
+        {actionsBelow && actions && (
+          // Donne aux contrôles toute la largeur de la ligne pour respirer ;
+          // flex-wrap pour qu'un viewport étroit fasse passer en plusieurs lignes
+          // sans casser le layout.
+          <div className="flex items-center justify-end gap-2 px-2 flex-wrap">
+            {actions}
+          </div>
+        )}
       </div>
       <div
         ref={containerRef}

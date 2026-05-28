@@ -2,8 +2,10 @@ import React from "react";
 import { useDAStore } from "@/store/daStore";
 import { useActiveScreenshots } from "@/lib/useActiveScreenshots";
 import { getTextColor } from "@/lib/contrastUtils";
+import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame1_DA = ({ id }: { id?: string }) => {
+  const editable = !id;
   const {
     scrapeResult,
     selectedLogo,
@@ -183,9 +185,11 @@ export const Frame1_DA = ({ id }: { id?: string }) => {
             overflow: "hidden",
           }}
         >
-          <img
+          <EditableImage
+            slotKey="frame-1-da__preview"
             src={activeScreenshots.desktop}
             alt="Desktop preview"
+            editable={editable}
             style={{
               width: "100%",
               height: "100%",

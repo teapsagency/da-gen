@@ -2,6 +2,7 @@ import React from "react";
 import { useDAStore } from "@/store/daStore";
 import { useActiveScreenshots } from "@/lib/useActiveScreenshots";
 import { BrowserNavBar } from "./BrowserNavBar";
+import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
   const { scrapeResult, agencyLogo } = useDAStore();
@@ -9,6 +10,7 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
 
   if (!scrapeResult || !activeScreenshots) return null;
 
+  const editable = !id;
   const domain = scrapeResult.domain.replace(/^www\./, "");
 
   return (
@@ -92,9 +94,11 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
 
         {/* Screenshot with progressive fade */}
         <div style={{ flex: 1, minHeight: 0, overflow: "hidden", position: "relative", borderRadius: "8px" }}>
-          <img
+          <EditableImage
+            slotKey="frame-6-social-nouvelle__main"
             src={activeScreenshots.desktop}
             alt=""
+            editable={editable}
             style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block", borderRadius: "8px" }}
           />
           <div

@@ -2,14 +2,20 @@ import React from "react";
 import { useDAStore } from "@/store/daStore";
 import { useActiveScreenshots } from "@/lib/useActiveScreenshots";
 import { BrowserNavBar } from "./BrowserNavBar";
+import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame4_Social_BrowserFull = ({ id }: { id?: string }) => {
-  const { scrapeResult, agencyLogo } = useDAStore();
+  const { scrapeResult, agencyLogo, customScreenshots } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
 
+  const editable = !id;
   const domain = scrapeResult.domain.replace(/^www\./, "");
+  // Le bg flouté reflète la même image que la fenêtre : on lit l'override
+  // pour les deux instances, mais on ne pose l'affordance d'édition que
+  // sur celle de la fenêtre (plus claire visuellement à survoler).
+  const screenSrc = customScreenshots["frame-4-social-browser__main"] || activeScreenshots.desktopFull;
 
   return (
     <div
@@ -33,7 +39,7 @@ export const Frame4_Social_BrowserFull = ({ id }: { id?: string }) => {
         }}
       >
         <img
-          src={activeScreenshots.desktopFull}
+          src={screenSrc}
           alt=""
           style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block" }}
         />
@@ -62,9 +68,11 @@ export const Frame4_Social_BrowserFull = ({ id }: { id?: string }) => {
 
         {/* Screenshot */}
         <div style={{ flex: 1, minHeight: 0, width: "100%", overflow: "hidden", borderRadius: "8px 8px 0 0" }}>
-          <img
+          <EditableImage
+            slotKey="frame-4-social-browser__main"
             src={activeScreenshots.desktopFull}
             alt="Screenshot"
+            editable={editable}
             style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block" }}
           />
         </div>

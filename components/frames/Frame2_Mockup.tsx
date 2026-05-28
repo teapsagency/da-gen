@@ -1,8 +1,13 @@
 import React from "react";
 import { useDAStore } from "@/store/daStore";
 import { useActiveScreenshots } from "@/lib/useActiveScreenshots";
+import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame2_Mockup = ({ id }: { id?: string }) => {
+  // L'instance "offscreen" (passée avec un id) sert au capture export :
+  // on désactive le hover/upload pour qu'aucune affordance d'édition ne
+  // puisse être capturée dans le PNG.
+  const editable = !id;
   const { scrapeResult, bgColor, borderRadius, desktopPadding } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
@@ -47,9 +52,11 @@ export const Frame2_Mockup = ({ id }: { id?: string }) => {
           background: "#FFFFFF",
         }}
       >
-        <img
+        <EditableImage
+          slotKey="frame-2-mockup__desktop"
           src={activeScreenshots.desktopFull}
           alt="Desktop full"
+          editable={editable}
           style={{
             width: "100%",
             height: "100%",
@@ -76,9 +83,11 @@ export const Frame2_Mockup = ({ id }: { id?: string }) => {
           zIndex: 2,
         }}
       >
-        <img
+        <EditableImage
+          slotKey="frame-2-mockup__mobile"
           src={activeScreenshots.mobile}
           alt="Mobile preview"
+          editable={editable}
           style={{
             width: "100%",
             height: "100%",

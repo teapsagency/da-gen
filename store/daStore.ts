@@ -45,6 +45,8 @@ export const useDAStore = create<DAStore>()(
         generatedContent: p.generatedContent ?? null,
         contentChips: p.contentChips ?? [],
         contentBrief: p.contentBrief ?? '',
+        customScreenshots: p.customScreenshots ?? {},
+        customLogos: p.customLogos ?? [],
         activeProjectId: p.id,
       }),
 
@@ -65,6 +67,9 @@ export const useDAStore = create<DAStore>()(
         sitemapSource: null,
         sitemapStatus: 'idle',
         sitemapError: null,
+        // Nouveau scrape → on repart sur les screenshots officiels.
+        customScreenshots: {},
+        customLogos: [],
       }),
 
       selectedLogo: '',
@@ -135,6 +140,32 @@ export const useDAStore = create<DAStore>()(
       cardImageOpacity: 0.5,
       setCardImageOpacity: (opacity: number) => set({ cardImageOpacity: opacity }),
 
+      customScreenshots: {},
+      setCustomScreenshot: (slotKey: string, dataUrl: string | null) => set((state) => {
+        const next = { ...state.customScreenshots };
+        if (dataUrl) {
+          next[slotKey] = dataUrl;
+        } else {
+          delete next[slotKey];
+        }
+        return { customScreenshots: next };
+      }),
+      clearCustomScreenshots: () => set({ customScreenshots: {} }),
+
+      customLogos: [],
+      addCustomLogo: (dataUrl: string) => set((state) =>
+        state.customLogos.includes(dataUrl)
+          ? state
+          : { customLogos: [...state.customLogos, dataUrl] }
+      ),
+      removeCustomLogo: (dataUrl: string) => set((state) => ({
+        customLogos: state.customLogos.filter((l) => l !== dataUrl),
+        // If the removed logo was selected, fall back to the first scraped one.
+        selectedLogo: state.selectedLogo === dataUrl
+          ? (state.scrapeResult?.logos[0] ?? '')
+          : state.selectedLogo,
+      })),
+
       screenshotDelay: 2000,
       setScreenshotDelay: (delay: number) => set({ screenshotDelay: delay }),
 
@@ -186,6 +217,8 @@ export const useDAStore = create<DAStore>()(
           generatedContent: null,
           contentChips: [],
           contentBrief: '',
+          customScreenshots: {},
+          customLogos: [],
         });
       },
 

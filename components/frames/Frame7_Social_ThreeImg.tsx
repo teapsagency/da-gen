@@ -2,6 +2,7 @@ import React from "react";
 import { useDAStore } from "@/store/daStore";
 import { useActiveScreenshots } from "@/lib/useActiveScreenshots";
 import { BrowserNavBar } from "./BrowserNavBar";
+import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
   const { scrapeResult, bgColor, agencyLogo } = useDAStore();
@@ -9,6 +10,7 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
 
   if (!scrapeResult || !activeScreenshots) return null;
 
+  const editable = !id;
   const domain = scrapeResult.domain.replace(/^www\./, "");
   // Just the site name without extension
   const siteName = domain.replace(/\.[^.]+$/, "");
@@ -143,7 +145,13 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
               boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
             }}
           >
-            <img src={leftImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block", borderRadius: "8px" }} />
+            <EditableImage
+              slotKey="frame-7-social-three__left"
+              src={leftImage}
+              alt=""
+              editable={editable}
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block", borderRadius: "8px" }}
+            />
           </div>
 
           {/* Right image — rotated +3deg, white card frame (no navbar) */}
@@ -163,7 +171,13 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
               boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
             }}
           >
-            <img src={rightImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block", borderRadius: "8px" }} />
+            <EditableImage
+              slotKey="frame-7-social-three__right"
+              src={rightImage}
+              alt=""
+              editable={editable}
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block", borderRadius: "8px" }}
+            />
           </div>
 
           {/* Center browser window */}
@@ -189,9 +203,11 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
             <BrowserNavBar domain={domain} agencyLogo={agencyLogo} dotSize={12} />
 
             <div style={{ flex: 1, minHeight: 0, overflow: "hidden", borderRadius: "8px" }}>
-              <img
+              <EditableImage
+                slotKey="frame-7-social-three__center"
                 src={centerImage}
                 alt="Screenshot"
+                editable={editable}
                 style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block" }}
               />
             </div>

@@ -1,8 +1,10 @@
 import React from "react";
 import { useDAStore } from "@/store/daStore";
 import { useActiveScreenshots } from "@/lib/useActiveScreenshots";
+import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame3_Cover = ({ id }: { id?: string }) => {
+  const editable = !id;
   const { scrapeResult, bgColor, agencyLogo, borderRadius, desktopPadding } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
@@ -177,9 +179,11 @@ export const Frame3_Cover = ({ id }: { id?: string }) => {
             borderTopRightRadius: "16px",
           }}
         >
-          <img
+          <EditableImage
+            slotKey="frame-3-cover__hero"
             src={activeScreenshots.desktop}
             alt="Desktop hero"
+            editable={editable}
             style={{
               width: "100%",
               height: "100%",

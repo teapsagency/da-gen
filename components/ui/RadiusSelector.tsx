@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useDAStore } from "@/store/daStore";
 import { Slider } from "@/components/ui/slider";
+import { EditableValue, pxFormat, pxParse } from "@/components/ui/EditableValue";
 
 const PRESETS = [
   { label: "Aucun", value: 0 },
@@ -36,9 +37,18 @@ export const RadiusSelector = () => {
         <span className="text-xs font-medium text-foreground/40">
           Arrondi des coins
         </span>
-        <span className="text-xs font-medium text-foreground/60 tabular-nums">
-          {localRadius}px
-        </span>
+        <EditableValue
+          value={localRadius}
+          min={0}
+          max={80}
+          step={1}
+          onChange={(v) => {
+            setLocalRadius(v);
+            setBorderRadius(v);
+          }}
+          format={pxFormat}
+          parse={pxParse}
+        />
       </div>
 
       {/* Slider — commits only on release to avoid lag */}

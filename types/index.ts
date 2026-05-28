@@ -90,6 +90,11 @@ export type ProjectSnapshot = {
   generatedContent: GeneratedContent | null;
   contentChips: string[];
   contentBrief: string;
+  // Custom screenshots that override the scraped ones per frame slot.
+  // Key = stable slot id (e.g. "frame-2-mockup__desktop"), value = data URL.
+  customScreenshots: Record<string, string>;
+  // User-uploaded logos, persisted with the project.
+  customLogos: string[];
 };
 
 // A persisted project with its identity & timestamp.
@@ -170,6 +175,17 @@ export type DAStore = {
 
   cardImageOpacity: number;
   setCardImageOpacity: (opacity: number) => void;
+
+  // Per-frame screenshot overrides. setCustomScreenshot(key, null) removes
+  // the override and falls back to the scraped image.
+  customScreenshots: Record<string, string>;
+  setCustomScreenshot: (slotKey: string, dataUrl: string | null) => void;
+  clearCustomScreenshots: () => void;
+
+  // User-uploaded logos that show up alongside the scraped ones.
+  customLogos: string[];
+  addCustomLogo: (dataUrl: string) => void;
+  removeCustomLogo: (dataUrl: string) => void;
 
   screenshotDelay: number;
   setScreenshotDelay: (delay: number) => void;
