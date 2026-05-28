@@ -22,6 +22,10 @@ async function dismissPopups(page: Page) {
       '.consent-accept', '#consent-accept',
       '[class*="cookie" i] button', '[id*="cookie" i] button',
       '[class*="consent" i] button', '[id*="consent" i] button', '[class*="gdpr" i] button',
+      // CookieYes (SaaS) — boutons accepter / fermer
+      '.cky-btn-accept', '[data-cky-tag="accept-button"]', '.cky-btn-close',
+      // CookieYes plugin WordPress (ancienne version)
+      '#cookie_action_close_header', '#cookie_action_close_header_reject', '.cli_action_button',
     ];
     for (const sel of selectors) {
       const btn = document.querySelector(sel) as HTMLElement | null;
@@ -86,12 +90,89 @@ async function dismissPopups(page: Page) {
       '[class*="wheelio" i]', '[id*="wheelio" i]',
       '[class*="spin-a-sale" i]', '[id*="spin-a-sale" i]',
       'shopify-forms-embed',
+      // CookieYes (SaaS) — overlay, conteneur, modal préférences, bouton revisit
+      '[class*="cky-" i]', '[id*="cky-" i]', '[data-cky-tag]',
+      '.cky-consent-container', '.cky-overlay', '.cky-modal', '.cky-btn-revisit-wrapper',
+      '.cky-consent-bar', '.cky-preference-center',
+      // CookieYes plugin WordPress (préfixe cli-/cookie-law)
+      '#cookie-law-info-bar', '#cookie-law-info-again', '.cli-modal-backdrop',
+      '.cli-bar-container', '[class*="cli-" i][class*="bar" i]',
     ];
     const style = document.createElement('style');
     style.innerHTML = overlaySelectors.map(s => `${s} { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }`).join('\n');
     document.head.appendChild(style);
   });
   await new Promise(resolve => setTimeout(resolve, 500));
+}
+
+/**
+ * Inject a color emoji font so Chromium headless (Linux server) can render
+ * emojis instead of showing tofu rectangles. macOS/Windows ship Apple Color
+ * Emoji / Segoe UI Emoji, but Linux/Docker rarely does — we ship Noto Color
+ * Emoji via Google Fonts (the only emoji font legally distributable on the
+ * web; Apple does not license its emoji set). Only elements that actually
+ * contain emoji glyphs get the fallback appended, so the site's typography
+ * stays intact.
+ */
+async function injectEmojiFont(page: Page) {
+  await page.evaluate(() => {
+    const fontUrl = 'https://fonts.gstatic.com/s/notocoloremoji/v39/Yq6P-KqIXTD0t4D9z1ESnKM3-HpFab4.ttf';
+    // 1) @font-face declaration. We declare it under multiple aliases so that
+    //    sites listing 'Apple Color Emoji' / 'Segoe UI Emoji' / 'Twemoji' /
+    //    etc. in their font-family stack resolve to Noto Color Emoji on the
+    //    server. `local()` first → real Apple/Noto if installed (dev macOS).
+    const style = document.createElement('style');
+    style.setAttribute('data-da-gen-emoji', '');
+    style.textContent = `
+      @font-face {
+        font-family: 'Apple Color Emoji';
+        src: local('Apple Color Emoji'), local('Noto Color Emoji'), url('${fontUrl}') format('truetype');
+        font-display: block;
+      }
+      @font-face {
+        font-family: 'Segoe UI Emoji';
+        src: local('Apple Color Emoji'), local('Segoe UI Emoji'), local('Noto Color Emoji'), url('${fontUrl}') format('truetype');
+        font-display: block;
+      }
+      @font-face {
+        font-family: 'Noto Color Emoji';
+        src: local('Apple Color Emoji'), local('Noto Color Emoji'), url('${fontUrl}') format('truetype');
+        font-display: block;
+      }
+      @font-face {
+        font-family: 'Twemoji Mozilla';
+        src: local('Apple Color Emoji'), local('Noto Color Emoji'), url('${fontUrl}') format('truetype');
+        font-display: block;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // 2) For elements containing emoji glyphs that don't already mention an
+    //    emoji font in their font-family stack, append the fallback inline.
+    //    We walk text nodes so we only touch the elements that actually need
+    //    it (cheap on small sites, bounded on big ones).
+    const emojiRegex = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F0FF}\u{1F100}-\u{1F2FF}\u{2300}-\u{23FF}\u{2B00}-\u{2BFF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}]/u;
+    const fallback = ', "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"';
+    const seen = new WeakSet<Element>();
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+      if (!node.textContent || !emojiRegex.test(node.textContent)) continue;
+      let el: Element | null = node.parentElement;
+      // Apply on the nearest block-level ancestor (or the parent) — enough
+      // for inheritance, no need to walk all the way up.
+      if (el && !seen.has(el) && el instanceof HTMLElement) {
+        seen.add(el);
+        const current = window.getComputedStyle(el).fontFamily || '';
+        if (!/emoji/i.test(current)) {
+          el.style.fontFamily = current + fallback;
+        }
+      }
+    }
+  });
+  // Give the font a beat to actually load before we screenshot.
+  await page.evaluate(() => (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts?.ready).catch(() => {});
+  await new Promise(resolve => setTimeout(resolve, 300));
 }
 
 /** Take desktop (viewport), desktop full page, scroll-position captures, and mobile screenshots */
@@ -168,6 +249,7 @@ async function navigateAndCapture(page: Page, pageUrl: string, delay: number) {
   await page.waitForNetworkIdle({ idleTime: 1000, timeout: 8000 }).catch(() => {});
   await new Promise(resolve => setTimeout(resolve, Math.min(delay, 3000)));
   await dismissPopups(page);
+  await injectEmojiFont(page);
   return captureScreenshots(page);
 }
 
@@ -185,7 +267,14 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
     browser = await puppeteer.launch({
       defaultViewport: { width: 1920, height: 1080 },
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        // Lisse le rendu texte en headless Linux et évite quelques artefacts
+        // de subpixel autour des glyphes (utile aussi pour les emojis).
+        '--font-render-hinting=none',
+      ],
     });
     log('Browser launched');
 
@@ -247,6 +336,9 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
 
     await dismissPopups(page);
     log('Popups dismissed');
+
+    await injectEmojiFont(page);
+    log('Emoji font injected');
 
     const title = await page.title();
     const domain = new URL(url).hostname;
