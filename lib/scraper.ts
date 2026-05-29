@@ -256,21 +256,19 @@ async function injectEmojiFont(page: Page) {
 }
 
 /**
- * Déclenche le contenu différé avant les captures : images en lazy-load et
- * animations "reveal on scroll" (IntersectionObserver, Elementor, AOS…) qui
- * laissent les sections vides tant qu'on n'a pas scrollé. Sinon la capture
- * fullpage (et celles à mi-hauteur) montre des cadres blancs / sections vides.
- * On force la visibilité + neutralise les durées d'animation, on déroule toute
- * la page (déclenche observers + chargement des images), on attend que les
- * images finissent (borné), puis on remonte en haut.
+ * Stabilise la page pour des captures déterministes : rend visibles les sections
+ * masquées par des reveals (Elementor/AOS/wow), rend animations et transitions
+ * quasi-instantanées, et force `scroll-behavior: auto` pour que nos scrollTo
+ * soient immédiats. Certains sites ont `scroll-behavior: smooth`, ce qui anime
+ * le retour en haut et fige le hero plus bas au moment de la capture. Idempotent.
  */
-async function revealLazyContent(page: Page) {
-  // 1) Stabilisation : sections masquées rendues visibles, animations instantanées.
+async function stabilizePage(page: Page) {
   await page.evaluate(() => {
     if (document.querySelector('style[data-da-gen-reveal]')) return;
     const style = document.createElement('style');
     style.setAttribute('data-da-gen-reveal', '');
     style.textContent = `
+      html, body { scroll-behavior: auto !important; }
       .elementor-invisible { visibility: visible !important; opacity: 1 !important; }
       [data-aos], .wow { opacity: 1 !important; transform: none !important; visibility: visible !important; }
       *, *::before, *::after {
@@ -280,8 +278,20 @@ async function revealLazyContent(page: Page) {
     `;
     document.head.appendChild(style);
   });
+}
 
-  // 2) Déroulé complet : déclenche les IntersectionObservers et le chargement
+/**
+ * Déclenche le contenu différé pour les captures BAS de page : images en
+ * lazy-load et animations "reveal on scroll" (IntersectionObserver, Elementor,
+ * AOS…) qui laissent les sections vides tant qu'on n'a pas scrollé. On stabilise,
+ * on déroule toute la page (déclenche observers + chargement des images), on
+ * attend que les images finissent (borné), puis on remonte en haut. NB : la
+ * capture hero se fait AVANT ce déroulé (cf. captureScreenshots).
+ */
+async function revealLazyContent(page: Page) {
+  await stabilizePage(page);
+
+  // Déroulé complet : déclenche les IntersectionObservers et le chargement
   //    des images lazy. Hauteur recalculée à chaque pas (le contenu grandit),
   //    nombre d'itérations plafonné.
   await page.evaluate(async () => {
@@ -336,11 +346,18 @@ async function captureScreenshots(page: Page, zoom: number = 1) {
 
   // Desktop viewport (hero / top of page)
   await page.setViewport({ width: deskW, height: deskH, deviceScaleFactor: 1.5 * z });
-  // Charge le lazy-load + déclenche les reveals au scroll (sinon sections vides).
-  // Les images chargées persistent pour les captures au même viewport desktop
-  // (mid/lower) ; le mobile re-déroule (viewport différent → cf. plus bas).
-  await revealLazyContent(page);
+  // Hero capturé AVANT tout déroulé : on stabilise (anims instantanées, visibilité,
+  // scroll-behavior auto) puis on shoote au vrai sommet de page. Sinon, sur les
+  // sites où le retour en haut après un scroll programmatique n'est pas immédiat,
+  // le hero serait figé plus bas — c'est cette capture viewport qu'utilisent les
+  // frames Cover / HeroSimple / etc.
+  await stabilizePage(page);
+  await new Promise((resolve) => setTimeout(resolve, 200));
   const desktopBuf = Buffer.from(await page.screenshot(JPEG));
+
+  // Déroule ensuite pour charger le lazy-load + déclencher les reveals (utile aux
+  // captures fullpage/mid/lower) ; les images chargées persistent pour la suite.
+  await revealLazyContent(page);
 
   // Desktop full page (cap body height to avoid memory issues)
   await page.evaluate(() => {
@@ -616,7 +633,10 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
     const extractedFonts = await page.evaluate(() => {
       const fonts = new Map<string, number>();
       const iconKeywords = ['icon', 'symbol', 'remix', 'lucide', 'awesome', 'fontello', 'glyph', 'material'];
-      const systemFonts = ['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-sans-serif', 'ui-serif', 'ui-monospace', '-apple-system', 'blinkmacsystemfont', 'segoe ui', 'roboto', 'helvetica', 'arial', 'times new roman', 'times', 'courier new', 'courier', 'inherit', 'initial', 'unset'];
+      const systemFonts = ['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-sans-serif', 'ui-serif', 'ui-monospace', '-apple-system', 'blinkmacsystemfont', 'segoe ui', 'roboto', 'helvetica', 'arial', 'times new roman', 'times', 'courier new', 'courier', 'inherit', 'initial', 'unset',
+        // Polices emoji — dont 'dagenemoji', notre police injectée pour le rendu
+        // des emojis : ne jamais les détecter comme polices du site.
+        'dagenemoji', 'apple color emoji', 'segoe ui emoji', 'noto color emoji', 'twemoji mozilla'];
 
       document.querySelectorAll('h1, h2, h3, h4, p, span, button, a, li, div').forEach(el => {
         const style = window.getComputedStyle(el);
@@ -646,8 +666,24 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
         }
       } catch { /* no access */ }
 
+      // Police dominante des titres (h1-h3) vs corps (p/li) → classement
+      // Titre/Texte. Même filtrage icônes/polices système que ci-dessus.
+      const tally = (selector: string): string => {
+        const counts = new Map<string, number>();
+        document.querySelectorAll(selector).forEach(el => {
+          const fam = window.getComputedStyle(el).fontFamily.split(',')[0].replace(/['"]/g, '').trim();
+          if (!fam) return;
+          const lower = fam.toLowerCase();
+          if (iconKeywords.some(kw => lower.includes(kw)) || systemFonts.includes(lower)) return;
+          counts.set(fam, (counts.get(fam) || 0) + 1);
+        });
+        return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).map(([n]) => n)[0] || '';
+      };
+      const headingFamily = tally('h1, h2, h3');
+      const bodyFamily = tally('p, li');
+
       const sorted = Array.from(fonts.entries()).sort((a, b) => b[1] - a[1]).map(([name]) => name);
-      return { fontNames: sorted.slice(0, 10), fontFaceMap };
+      return { fontNames: sorted.slice(0, 10), fontFaceMap, headingFamily, bodyFamily };
     });
 
     const siteBgColor = await page.evaluate(() => {
@@ -704,7 +740,18 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
       return true;
     });
 
-    const primaryFont = fontsWithUrls[0];
+    // Classement Titre/Texte : on retrouve, parmi les polices détectées, celle
+    // dominante sur les titres et celle dominante sur le corps de texte.
+    const findFont = (raw: string) => {
+      const n = cleanFontName(raw || '');
+      return n ? fontsWithUrls.find(f => f.name.toLowerCase() === n.toLowerCase()) : undefined;
+    };
+    const headingFontObj = findFont(extractedFonts.headingFamily);
+    const bodyFontObj = findFont(extractedFonts.bodyFamily);
+
+    // Police active par défaut = celle des titres (souvent la police de marque,
+    // plus pertinente pour une DA) ; sinon la plus fréquente.
+    const primaryFont = headingFontObj || fontsWithUrls[0];
 
     log('Main page extraction complete');
 
@@ -736,6 +783,8 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
       colors: finalColors,
       siteBgColor,
       fonts: fontsWithUrls,
+      headingFont: headingFontObj?.name,
+      bodyFont: bodyFontObj?.name,
       font: primaryFont ? {
         name: primaryFont.name,
         url: primaryFont.url,

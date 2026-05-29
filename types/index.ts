@@ -26,6 +26,11 @@ export type ScrapeResult = {
     url?: string;
     isGoogleFont: boolean;
   };
+  // Polices dominantes détectées sur les titres (h1-h3) et le corps (p/li),
+  // pour le classement Titre/Texte dans le panneau Typographie. Référencent par
+  // nom une entrée de `fonts`. Absentes sur d'anciens projets.
+  headingFont?: string;
+  bodyFont?: string;
   screenshots: {
     desktop: string;
     desktopFull: string;

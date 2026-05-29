@@ -33,6 +33,7 @@ import { SettingsPanel } from "@/components/ui/SettingsPanel";
 import { HistoryPanel, ProjectFavicon } from "@/components/ui/HistoryPanel";
 import { SitemapPanel } from "@/components/ui/SitemapPanel";
 import { useProjectPersistence } from "@/lib/useProjectPersistence";
+import { useFontLoader } from "@/lib/useFontLoader";
 import { listProjects, loadProject } from "@/lib/projectStorage";
 import { formatWhen } from "@/lib/format";
 import type { ProjectMeta } from "@/types";
@@ -99,6 +100,8 @@ export default function Home() {
   // Persist project (scrapeResult, screenshots, customizations) to IndexedDB
   // so it survives page reloads. Light state stays in localStorage via Zustand persist.
   useProjectPersistence();
+  // Charge les @font-face dès la fin de l'analyse (sans attendre l'onglet Typographie).
+  useFontLoader();
   const [isExportingPack, setIsExportingPack] = React.useState(false);
   const [showOffscreenFrames, setShowOffscreenFrames] = React.useState(false);
   const [showOffscreenSocialFrames, setShowOffscreenSocialFrames] = React.useState(false);

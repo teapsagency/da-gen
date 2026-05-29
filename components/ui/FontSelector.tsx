@@ -2,56 +2,17 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useDAStore } from "@/store/daStore";
 import { loadFontFile, cleanFontName } from "@/lib/fontName";
+import {
+  buildGoogleFontsUrl,
+  buildFontshareUrl,
+  getFontSource,
+  injectFontCss,
+} from "@/lib/fontLoader";
 import { Upload, Check, TriangleAlert, Loader } from "lucide-react";
-
-// Only show logo when source is confirmed by URL
-const getFontSource = (fontUrl?: string): "google" | "fontshare" | null => {
-  if (!fontUrl) return null;
-  if (fontUrl.includes("fonts.googleapis.com")) return "google";
-  if (fontUrl.includes("fontshare.com") || fontUrl.includes("api.fontshare"))
-    return "fontshare";
-  return null;
-};
 
 // Clean up font names — the scraper normalizes new scrapes, but this also
 // repairs legacy projects with raw names (e.g. "_Satoshi_Variable" → "Satoshi").
 const toDisplayName = (name: string): string => cleanFontName(name) || name;
-
-// "Bricolage Grotesque" → "Bricolage+Grotesque"
-const toGoogleFontsSlug = (name: string): string =>
-  name.replace(/ +/g, "+");
-
-const buildGoogleFontsUrl = (fontName: string): string =>
-  `https://fonts.googleapis.com/css2?family=${toGoogleFontsSlug(fontName)}:wght@400;500;600;700&display=swap`;
-
-// "Satoshi Variable" → "satoshi" (Fontshare slugs drop the "Variable" suffix)
-const toFontshareSlug = (name: string): string =>
-  name
-    .toLowerCase()
-    .replace(/\b(variable[- ]?font|variable|vf)\b/g, "")
-    .trim()
-    .replace(/ +/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-
-const buildFontshareUrl = (fontName: string): string =>
-  `https://api.fontshare.com/v2/css?f[]=${toFontshareSlug(fontName)}@400,500,600,700&display=swap`;
-
-// Fetch font CSS through the same-origin server proxy. Going through the proxy
-// for everything (Google Fonts included) avoids the noisy cross-origin CORS
-// errors a direct fetch produces for fonts that don't exist on a given CDN.
-const fetchFontCss = async (url: string): Promise<string | null> => {
-  try {
-    const res = await fetch(`/api/font-css?url=${encodeURIComponent(url)}`);
-    if (res.ok) {
-      const text = await res.text();
-      if (text.includes("@font-face")) return text;
-    }
-  } catch {
-    /* network error — treat as unavailable */
-  }
-  return null;
-};
 
 export const FontSelector = () => {
   const { scrapeResult, fontName, setFont, importFont, importedFonts, localFontFile } =
@@ -74,38 +35,19 @@ export const FontSelector = () => {
 
       setFontStatus((s) => ({ ...s, [displayName]: "loading" }));
 
-      // Helper to test and inject a CSS URL
-      const tryLoadStylesheet = async (testUrl: string): Promise<boolean> => {
-        if (!testUrl) return false;
-        const text = await fetchFontCss(testUrl);
-        if (!text) return false;
-
-        // Inject as <style> for immediate parsing, avoiding link.onload race conditions
-        const existing =
-          document.querySelector(`style[data-url="${testUrl}"]`) ||
-          document.querySelector(`link[href="${testUrl}"]`);
-        if (!existing) {
-          const style = document.createElement("style");
-          style.setAttribute("data-url", testUrl);
-          style.textContent = text;
-          document.head.appendChild(style);
-        }
-        return true;
-      };
-
       let finalUrl: string | undefined = undefined;
 
-      if (font.url && await tryLoadStylesheet(font.url)) {
+      if (font.url && await injectFontCss(font.url)) {
         finalUrl = font.url;
-      } else if (discoveredUrls.current[displayName] && await tryLoadStylesheet(discoveredUrls.current[displayName])) {
+      } else if (discoveredUrls.current[displayName] && await injectFontCss(discoveredUrls.current[displayName])) {
         finalUrl = discoveredUrls.current[displayName];
       } else {
         const googleUrl = buildGoogleFontsUrl(displayName);
-        if (await tryLoadStylesheet(googleUrl)) {
+        if (await injectFontCss(googleUrl)) {
           finalUrl = googleUrl;
         } else {
           const fontshareUrl = buildFontshareUrl(displayName);
-          if (await tryLoadStylesheet(fontshareUrl)) {
+          if (await injectFontCss(fontshareUrl)) {
             finalUrl = fontshareUrl;
           }
         }
@@ -184,66 +126,84 @@ export const FontSelector = () => {
 
   if (!scrapeResult) return null;
 
+  // Chip d'une police : état de chargement, source (Google/Fontshare), sélection.
+  const renderChip = (font: { name: string; url?: string }) => {
+    const displayName = toDisplayName(font.name);
+    const sourceUrl = font.url || discoveredUrls.current[displayName];
+    const source = getFontSource(sourceUrl) ?? fontSources[displayName];
+    const status = fontStatus[displayName];
+    const isActive = fontName === displayName;
+    const hasImported = !!importedFonts[displayName];
+    const isUnavailable = status === "unavailable" && !hasImported;
+    return (
+      <button
+        key={font.name}
+        onClick={() => handleFontClick(font)}
+        className={`h-8 px-3 rounded-lg border text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+          isActive
+            ? "border-foreground bg-foreground/5 text-foreground"
+            : "border-border text-foreground/50 hover:border-foreground/20 hover:text-foreground/80"
+        }`}
+      >
+        {status === "loading" && <Loader className="w-3 h-3 animate-spin" />}
+        {hasImported && <Upload className="w-3 h-3 text-emerald-500" />}
+        {status === "ok" && isActive && !hasImported && <Check className="w-3 h-3" />}
+        {isUnavailable && <TriangleAlert className="w-3 h-3 text-amber-500" />}
+        {source === "google" && status !== "loading" && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/logo-google.svg" alt="G" width={12} height={12} style={{ flexShrink: 0 }} />
+        )}
+        {source === "fontshare" && status !== "loading" && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src="/logo-fontshare.svg"
+            alt="F"
+            width={12}
+            height={12}
+            className="bg-white rounded-[3px] p-[1px] box-content"
+            style={{ flexShrink: 0, width: 12, height: 12 }}
+          />
+        )}
+        {displayName}
+      </button>
+    );
+  };
+
+  const renderGroup = (label: string, list: typeof scrapeResult.fonts) =>
+    list.length > 0 ? (
+      <div key={label} className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-foreground/40">{label}</span>
+        <div className="flex flex-wrap gap-1.5">{list.map(renderChip)}</div>
+      </div>
+    ) : null;
+
+  // Classement Titre / Texte (détecté côté scraper). On ne sépare QUE si ce sont
+  // deux familles vraiment différentes — cleanFontName a déjà replié les graisses
+  // (Gotham-Light → Gotham), donc une même typo en deux graisses donne
+  // headingFont === bodyFont. Sinon (une seule famille, ou anciens projets sans
+  // headingFont/bodyFont), liste plate « Polices détectées ».
+  const norm = (s?: string) => (s ? s.toLowerCase() : "");
+  const headingName = scrapeResult.headingFont;
+  const bodyName = scrapeResult.bodyFont;
+  const showSplit = !!headingName && !!bodyName && norm(headingName) !== norm(bodyName);
+  const titre = scrapeResult.fonts.filter((f) => norm(toDisplayName(f.name)) === norm(headingName));
+  const texte = scrapeResult.fonts.filter((f) => norm(toDisplayName(f.name)) === norm(bodyName));
+  const classified = new Set([...titre, ...texte].map((f) => f.name));
+  const autres = scrapeResult.fonts.filter((f) => !classified.has(f.name));
+
   return (
     <div className="flex flex-col gap-5 pt-1">
-      {/* Detected fonts */}
-      <div className="flex flex-col gap-2">
-        <span className="text-xs font-medium text-foreground/40">
-          Polices détectées
-        </span>
-        <div className="flex flex-wrap gap-1.5">
-          {scrapeResult.fonts.map((font) => {
-            const displayName = toDisplayName(font.name);
-            // Confirmed source: scraped URL first, then discovered URL, then dynamically determined
-            const sourceUrl = font.url || discoveredUrls.current[displayName];
-            const source = getFontSource(sourceUrl) ?? fontSources[displayName];
-            const status = fontStatus[displayName];
-            const isActive = fontName === displayName;
-            // A typeface with an imported file counts as available.
-            const hasImported = !!importedFonts[displayName];
-            const isUnavailable = status === "unavailable" && !hasImported;
-            return (
-              <button
-                key={font.name}
-                onClick={() => handleFontClick(font)}
-                className={`h-8 px-3 rounded-lg border text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-                  isActive
-                    ? "border-foreground bg-foreground/5 text-foreground"
-                    : "border-border text-foreground/50 hover:border-foreground/20 hover:text-foreground/80"
-                }`}
-              >
-                {status === "loading" && (
-                  <Loader className="w-3 h-3 animate-spin" />
-                )}
-                {hasImported && <Upload className="w-3 h-3 text-emerald-500" />}
-                {status === "ok" && isActive && !hasImported && <Check className="w-3 h-3" />}
-                {isUnavailable && <TriangleAlert className="w-3 h-3 text-amber-500" />}
-                {source === "google" && status !== "loading" && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src="/logo-google.svg"
-                    alt="G"
-                    width={12}
-                    height={12}
-                    style={{ flexShrink: 0 }}
-                  />
-                )}
-                {source === "fontshare" && status !== "loading" && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src="/logo-fontshare.svg"
-                    alt="F"
-                    width={12}
-                    height={12}
-                    className="bg-white rounded-[3px] p-[1px] box-content"
-                    style={{ flexShrink: 0, width: 12, height: 12 }}
-                  />
-                )}
-                {displayName}
-              </button>
-            );
-          })}
-        </div>
+      {/* Detected fonts — groupées Titre / Texte / Autres */}
+      <div className="flex flex-col gap-4">
+        {showSplit ? (
+          <>
+            {renderGroup("Titre", titre)}
+            {renderGroup("Texte", texte)}
+            {renderGroup("Autres", autres)}
+          </>
+        ) : (
+          renderGroup("Polices détectées", scrapeResult.fonts)
+        )}
 
         {/* Unavailable font warning for active font — with inline import */}
         {fontName && fontStatus[fontName] === "unavailable" && !localFontFile && (
