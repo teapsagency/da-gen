@@ -15,6 +15,7 @@ export const Frame1_DA = ({ id }: { id?: string }) => {
     localFontFile,
     borderRadius,
     logoScale,
+    fontUppercase,
   } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
@@ -145,6 +146,7 @@ export const Frame1_DA = ({ id }: { id?: string }) => {
                 color: bgTextColor,
                 lineHeight: "0.85",
                 letterSpacing: "-0.02em",
+                textTransform: fontUppercase ? "uppercase" : "none",
               }}
             >
               Aa

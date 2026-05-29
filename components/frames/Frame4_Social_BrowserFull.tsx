@@ -5,7 +5,7 @@ import { BrowserNavBar } from "./BrowserNavBar";
 import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame4_Social_BrowserFull = ({ id }: { id?: string }) => {
-  const { scrapeResult, agencyLogo, customScreenshots } = useDAStore();
+  const { scrapeResult, agencyLogo, customScreenshots, frame4Blur } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
@@ -35,7 +35,7 @@ export const Frame4_Social_BrowserFull = ({ id }: { id?: string }) => {
           left: "-60px",
           width: "1200px",
           height: "1454px",
-          filter: "blur(2px)",
+          filter: `blur(${frame4Blur}px)`,
         }}
       >
         <img
@@ -73,6 +73,7 @@ export const Frame4_Social_BrowserFull = ({ id }: { id?: string }) => {
             src={activeScreenshots.desktopFull}
             alt="Screenshot"
             editable={editable}
+            regionSource={activeScreenshots.desktopFull}
             style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block" }}
           />
         </div>

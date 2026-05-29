@@ -57,6 +57,7 @@ export const Frame2_Mockup = ({ id }: { id?: string }) => {
           src={activeScreenshots.desktopFull}
           alt="Desktop full"
           editable={editable}
+          regionSource={activeScreenshots.desktopFull}
           style={{
             width: "100%",
             height: "100%",
@@ -88,6 +89,7 @@ export const Frame2_Mockup = ({ id }: { id?: string }) => {
           src={activeScreenshots.mobile}
           alt="Mobile preview"
           editable={editable}
+          regionSource={activeScreenshots.mobile}
           style={{
             width: "100%",
             height: "100%",

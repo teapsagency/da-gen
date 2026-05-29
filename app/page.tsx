@@ -8,7 +8,7 @@ import { FontSelector } from "@/components/ui/FontSelector";
 import { LogoSelector } from "@/components/ui/LogoSelector";
 import { AgencyLogoUpload } from "@/components/ui/AgencyLogoUpload";
 import { RadiusSelector } from "@/components/ui/RadiusSelector";
-import { EditableValue, percentFormat, percentParse } from "@/components/ui/EditableValue";
+import { EditableValue, percentFormat, percentParse, pxFormat, pxParse } from "@/components/ui/EditableValue";
 import { PageScreenshots } from "@/components/ui/PageScreenshots";
 import {
   Accordion,
@@ -30,12 +30,12 @@ import { ContentChat } from "@/components/ContentChat";
 import { FileUpload } from "@/components/ui/FileUpload";
 import { ChipSelector } from "@/components/ui/ChipSelector";
 import { SettingsPanel } from "@/components/ui/SettingsPanel";
-import { HistoryPanel, ProjectFavicon } from "@/components/ui/HistoryPanel";
+import { HistoryPanel } from "@/components/ui/HistoryPanel";
+import { ProjectCard } from "@/components/ui/ProjectCard";
 import { SitemapPanel } from "@/components/ui/SitemapPanel";
 import { useProjectPersistence } from "@/lib/useProjectPersistence";
 import { useFontLoader } from "@/lib/useFontLoader";
-import { listProjects, loadProject } from "@/lib/projectStorage";
-import { formatWhen } from "@/lib/format";
+import { listProjects, loadProject, touchProject } from "@/lib/projectStorage";
 import type { ProjectMeta } from "@/types";
 import { localFontFaceCss } from "@/lib/fontName";
 import { GeneratedContent } from "@/types";
@@ -121,6 +121,7 @@ export default function Home() {
     async (id: string) => {
       const project = await loadProject(id);
       if (project && project.scrapeResult) {
+        await touchProject(id);
         loadProjectData(project);
         setSidebarTab("visuels");
       } else {
@@ -481,7 +482,7 @@ export default function Home() {
       {/* HISTORY (accessible anytime) */}
       {sidebarTab === "historique" && (
         <section className="min-h-screen pl-20 py-12 px-8 bg-background">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-6xl mx-auto">
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h1 className="text-[28px] font-bold tracking-tight leading-none" style={{ fontFamily: "'Cabinet Grotesk', sans-serif" }}>
@@ -522,7 +523,10 @@ export default function Home() {
             <span key={i} className={`absolute ${pos} text-foreground/15 text-xs font-mono select-none`}>+</span>
           ))}
 
-          <div className="max-w-2xl w-full text-center z-10 flex flex-col items-center gap-10">
+          <div className="max-w-5xl w-full z-10 flex flex-col items-center gap-10">
+            {/* Inner column kept narrow so the headline stays readable, while the
+                recent-projects grid below can span the wider container. */}
+            <div className="w-full max-w-2xl text-center flex flex-col items-center gap-10">
             {/* Bracket badge */}
             <div className="inline-flex items-center gap-3" style={{ animation: "fadeSlideUp 0.5s ease-out both" }}>
               <span className="inline-block w-2.5 h-2.5 border-t-[1.5px] border-l-[1.5px] border-foreground/30" />
@@ -556,49 +560,41 @@ export default function Home() {
               <UrlInput onLogs={setScrapeLogs} />
             </div>
 
-            {/* Recent projects — the 5 most recent, click to reopen. */}
+            {error && (
+              <div className="p-4 bg-red-500/5 text-red-500 rounded-xl text-xs font-bold border border-red-500/10 w-full max-w-lg" style={{ animation: "fadeSlideUp 0.3s ease-out both" }}>
+                {error}
+              </div>
+            )}
+            </div>
+
+            {/* Recent projects — the 4 most recently opened, shown as cards. */}
             {recentProjects.length > 0 && (
               <div
-                className="w-full max-w-lg flex flex-col gap-2 -mt-4"
+                className="w-full flex flex-col items-center gap-3"
                 style={{ animation: "fadeSlideUp 0.5s ease-out 0.32s both" }}
               >
-                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-foreground/25 px-1">
-                  Projets récents
-                </span>
-                <div className="flex flex-col rounded-xl border border-border bg-card/40 overflow-hidden">
-                  {recentProjects.slice(0, 5).map((p, i, arr) => (
-                    <button
-                      key={p.id}
-                      onClick={() => handleOpenProject(p.id)}
-                      className={`group flex items-center justify-between gap-3 px-3.5 py-2.5 hover:bg-foreground/[0.04] transition-colors cursor-pointer text-left ${
-                        i < arr.length - 1 ? "border-b border-border" : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <ProjectFavicon domain={p.domain} />
-                        <span className="text-[12px] font-bold text-foreground/75 group-hover:text-foreground truncate">
-                          {p.domain || "Projet"}
-                        </span>
+                {/* Le bloc se dimensionne sur le nombre de cartes (w-fit) puis se
+                    centre (items-center du parent). Le label s'aligne ainsi sur
+                    la première carte au lieu de flotter au-dessus du vide. */}
+                <div className="w-fit max-w-full flex flex-col gap-3">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-foreground/25 px-1">
+                    Projets récents
+                  </span>
+                  <div className="flex flex-wrap justify-center gap-3.5">
+                    {recentProjects.slice(0, 4).map((p) => (
+                      <div key={p.id} className="w-[150px] sm:w-[210px]">
+                        <ProjectCard meta={p} onOpen={() => handleOpenProject(p.id)} />
                       </div>
-                      <span className="text-[10px] font-medium text-foreground/30 shrink-0">
-                        {formatWhen(p.savedAt)}
-                      </span>
-                    </button>
-                  ))}
+                    ))}
+                  </div>
                 </div>
                 <button
                   onClick={() => setSidebarTab("historique")}
-                  className="self-center text-[11px] font-semibold text-foreground/40 hover:text-foreground transition-colors cursor-pointer flex items-center gap-1.5 mt-1"
+                  className="text-[11px] font-semibold text-foreground/40 hover:text-foreground transition-colors cursor-pointer flex items-center gap-1.5 mt-1"
                 >
                   <History className="w-3 h-3" />
                   Voir tous les projets ({recentProjects.length})
                 </button>
-              </div>
-            )}
-
-            {error && (
-              <div className="p-4 bg-red-500/5 text-red-500 rounded-xl text-xs font-bold border border-red-500/10 w-full max-w-lg" style={{ animation: "fadeSlideUp 0.3s ease-out both" }}>
-                {error}
               </div>
             )}
           </div>
@@ -621,7 +617,7 @@ export default function Home() {
                   alt=""
                   width={28}
                   height={28}
-                  className="w-7 h-7 rounded-md mb-2 border border-border bg-white object-contain"
+                  className="w-7 h-7 mb-2 border border-border bg-white object-contain"
                   onError={(e) => { e.currentTarget.style.display = "none"; }}
                 />
               )}
@@ -837,7 +833,14 @@ export default function Home() {
 
                 {visualSubTab === "social" && (
                   <div className="max-w-3xl mx-auto space-y-32">
-                    <PreviewContainer title="04 / BROWSER FULL" id="frame-4-social-browser" nativeWidth={1080} nativeHeight={1350}>
+                    <PreviewContainer
+                      title="04 / BROWSER FULL"
+                      id="frame-4-social-browser"
+                      nativeWidth={1080}
+                      nativeHeight={1350}
+                      actions={<BrowserBlurControl />}
+                      actionsBelow
+                    >
                       <Frame4_Social_BrowserFull />
                     </PreviewContainer>
                     <PreviewContainer title="05 / HERO SIMPLE" id="frame-5-social-hero" nativeWidth={1080} nativeHeight={675}>
@@ -906,6 +909,36 @@ export default function Home() {
         </div>
       )}
     </main>
+  );
+}
+
+// Contrôle du flou de fond de la frame 04 (Browser Full) — même type de range
+// que les sliders de la 08.
+function BrowserBlurControl() {
+  const { frame4Blur, setFrame4Blur } = useDAStore();
+  return (
+    <div className="flex items-center gap-2 border border-border bg-card px-3 py-1.5 rounded-md">
+      <span className="text-[10px] font-bold text-foreground/40 whitespace-nowrap">Flou fond</span>
+      <input
+        type="range"
+        min={0}
+        max={20}
+        step={1}
+        value={frame4Blur}
+        onChange={(e) => setFrame4Blur(parseFloat(e.target.value))}
+        className="w-32 h-1 accent-foreground cursor-pointer"
+      />
+      <EditableValue
+        value={frame4Blur}
+        min={0}
+        max={20}
+        step={1}
+        onChange={setFrame4Blur}
+        format={pxFormat}
+        parse={pxParse}
+        inputWidth={42}
+      />
+    </div>
   );
 }
 
@@ -1016,8 +1049,8 @@ function CardImageUploadButton() {
 function DesktopPaddingToggle() {
   const { desktopPadding, setDesktopPadding } = useDAStore();
   const options = [
-    { value: true, label: "Avec marge" },
     { value: false, label: "Sans marge" },
+    { value: true, label: "Avec marge" },
   ];
   return (
     <div className="flex flex-col gap-3 pt-4 mt-4 border-t border-border">

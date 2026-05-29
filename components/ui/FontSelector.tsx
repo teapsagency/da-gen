@@ -15,7 +15,7 @@ import { Upload, Check, TriangleAlert, Loader } from "lucide-react";
 const toDisplayName = (name: string): string => cleanFontName(name) || name;
 
 export const FontSelector = () => {
-  const { scrapeResult, fontName, setFont, importFont, importedFonts, localFontFile } =
+  const { scrapeResult, fontName, setFont, importFont, importedFonts, localFontFile, fontUppercase, setFontUppercase } =
     useDAStore();
   const [fontStatus, setFontStatus] = useState<
     Record<string, "loading" | "ok" | "unavailable">
@@ -108,7 +108,12 @@ export const FontSelector = () => {
   // On click: switch active font AND trigger validation if not already done
   const handleFontClick = (font: { name: string; url?: string }) => {
     const displayName = toDisplayName(font.name);
-    const url = discoveredUrls.current[displayName] || font.url || buildGoogleFontsUrl(displayName);
+    // Pas de fabrication d'URL Google ici : si l'URL réelle est inconnue, on
+    // laisse validateFont la découvrir (Google/Fontshare). Fabriquer une URL
+    // Google ferait afficher un faux badge « G » et tenterait de charger une
+    // police inexistante (cas des polices self-hosted / Adobe comme Acumin Pro).
+    // Une police introuvable bascule alors en « indisponible » → import.
+    const url = discoveredUrls.current[displayName] || font.url;
     setFont(displayName, url);
     validateFont(font);
   };
@@ -204,6 +209,30 @@ export const FontSelector = () => {
         ) : (
           renderGroup("Polices détectées", scrapeResult.fonts)
         )}
+
+        {/* Casse de l'aperçu : certaines polices de marque s'emploient en
+            capitales (text-transform). Bascule l'échantillon de la frame 01. */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium text-foreground/40">Casse de l&apos;aperçu</span>
+          <div className="flex items-center gap-1 bg-foreground/5 border border-border rounded-lg p-0.5">
+            <button
+              onClick={() => setFontUppercase(false)}
+              className={`px-2.5 h-6 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                !fontUppercase ? "bg-background shadow-sm text-foreground" : "text-foreground/50 hover:text-foreground/80"
+              }`}
+            >
+              Aa
+            </button>
+            <button
+              onClick={() => setFontUppercase(true)}
+              className={`px-2.5 h-6 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                fontUppercase ? "bg-background shadow-sm text-foreground" : "text-foreground/50 hover:text-foreground/80"
+              }`}
+            >
+              AA
+            </button>
+          </div>
+        </div>
 
         {/* Unavailable font warning for active font — with inline import */}
         {fontName && fontStatus[fontName] === "unavailable" && !localFontFile && (

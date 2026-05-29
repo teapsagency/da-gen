@@ -46,16 +46,24 @@ URL saisie (`components/ui/UrlInput.tsx`) → `POST /api/scrape` → `ScrapeResu
 
 ### Persistance (deux niveaux distincts)
 - **localStorage** — Zustand `persist` + `partialize` (`store/daStore.ts`) : uniquement les réglages globaux (clés Gemini, modèle, prompt, délai + zoom de capture, thème, logo agence, inclusion sitemap). **Jamais** les screenshots base64 (trop lourd).
-- **IndexedDB** — `lib/projectStorage.ts`, câblé par `lib/useProjectPersistence.ts` : l'historique complet des projets (le `ScrapeResult` + les customisations par projet : couleurs, logo, fonts, border-radius, images custom…). `loadProjectData` recharge un projet dans le store.
+- **IndexedDB** (`lib/projectStorage.ts`, câblé par `lib/useProjectPersistence.ts`) — deux object stores :
+  - `projects` : la donnée complète par projet (`ScrapeResult` + customisations : couleurs, logo, fonts, border-radius, images custom, flou de fond, zone de capture, casse, marge…). `loadProjectData` recharge un projet dans le store.
+  - `meta` : descripteurs légers pour la liste d'historique (domaine, titre, dates) + une **vignette JPEG downscalée** de la hero (`lib/thumbnail.ts`, générée à la demande) → l'historique (`HistoryPanel` / `ProjectCard`) s'affiche sans charger les lourds base64.
 
 ### Frames
 - **3 desktop** (2373×1473 px fixes) : `Frame1_DA` (Identity), `Frame2_Mockup`, `Frame3_Cover`.
 - **5 réseaux sociaux** : `Frame4_Social_BrowserFull`, `Frame5_…HeroSimple`, `Frame6_…NouvelleReal`, `Frame7_…ThreeImg`, `Frame8_…CardSite`. Helpers partagés : `BrowserNavBar`, `FrameColors`.
 - Taille CSS fixe, scalées via `transform` dans le preview. Export ZIP = desktop uniquement.
 
+### Customisation & édition des frames
+- Réglages visuels **par projet** (persistés en IndexedDB) : couleurs, logo + échelle, police (+ casse majuscule détectée), border-radius, marge desktop (`desktopPadding`, défaut sans marge), flou de fond (04), opacité/échelle de la card (08), et **zone de capture globale** (`regionY`).
+- `components/ui/EditableImage.tsx` enveloppe le screenshot de chaque slot (`slotKey`) : au survol on peut **remplacer/coller** une image (stockée dans `customScreenshots[slotKey]`) ou ouvrir le **sélecteur de zone** (`RegionPicker`, rendu en **portal** pour échapper au `transform: scale` du preview) qui règle `regionY` (0..1) — appliqué en `object-position` sur les visuels desktop/mobile. `regionY` est remis à 0 à chaque nouveau scrape (spécifique à une page).
+
 ## Points d'attention
 
-- `lib/scraper.ts` fait bien plus que des screenshots — lire les commentaires avant d'y toucher : auto-dismiss cookies/GDPR **et** portails d'âge (alcool), injection de police emoji (police privée `DAGenEmoji` + wrap des seuls glyphes, pour éviter le bug d'espacement des titres sous Chromium/Linux), déroulé complet de la page avant capture (déclenche lazy-load + animations « reveal on scroll », desktop ET mobile), zoom navigateur réglable.
+- `lib/scraper.ts` fait bien plus que des screenshots — lire les commentaires avant d'y toucher : auto-dismiss cookies/GDPR **et** portails d'âge (alcool), injection de police emoji (police privée `DAGenEmoji` + wrap des seuls glyphes, pour éviter le bug d'espacement des titres sous Chromium/Linux), déroulé de la page pour charger le lazy-load + déclencher les animations « reveal on scroll », zoom navigateur réglable.
+- Ordre des captures : le **hero (capture viewport)** est shooté **AVANT** le déroulé (au sommet, avec le contenu du chargement initial) ; le déroulé sert aux captures **fullpage / mid / lower** et au mobile.
+- **Limitation connue (à traiter plus tard)** : sur certains sites **Shopify avec animations d'entrée** sans `fill-mode: forwards`, le déroulé re-déclenche des animations qui repassent en `opacity:0` → la capture **fullpage** (frames 02/04) peut sortir **blanche** (hero et autres sites OK). Ne PAS « corriger » en forçant `animation-duration: 0` globalement → ça blanchit d'autres pages (déjà testé).
 - Zoom des captures desktop : le viewport 1440×900 est élargi de `1/zoom` et le `deviceScaleFactor` réduit de `×zoom` → la sortie reste à 2160 px de large quel que soit le zoom. Mobile : 390×844 natif (jamais zoomé).
 - Export PNG côté client → `skipFonts: true` (sinon erreurs CORS sur les polices).
 - Fonts de l'UI (Satoshi, Cabinet Grotesk) chargées depuis Fontshare via `<link>` au niveau page.

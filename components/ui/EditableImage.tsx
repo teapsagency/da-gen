@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus, X, Crop } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
 import { toast } from "sonner";
+import { RegionPicker } from "./RegionPicker";
 
 type Props = {
   /** Stable identifier for the override slot (e.g. "frame-2-mockup__desktop"). */
@@ -21,6 +22,12 @@ type Props = {
    * editing affordances never leak into the captured PNG.
    */
   editable?: boolean;
+  /**
+   * Image pleine page dans laquelle « Choisir la zone » recadre (en général
+   * activeScreenshots.desktopFull). Quand fournie, un bouton de sélection de
+   * zone apparaît au survol.
+   */
+  regionSource?: string;
 };
 
 /**
@@ -40,14 +47,35 @@ export function EditableImage({
   style,
   wrapperStyle,
   editable = true,
+  regionSource,
 }: Props) {
   const customSrc = useDAStore((s) => s.customScreenshots[slotKey]);
   const setCustomScreenshot = useDAStore((s) => s.setCustomScreenshot);
+  const regionY = useDAStore((s) => s.regionY);
+  const setRegionY = useDAStore((s) => s.setRegionY);
   const inputRef = useRef<HTMLInputElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  // Sélecteur de zone : on capture le ratio du slot à l'ouverture (le ratio
+  // est invariant au scale du preview, donc getBoundingClientRect suffit).
+  const [picker, setPicker] = useState<{ open: boolean; aspect: number }>({ open: false, aspect: 1 });
 
-  const effectiveSrc = customSrc || src;
+  const openPicker = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const r = wrapperRef.current?.getBoundingClientRect();
+    const aspect = r && r.height > 0 ? r.width / r.height : 1;
+    setPicker({ open: true, aspect });
+  };
+
   const hasCustom = Boolean(customSrc);
+  // Zone de capture globale : quand regionY > 0 et qu'une source pleine page est
+  // fournie, on affiche cette source pan­née verticalement (object-position). Un
+  // upload custom prime et n'est jamais déplacé.
+  const regionActive = !hasCustom && !!regionSource && regionY > 0;
+  const effectiveSrc = customSrc || (regionActive ? (regionSource as string) : src);
+  const effectiveStyle: CSSProperties = regionActive
+    ? { ...style, objectFit: "cover", objectPosition: `center ${regionY * 100}%` }
+    : (style as CSSProperties);
 
   const handlePick = () => inputRef.current?.click();
 
@@ -122,6 +150,7 @@ export function EditableImage({
 
   return (
     <div
+      ref={wrapperRef}
       style={{
         position: "relative",
         width: "100%",
@@ -135,7 +164,7 @@ export function EditableImage({
       onMouseEnter={() => editable && setIsHovered(true)}
       onMouseLeave={() => editable && setIsHovered(false)}
     >
-      <img src={effectiveSrc} alt={alt} style={style} />
+      <img src={effectiveSrc} alt={alt} style={effectiveStyle} />
 
       {editable && (
         <>
@@ -237,6 +266,43 @@ export function EditableImage({
             </button>
           )}
 
+          {/* Choisir la zone — recadre depuis le screenshot pleine page */}
+          {regionSource && (
+            <button
+              type="button"
+              onClick={openPicker}
+              data-editor-only=""
+              title="Choisir la zone de la page à afficher"
+              style={{
+                position: "absolute",
+                top: "clamp(8px, 1.4cqi, 28px)",
+                left: "clamp(8px, 1.4cqi, 28px)",
+                height: "clamp(28px, 4cqi, 64px)",
+                paddingLeft: "clamp(10px, 1.4cqi, 22px)",
+                paddingRight: "clamp(10px, 1.4cqi, 22px)",
+                borderRadius: "9999px",
+                background: "rgba(0, 0, 0, 0.7)",
+                color: "#fff",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "clamp(4px, 0.8cqi, 12px)",
+                opacity: isHovered ? 1 : 0,
+                transition: "opacity 160ms ease",
+                zIndex: 11,
+                fontFamily: "Satoshi, sans-serif",
+                fontWeight: 600,
+                fontSize: "clamp(10px, 1.5cqi, 24px)",
+                whiteSpace: "nowrap",
+              }}
+              aria-label="Choisir la zone"
+            >
+              <Crop style={{ width: "clamp(14px, 2.2cqi, 36px)", height: "clamp(14px, 2.2cqi, 36px)" }} strokeWidth={2} />
+              Zone
+            </button>
+          )}
+
           <input
             ref={inputRef}
             type="file"
@@ -245,6 +311,20 @@ export function EditableImage({
             data-editor-only=""
             style={{ display: "none" }}
           />
+
+          {picker.open && regionSource && (
+            <RegionPicker
+              source={regionSource}
+              aspect={picker.aspect}
+              initialY={regionY}
+              onConfirm={(ry) => {
+                setRegionY(ry);
+                setPicker((p) => ({ ...p, open: false }));
+                toast.success("Zone appliquée à tous les visuels");
+              }}
+              onClose={() => setPicker((p) => ({ ...p, open: false }))}
+            />
+          )}
         </>
       )}
     </div>

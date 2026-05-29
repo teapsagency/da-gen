@@ -31,6 +31,8 @@ export type ScrapeResult = {
   // nom une entrée de `fonts`. Absentes sur d'anciens projets.
   headingFont?: string;
   bodyFont?: string;
+  // Titres majoritairement en MAJUSCULES sur le site (text-transform: uppercase).
+  headingUppercase?: boolean;
   screenshots: {
     desktop: string;
     desktopFull: string;
@@ -86,6 +88,9 @@ export type ProjectSnapshot = {
   cardImage: string | null;
   cardLogoScale: number;
   cardImageOpacity: number;
+  frame4Blur: number;
+  fontUppercase: boolean;
+  regionY: number;
   localFontFile: string | null;
   importedFonts: Record<string, string>;
   sitemapUrls: string[];
@@ -112,6 +117,13 @@ export type ProjectMeta = {
   domain: string;
   title: string;
   savedAt: number;
+  // Horodatage de la dernière ouverture (bumpé par `touchProject`). Absent sur
+  // les anciens projets → fallback sur `savedAt`. Sert au tri « récents ».
+  lastOpenedAt?: number;
+  // Vignette JPEG downscalée de la hero (screenshots.desktop), générée à la
+  // demande et mise en cache ici pour garder la liste légère. Absente tant
+  // qu'aucune carte du projet n'a été affichée.
+  thumbnail?: string;
 };
 
 export type DAStore = {
@@ -180,6 +192,21 @@ export type DAStore = {
 
   cardImageOpacity: number;
   setCardImageOpacity: (opacity: number) => void;
+
+  // Flou (px) du fond de la frame 04 (Browser Full).
+  frame4Blur: number;
+  setFrame4Blur: (px: number) => void;
+
+  // Typo affichée en MAJUSCULES dans l'aperçu (frame 01). Initialisé depuis la
+  // détection du scrape (titres en text-transform: uppercase), puis togglable.
+  fontUppercase: boolean;
+  setFontUppercase: (v: boolean) => void;
+
+  // Zone de capture globale : position verticale (0 = haut, 1 = bas) de la
+  // région de la page affichée par les visuels desktop/mobile. 0 = comportement
+  // par défaut (haut de page). Réglée via le sélecteur de zone.
+  regionY: number;
+  setRegionY: (v: number) => void;
 
   // Per-frame screenshot overrides. setCustomScreenshot(key, null) removes
   // the override and falls back to the scraped image.

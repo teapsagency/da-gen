@@ -12,6 +12,10 @@ export const Frame3_Cover = ({ id }: { id?: string }) => {
 
   // Marge bgColor autour de la fenêtre ; 0 = fenêtre bord à bord.
   const pad = desktopPadding ? 58 : 0;
+  // Sans marge, la fenêtre touche le bord du frame : son rayon doit alors
+  // ÉGALER celui du frame, sinon un croissant de bgColor apparaît au coin
+  // (rayons concentriques différents). Avec marge, c'est une carte flottante.
+  const winTopRadius = pad > 0 ? 40 : borderRadius;
 
   return (
     <div
@@ -35,8 +39,8 @@ export const Frame3_Cover = ({ id }: { id?: string }) => {
       <div
         style={{
           background: "#FFFFFF",
-          borderTopLeftRadius: "40px",
-          borderTopRightRadius: "40px",
+          borderTopLeftRadius: `${winTopRadius}px`,
+          borderTopRightRadius: `${winTopRadius}px`,
           borderBottomLeftRadius: "0",
           borderBottomRightRadius: "0",
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
@@ -184,6 +188,7 @@ export const Frame3_Cover = ({ id }: { id?: string }) => {
             src={activeScreenshots.desktop}
             alt="Desktop hero"
             editable={editable}
+            regionSource={activeScreenshots.desktopFull}
             style={{
               width: "100%",
               height: "100%",

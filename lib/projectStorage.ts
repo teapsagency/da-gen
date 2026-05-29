@@ -13,9 +13,17 @@ const LEGACY_KEY = 'current';
 export const newProjectId = (): string =>
   `proj_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
-const metaOf = (id: string, savedAt: number, snap: ProjectSnapshot): ProjectMeta => ({
+const metaOf = (
+  id: string,
+  savedAt: number,
+  snap: ProjectSnapshot,
+  lastOpenedAt: number = savedAt,
+  thumbnail?: string,
+): ProjectMeta => ({
   id,
   savedAt,
+  lastOpenedAt,
+  thumbnail,
   domain: snap.scrapeResult?.domain ?? '',
   title: snap.scrapeResult?.title?.trim() || snap.scrapeResult?.domain || 'Projet sans titre',
 });
@@ -68,8 +76,16 @@ export async function saveProject(id: string, snapshot: ProjectSnapshot): Promis
     const savedAt = Date.now();
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction([PROJECTS, META], 'readwrite');
-      tx.objectStore(PROJECTS).put({ ...snapshot, id, savedAt }, id);
-      tx.objectStore(META).put(metaOf(id, savedAt, snapshot), id);
+      const metaStore = tx.objectStore(META);
+      // Preserve fields that don't belong to the snapshot: an edit must not wipe
+      // the lazily-generated thumbnail nor reset the last-opened timestamp.
+      const prevReq = metaStore.get(id);
+      prevReq.onsuccess = () => {
+        const prev = prevReq.result as ProjectMeta | undefined;
+        const lastOpenedAt = prev?.lastOpenedAt ?? savedAt;
+        tx.objectStore(PROJECTS).put({ ...snapshot, id, savedAt }, id);
+        metaStore.put(metaOf(id, savedAt, snapshot, lastOpenedAt, prev?.thumbnail), id);
+      };
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
@@ -78,6 +94,47 @@ export async function saveProject(id: string, snapshot: ProjectSnapshot): Promis
   } catch (e) {
     console.warn('[projectStorage] save failed:', e);
     return false;
+  }
+}
+
+/** Caches a downscaled hero thumbnail on the project's META record. */
+export async function saveThumbnail(id: string, thumbnail: string): Promise<void> {
+  try {
+    const db = await getDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(META, 'readwrite');
+      const store = tx.objectStore(META);
+      const req = store.get(id);
+      req.onsuccess = () => {
+        const prev = req.result as ProjectMeta | undefined;
+        if (prev) store.put({ ...prev, thumbnail }, id);
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    console.warn('[projectStorage] saveThumbnail failed:', e);
+  }
+}
+
+/** Marks a project as opened now — drives the "recent" ordering & displayed date. */
+export async function touchProject(id: string): Promise<void> {
+  try {
+    const db = await getDb();
+    const lastOpenedAt = Date.now();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(META, 'readwrite');
+      const store = tx.objectStore(META);
+      const req = store.get(id);
+      req.onsuccess = () => {
+        const prev = req.result as ProjectMeta | undefined;
+        if (prev) store.put({ ...prev, lastOpenedAt }, id);
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    console.warn('[projectStorage] touchProject failed:', e);
   }
 }
 
@@ -107,7 +164,7 @@ export async function listProjects(): Promise<ProjectMeta[]> {
       req.onsuccess = () => resolve((req.result as ProjectMeta[]) ?? []);
       req.onerror = () => reject(req.error);
     });
-    return metas.sort((a, b) => b.savedAt - a.savedAt);
+    return metas.sort((a, b) => (b.lastOpenedAt ?? b.savedAt) - (a.lastOpenedAt ?? a.savedAt));
   } catch (e) {
     console.warn('[projectStorage] list failed:', e);
     return [];

@@ -27,15 +27,18 @@ export const useDAStore = create<DAStore>()(
         activePageIndex: p.activePageIndex,
         selectedColors: p.selectedColors ?? [],
         colorsOrientation: p.colorsOrientation ?? 'horizontal',
-        desktopPadding: p.desktopPadding ?? true,
+        desktopPadding: p.desktopPadding ?? false,
         fontName: p.fontName ?? '',
         fontUrl: p.fontUrl,
+        fontUppercase: p.fontUppercase ?? false,
         bgColor: p.bgColor ?? '#f5f5f5',
         borderRadius: p.borderRadius ?? 28,
         logoScale: p.logoScale ?? 1,
         cardImage: p.cardImage,
         cardLogoScale: p.cardLogoScale ?? 1,
         cardImageOpacity: p.cardImageOpacity ?? 0.5,
+        frame4Blur: p.frame4Blur ?? 4,
+        regionY: p.regionY ?? 0,
         localFontFile: p.localFontFile,
         importedFonts: p.importedFonts ?? {},
         sitemapUrls: p.sitemapUrls ?? [],
@@ -61,15 +64,19 @@ export const useDAStore = create<DAStore>()(
         selectedColors: result.colors.slice(0, 4).map(c => c.hex),
         fontName: result.font.name,
         fontUrl: result.font.url,
+        fontUppercase: result.headingUppercase ?? false,
         bgColor: result.siteBgColor || '#FFFFFF',
         activePageIndex: 0,
         sitemapUrls: [],
         sitemapSource: null,
         sitemapStatus: 'idle',
         sitemapError: null,
-        // Nouveau scrape → on repart sur les screenshots officiels.
+        // Nouveau scrape → on repart sur les screenshots officiels et la zone
+        // de capture par défaut (une zone est spécifique à la page scrapée :
+        // la conserver d'un site à l'autre afficherait la mauvaise région).
         customScreenshots: {},
         customLogos: [],
+        regionY: 0,
       }),
 
       selectedLogo: '',
@@ -92,7 +99,7 @@ export const useDAStore = create<DAStore>()(
       colorsOrientation: 'horizontal',
       setColorsOrientation: (orientation) => set({ colorsOrientation: orientation }),
 
-      desktopPadding: true,
+      desktopPadding: false,
       setDesktopPadding: (enabled) => set({ desktopPadding: enabled }),
 
       bgColor: '#f5f5f5',
@@ -139,6 +146,15 @@ export const useDAStore = create<DAStore>()(
 
       cardImageOpacity: 0.5,
       setCardImageOpacity: (opacity: number) => set({ cardImageOpacity: opacity }),
+
+      frame4Blur: 4,
+      setFrame4Blur: (px: number) => set({ frame4Blur: px }),
+
+      fontUppercase: false,
+      setFontUppercase: (v: boolean) => set({ fontUppercase: v }),
+
+      regionY: 0,
+      setRegionY: (v: number) => set({ regionY: Math.min(1, Math.max(0, v)) }),
 
       customScreenshots: {},
       setCustomScreenshot: (slotKey: string, dataUrl: string | null) => set((state) => {
@@ -204,15 +220,18 @@ export const useDAStore = create<DAStore>()(
           selectedLogo: '',
           selectedColors: [],
           colorsOrientation: 'horizontal',
-          desktopPadding: true,
+          desktopPadding: false,
           fontName: '',
           fontUrl: undefined,
+          fontUppercase: false,
           bgColor: '#f5f5f5',
           borderRadius: 28,
           logoScale: 1,
           cardImage: null,
           cardLogoScale: 1,
           cardImageOpacity: 0.5,
+          frame4Blur: 4,
+          regionY: 0,
           localFontFile: null,
           importedFonts: {},
           sitemapUrls: [],
