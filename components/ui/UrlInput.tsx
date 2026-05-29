@@ -27,6 +27,8 @@ export const UrlInput = ({ onLogs }: { onLogs?: (logs: { time: number; msg: stri
     isLoading,
     screenshotDelay,
     setScreenshotDelay,
+    scrapeZoom,
+    setScrapeZoom,
   } = useDAStore();
   const [fields, setFields] = useState<UrlField[]>(DEFAULT_FIELDS);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -90,6 +92,7 @@ export const UrlInput = ({ onLogs }: { onLogs?: (logs: { time: number; msg: stri
           url: mainUrl,
           delay: screenshotDelay,
           extraPages,
+          zoom: scrapeZoom,
         }),
         signal: controller.signal,
       });
@@ -200,35 +203,65 @@ export const UrlInput = ({ onLogs }: { onLogs?: (logs: { time: number; msg: stri
 
       {/* Advanced settings inline */}
       {showAdvanced && (
-        <div className="flex items-center justify-between bg-background border border-border rounded-xl p-3 animate-in slide-in-from-top-2 fade-in duration-200">
-          <span className="text-xs font-medium text-foreground/80">
-            Délai capture (sec)
-          </span>
-          <div className="flex items-center gap-2 bg-foreground/5 border border-border rounded-lg p-0.5">
-            <button
-              onClick={() =>
-                setScreenshotDelay(Math.max(1000, screenshotDelay - 1000))
-              }
-              className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-background hover:shadow-sm text-foreground/60 transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:shadow-none"
-              disabled={screenshotDelay <= 1000}
-            >
-              <div className="w-2.5 h-[1.5px] bg-current rounded-full" />
-            </button>
-            <span className="w-4 text-center text-xs font-bold text-foreground">
-              {Math.round(screenshotDelay / 1000)}
+        <div className="flex flex-col gap-2 animate-in slide-in-from-top-2 fade-in duration-200">
+          <div className="flex items-center justify-between bg-background border border-border rounded-xl p-3">
+            <span className="text-xs font-medium text-foreground/80">
+              Délai capture (sec)
             </span>
-            <button
-              onClick={() =>
-                setScreenshotDelay(Math.min(20000, screenshotDelay + 1000))
-              }
-              className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-background hover:shadow-sm text-foreground/60 transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:shadow-none"
-              disabled={screenshotDelay >= 20000}
-            >
-              <div className="relative w-2.5 h-2.5 flex items-center justify-center">
-                <div className="absolute w-full h-[1.5px] bg-current rounded-full" />
-                <div className="absolute h-full w-[1.5px] bg-current rounded-full" />
-              </div>
-            </button>
+            <div className="flex items-center gap-2 bg-foreground/5 border border-border rounded-lg p-0.5">
+              <button
+                onClick={() =>
+                  setScreenshotDelay(Math.max(1000, screenshotDelay - 1000))
+                }
+                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-background hover:shadow-sm text-foreground/60 transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:shadow-none"
+                disabled={screenshotDelay <= 1000}
+              >
+                <div className="w-2.5 h-[1.5px] bg-current rounded-full" />
+              </button>
+              <span className="w-4 text-center text-xs font-bold text-foreground">
+                {Math.round(screenshotDelay / 1000)}
+              </span>
+              <button
+                onClick={() =>
+                  setScreenshotDelay(Math.min(20000, screenshotDelay + 1000))
+                }
+                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-background hover:shadow-sm text-foreground/60 transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:shadow-none"
+                disabled={screenshotDelay >= 20000}
+              >
+                <div className="relative w-2.5 h-2.5 flex items-center justify-center">
+                  <div className="absolute w-full h-[1.5px] bg-current rounded-full" />
+                  <div className="absolute h-full w-[1.5px] bg-current rounded-full" />
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between bg-background border border-border rounded-xl p-3">
+            <span className="text-xs font-medium text-foreground/80">
+              Zoom navigateur (desktop)
+            </span>
+            <div className="flex items-center gap-2 bg-foreground/5 border border-border rounded-lg p-0.5">
+              <button
+                onClick={() => setScrapeZoom(scrapeZoom - 0.05)}
+                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-background hover:shadow-sm text-foreground/60 transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:shadow-none"
+                disabled={scrapeZoom <= 0.5}
+              >
+                <div className="w-2.5 h-[1.5px] bg-current rounded-full" />
+              </button>
+              <span className="w-9 text-center text-xs font-bold text-foreground tabular-nums">
+                {Math.round(scrapeZoom * 100)}%
+              </span>
+              <button
+                onClick={() => setScrapeZoom(scrapeZoom + 0.05)}
+                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-background hover:shadow-sm text-foreground/60 transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:shadow-none"
+                disabled={scrapeZoom >= 1.5}
+              >
+                <div className="relative w-2.5 h-2.5 flex items-center justify-center">
+                  <div className="absolute w-full h-[1.5px] bg-current rounded-full" />
+                  <div className="absolute h-full w-[1.5px] bg-current rounded-full" />
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       )}

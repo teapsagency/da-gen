@@ -8,11 +8,16 @@ export const maxDuration = 300;
 const MAX_EXTRA_PAGES = 6;
 
 export async function POST(req: NextRequest) {
-  const { url, delay, extraPages } = await req.json();
+  const { url, delay, extraPages, zoom } = await req.json();
 
   if (!url) {
     return Response.json({ error: 'URL is required' }, { status: 400 });
   }
+
+  // Zoom navigateur des captures desktop : 50%–150%, défaut 100%.
+  const safeZoom = typeof zoom === 'number' && isFinite(zoom)
+    ? Math.min(1.5, Math.max(0.5, zoom))
+    : 1;
 
   const validated = validateExternalUrl(url);
   if ('error' in validated) {
@@ -40,7 +45,7 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        const result = await scrapeSite(parsedUrl.href, delay, safeExtraPages, sendLog);
+        const result = await scrapeSite(parsedUrl.href, delay, safeExtraPages, sendLog, safeZoom);
 
         const json = JSON.stringify(result);
         const CHUNK_SIZE = 64 * 1024;

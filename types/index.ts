@@ -190,6 +190,12 @@ export type DAStore = {
   screenshotDelay: number;
   setScreenshotDelay: (delay: number) => void;
 
+  // Zoom navigateur appliqué aux captures desktop (1 = 100%). Permet de
+  // dézoomer (<1) pour élargir le viewport et éviter les bascules "écran
+  // trop petit" sur certains sites responsive.
+  scrapeZoom: number;
+  setScrapeZoom: (zoom: number) => void;
+
   isLoading: boolean;
   setIsLoading: (v: boolean) => void;
   error: string | null;

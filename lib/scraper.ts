@@ -6,6 +6,82 @@ type ExtraPage = { label: string; url: string };
 
 /** Dismiss cookie banners, hide overlays & floating widgets */
 async function dismissPopups(page: Page) {
+  // Age gates ("avez-vous 18 ans ?") en PREMIER : ils bloquent tout le reste
+  // (y compris le bandeau cookies). On clique TOUJOURS le bouton affirmatif,
+  // jamais le "non" (qui redirige hors du site) ; on saisit une date de
+  // naissance majeure si une est demandée ; on retire l'overlay en dernier
+  // recours. Couvre l'app Shopify AgeX (cmginfotech) + une heuristique
+  // générique scopée aux modales qui parlent d'âge/alcool.
+  await page.evaluate(() => {
+    const isVisible = (el: Element | null): el is HTMLElement =>
+      !!el && el instanceof HTMLElement && el.offsetParent !== null;
+
+    // --- AgeX (Shopify, cmginfotech) : id/classe connus ---
+    if (document.querySelector('#cmginfoTechmodal')) {
+      const setVal = (sel: string, val: string) => {
+        const el = document.querySelector(sel) as HTMLInputElement | HTMLSelectElement | null;
+        if (!el) return;
+        el.value = val;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      // Variante "date de naissance" : on saisit une date clairement majeure.
+      setVal('#cmg_age_birthdate', '1');
+      setVal('#cmg_age_birthmonth', '1');
+      setVal('#cmg_age_birthyear', '1990');
+      const agree = document.querySelector('#agreebtn, .cmg_age_agree_btn') as HTMLElement | null;
+      agree?.click();
+    }
+
+    // --- Heuristique générique (autres apps d'age gate) ---
+    const ageRegex = /18\s?ans|21\s?ans|majeur|âge l[ée]gal|age[ -]?verif|verify your age|drinking age|legal drinking|are you\s+(over\s+)?(18|21)|over\s+(18|21)|alcool|alcohol|date de naissance|year of birth/i;
+    const affirmRegex = /^(oui|yes|enter|entrer|ok|accéder|confirmer|continuer)$|j['’]?ai\s+(plus de\s+)?(18|21)|je suis majeur|i ?am\s+(over|of)|of legal age|over\s+(18|21)/i;
+    const negRegex = /\b(non|no|not|under|moins de|quitter|sortir|leave|exit|sorry)\b/i;
+
+    const fullScreenish = (el: HTMLElement): boolean => {
+      const cs = window.getComputedStyle(el);
+      if (cs.position !== 'fixed' && cs.position !== 'absolute') return false;
+      const r = el.getBoundingClientRect();
+      return r.width > window.innerWidth * 0.5 && r.height > window.innerHeight * 0.5;
+    };
+
+    const modals = Array.from(document.querySelectorAll<HTMLElement>('div, section, dialog, aside'))
+      .filter(isVisible)
+      .filter((el) => fullScreenish(el) && ageRegex.test(el.innerText || ''));
+
+    for (const modal of modals) {
+      const btns = Array.from(
+        modal.querySelectorAll<HTMLElement>('button, a[role="button"], a, input[type="button"], input[type="submit"], [class*="btn" i]')
+      ).filter(isVisible);
+      const yes = btns.find((b) => {
+        const t = ((b as HTMLInputElement).value || b.innerText || b.textContent || '').trim();
+        return affirmRegex.test(t) && !negRegex.test(t);
+      });
+      if (yes) { yes.click(); break; }
+    }
+  });
+  await new Promise((resolve) => setTimeout(resolve, 400));
+
+  // Filet de sécurité : retirer les overlays d'age gate encore visibles et
+  // rétablir le scroll (souvent verrouillé via overflow:hidden).
+  await page.evaluate(() => {
+    const sels = [
+      '#cmginfoTechmodal',
+      '[id*="age-gate" i]', '[class*="age-gate" i]',
+      '[id*="agegate" i]', '[class*="agegate" i]',
+      '[id*="age-verification" i]', '[class*="age-verification" i]',
+      '[id*="ageverification" i]', '[class*="ageverification" i]',
+      '[id*="age-check" i]', '[class*="age-check" i]',
+      '[id*="age_check" i]', '[class*="age_check" i]',
+    ];
+    let removed = false;
+    sels.forEach((s) => document.querySelectorAll(s).forEach((el) => { el.remove(); removed = true; }));
+    if (removed) {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    }
+  });
+
   await page.evaluate(() => {
     // Click cookie accept buttons
     const selectors = [
@@ -110,64 +186,68 @@ async function dismissPopups(page: Page) {
  * emojis instead of showing tofu rectangles. macOS/Windows ship Apple Color
  * Emoji / Segoe UI Emoji, but Linux/Docker rarely does — we ship Noto Color
  * Emoji via Google Fonts (the only emoji font legally distributable on the
- * web; Apple does not license its emoji set). Only elements that actually
- * contain emoji glyphs get the fallback appended, so the site's typography
- * stays intact.
+ * web; Apple does not license its emoji set).
+ *
+ * IMPORTANT : on N'ALIASE PLUS 'Apple Color Emoji' / 'Segoe UI Emoji' /
+ * 'Noto Color Emoji' via @font-face. Ces noms figurent dans la pile de polices
+ * par défaut de Tailwind (et de beaucoup de sites) ; les rendre résolvables
+ * vers une vraie police emoji l'injecte dans le chemin de rendu de TOUT le
+ * texte, et Chromium/Linux élargit alors l'avance des espaces (bug connu de
+ * Noto Color Emoji CBDT → titres aux mots très espacés). On déclare donc une
+ * police sous un nom PRIVÉ ('DAGenEmoji') et on enveloppe UNIQUEMENT les
+ * séquences emoji dans un <span> qui l'utilise : lettres et espaces ne croisent
+ * jamais la police emoji, la typo du site reste intacte.
  */
 async function injectEmojiFont(page: Page) {
   await page.evaluate(() => {
     const fontUrl = 'https://fonts.gstatic.com/s/notocoloremoji/v39/Yq6P-KqIXTD0t4D9z1ESnKM3-HpFab4.ttf';
-    // 1) @font-face declaration. We declare it under multiple aliases so that
-    //    sites listing 'Apple Color Emoji' / 'Segoe UI Emoji' / 'Twemoji' /
-    //    etc. in their font-family stack resolve to Noto Color Emoji on the
-    //    server. `local()` first → real Apple/Noto if installed (dev macOS).
     const style = document.createElement('style');
     style.setAttribute('data-da-gen-emoji', '');
+    // Nom privé : aucun site ne le référence → pas de contamination de la pile
+    // héritée. local('Apple Color Emoji') garde des emojis nets en dev macOS.
     style.textContent = `
       @font-face {
-        font-family: 'Apple Color Emoji';
-        src: local('Apple Color Emoji'), local('Noto Color Emoji'), url('${fontUrl}') format('truetype');
-        font-display: block;
-      }
-      @font-face {
-        font-family: 'Segoe UI Emoji';
-        src: local('Apple Color Emoji'), local('Segoe UI Emoji'), local('Noto Color Emoji'), url('${fontUrl}') format('truetype');
-        font-display: block;
-      }
-      @font-face {
-        font-family: 'Noto Color Emoji';
-        src: local('Apple Color Emoji'), local('Noto Color Emoji'), url('${fontUrl}') format('truetype');
-        font-display: block;
-      }
-      @font-face {
-        font-family: 'Twemoji Mozilla';
-        src: local('Apple Color Emoji'), local('Noto Color Emoji'), url('${fontUrl}') format('truetype');
-        font-display: block;
+        font-family: 'DAGenEmoji';
+        src: local('Apple Color Emoji'), url('${fontUrl}') format('truetype');
+        font-display: swap;
       }
     `;
     document.head.appendChild(style);
 
-    // 2) For elements containing emoji glyphs that don't already mention an
-    //    emoji font in their font-family stack, append the fallback inline.
-    //    We walk text nodes so we only touch the elements that actually need
-    //    it (cheap on small sites, bounded on big ones).
-    const emojiRegex = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F0FF}\u{1F100}-\u{1F2FF}\u{2300}-\u{23FF}\u{2B00}-\u{2BFF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}]/u;
-    const fallback = ', "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"';
-    const seen = new WeakSet<Element>();
+    // Détection (non globale) et découpe (globale, inclut les modificateurs :
+    // VS16, ZWJ, teintes de peau, drapeaux régionaux, keycaps).
+    const detect = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F0FF}\u{1F100}-\u{1F2FF}\u{2300}-\u{23FF}\u{2B00}-\u{2BFF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}]/u;
+    const splitRun = /(?:[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F0FF}\u{1F100}-\u{1F2FF}\u{2300}-\u{23FF}\u{2B00}-\u{2BFF}\u{1F900}-\u{1F9FF}\u{1FA70}-\u{1FAFF}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}\u{20E3}\u{1F1E6}-\u{1F1FF}])+/gu;
+
+    // On collecte d'abord les nœuds texte (muter le DOM pendant le TreeWalker
+    // fausse l'itération), puis on enveloppe chaque séquence emoji.
+    const targets: Text[] = [];
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     let node: Node | null;
     while ((node = walker.nextNode())) {
-      if (!node.textContent || !emojiRegex.test(node.textContent)) continue;
-      let el: Element | null = node.parentElement;
-      // Apply on the nearest block-level ancestor (or the parent) — enough
-      // for inheritance, no need to walk all the way up.
-      if (el && !seen.has(el) && el instanceof HTMLElement) {
-        seen.add(el);
-        const current = window.getComputedStyle(el).fontFamily || '';
-        if (!/emoji/i.test(current)) {
-          el.style.fontFamily = current + fallback;
-        }
+      const t = node.textContent;
+      if (t && detect.test(t)) targets.push(node as Text);
+    }
+
+    for (const tn of targets) {
+      const text = tn.textContent || '';
+      splitRun.lastIndex = 0;
+      const frag = document.createDocumentFragment();
+      let last = 0;
+      let m: RegExpExecArray | null;
+      while ((m = splitRun.exec(text))) {
+        if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+        const span = document.createElement('span');
+        // Police emoji confinée à ce span (que des emojis, jamais d'espace).
+        // 'Noto Color Emoji' en dernier recours si la police installée existe :
+        // sans espace dans le span, le bug d'avance n'a aucun effet.
+        span.style.fontFamily = "'DAGenEmoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif";
+        span.textContent = m[0];
+        frag.appendChild(span);
+        last = m.index + m[0].length;
       }
+      if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      tn.parentNode?.replaceChild(frag, tn);
     }
   });
   // Give the font a beat to actually load before we screenshot.
@@ -175,15 +255,91 @@ async function injectEmojiFont(page: Page) {
   await new Promise(resolve => setTimeout(resolve, 300));
 }
 
+/**
+ * Déclenche le contenu différé avant les captures : images en lazy-load et
+ * animations "reveal on scroll" (IntersectionObserver, Elementor, AOS…) qui
+ * laissent les sections vides tant qu'on n'a pas scrollé. Sinon la capture
+ * fullpage (et celles à mi-hauteur) montre des cadres blancs / sections vides.
+ * On force la visibilité + neutralise les durées d'animation, on déroule toute
+ * la page (déclenche observers + chargement des images), on attend que les
+ * images finissent (borné), puis on remonte en haut.
+ */
+async function revealLazyContent(page: Page) {
+  // 1) Stabilisation : sections masquées rendues visibles, animations instantanées.
+  await page.evaluate(() => {
+    if (document.querySelector('style[data-da-gen-reveal]')) return;
+    const style = document.createElement('style');
+    style.setAttribute('data-da-gen-reveal', '');
+    style.textContent = `
+      .elementor-invisible { visibility: visible !important; opacity: 1 !important; }
+      [data-aos], .wow { opacity: 1 !important; transform: none !important; visibility: visible !important; }
+      *, *::before, *::after {
+        animation-duration: 0.01s !important; animation-delay: 0s !important;
+        transition-duration: 0.01s !important; transition-delay: 0s !important;
+      }
+    `;
+    document.head.appendChild(style);
+  });
+
+  // 2) Déroulé complet : déclenche les IntersectionObservers et le chargement
+  //    des images lazy. Hauteur recalculée à chaque pas (le contenu grandit),
+  //    nombre d'itérations plafonné.
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve) => {
+      const distance = Math.max(400, Math.round(window.innerHeight * 0.85));
+      let steps = 0;
+      const timer = setInterval(() => {
+        window.scrollBy(0, distance);
+        steps++;
+        // Hauteur réelle : certains sites scrollent sur <html>, pas <body>.
+        const docH = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+        const atBottom = window.scrollY + window.innerHeight >= docH - 2;
+        if (atBottom || steps > 60) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 100);
+    });
+  });
+
+  // 3) Attendre les images déclenchées (borné à 3s pour ne pas bloquer).
+  await page.evaluate(() => {
+    const pending = Array.from(document.images).filter((img) => !img.complete);
+    return Promise.race([
+      Promise.all(pending.map((img) => new Promise<void>((res) => {
+        img.addEventListener('load', () => res());
+        img.addEventListener('error', () => res());
+      }))),
+      new Promise<void>((res) => setTimeout(res, 3000)),
+    ]);
+  });
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await new Promise((resolve) => setTimeout(resolve, 300));
+}
+
 /** Take desktop (viewport), desktop full page, scroll-position captures, and mobile screenshots */
-async function captureScreenshots(page: Page) {
+async function captureScreenshots(page: Page, zoom: number = 1) {
   // JPEG q88 — site screenshots have no transparency; this keeps payloads
   // ~5-10× smaller than PNG while staying crisp enough for presentation frames.
   const JPEG = { type: 'jpeg' as const, quality: 88 };
   const dataUrl = (buf: Buffer) => `data:image/jpeg;base64,${buf.toString('base64')}`;
 
+  // Zoom navigateur : on élargit le viewport de 1/zoom et on réduit le
+  // deviceScaleFactor de ×zoom. Le site se rend donc comme à un zoom Chrome
+  // de `zoom` (innerWidth grandit, media queries réévaluées) tandis que les
+  // dimensions du screenshot final restent identiques (1440·1.5 = 2160px de
+  // large quel que soit le zoom). Le mobile reste en 390px natif.
+  const z = zoom > 0 ? zoom : 1;
+  const deskW = Math.round(1440 / z);
+  const deskH = Math.round(900 / z);
+
   // Desktop viewport (hero / top of page)
-  await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1.5 });
+  await page.setViewport({ width: deskW, height: deskH, deviceScaleFactor: 1.5 * z });
+  // Charge le lazy-load + déclenche les reveals au scroll (sinon sections vides).
+  // Les images chargées persistent pour les captures au même viewport desktop
+  // (mid/lower) ; le mobile re-déroule (viewport différent → cf. plus bas).
+  await revealLazyContent(page);
   const desktopBuf = Buffer.from(await page.screenshot(JPEG));
 
   // Desktop full page (cap body height to avoid memory issues)
@@ -200,8 +356,10 @@ async function captureScreenshots(page: Page) {
   });
 
   // Scroll-position captures (for single-URL social frames)
-  const totalHeight = await page.evaluate(() => document.body.scrollHeight);
-  const viewportH = 900;
+  const totalHeight = await page.evaluate(() =>
+    Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)
+  );
+  const viewportH = deskH;
 
   // Mid-page capture (~40% scroll)
   const scrollMid = Math.min(Math.round(totalHeight * 0.4), totalHeight - viewportH);
@@ -221,6 +379,9 @@ async function captureScreenshots(page: Page) {
   // Mobile full page
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
   await new Promise(resolve => setTimeout(resolve, 500));
+  // Re-dérouler au viewport mobile : le thème recharge des images lazy / sources
+  // différentes et rejoue les animations d'entrée → sans ça, hero/sections vides.
+  await revealLazyContent(page);
   await page.evaluate(() => {
     document.body.style.maxHeight = '6000px';
     document.body.style.overflow = 'hidden';
@@ -244,16 +405,16 @@ async function captureScreenshots(page: Page) {
 }
 
 /** Navigate to a page, dismiss popups, and capture all screenshots */
-async function navigateAndCapture(page: Page, pageUrl: string, delay: number) {
+async function navigateAndCapture(page: Page, pageUrl: string, delay: number, zoom: number = 1) {
   await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
   await page.waitForNetworkIdle({ idleTime: 1000, timeout: 8000 }).catch(() => {});
   await new Promise(resolve => setTimeout(resolve, Math.min(delay, 3000)));
   await dismissPopups(page);
   await injectEmojiFont(page);
-  return captureScreenshots(page);
+  return captureScreenshots(page, zoom);
 }
 
-export async function scrapeSite(url: string, delay: number = 2000, extraPages: ExtraPage[] = [], onLog?: (entry: { time: number; msg: string }) => void) {
+export async function scrapeSite(url: string, delay: number = 2000, extraPages: ExtraPage[] = [], onLog?: (entry: { time: number; msg: string }) => void, zoom: number = 1) {
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
   const t0 = Date.now();
   const log = (msg: string) => {
@@ -346,8 +507,8 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
     page.setDefaultTimeout(25000);
 
     // Main page screenshots
-    log('Capturing screenshots...');
-    const mainScreenshots = await captureScreenshots(page);
+    log(`Capturing screenshots (zoom ${Math.round(zoom * 100)}%)...`);
+    const mainScreenshots = await captureScreenshots(page, zoom);
     log('Screenshots captured');
 
     log('Extracting colors...');
@@ -552,7 +713,7 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
     for (const ep of extraPages) {
       try {
         log(`Capturing extra page: ${ep.label} (${ep.url})`);
-        const shots = await navigateAndCapture(page, ep.url, delay);
+        const shots = await navigateAndCapture(page, ep.url, delay, zoom);
         capturedExtraPages.push({
           label: ep.label,
           url: ep.url,

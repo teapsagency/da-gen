@@ -169,6 +169,11 @@ export const useDAStore = create<DAStore>()(
       screenshotDelay: 2000,
       setScreenshotDelay: (delay: number) => set({ screenshotDelay: delay }),
 
+      scrapeZoom: 1,
+      // Clamp 50%–150% par pas de 5%.
+      setScrapeZoom: (zoom: number) =>
+        set({ scrapeZoom: Math.min(1.5, Math.max(0.5, Math.round(zoom * 20) / 20)) }),
+
       // UI state
       isLoading: false,
       setIsLoading: (v: boolean) => set({ isLoading: v }),
@@ -270,6 +275,7 @@ export const useDAStore = create<DAStore>()(
         theme: state.theme,
         agencyLogo: state.agencyLogo === '/logo-teaps.svg' ? state.agencyLogo : undefined,
         screenshotDelay: state.screenshotDelay,
+        scrapeZoom: state.scrapeZoom,
         geminiApiKeys: state.geminiApiKeys,
         activeApiKeyId: state.activeApiKeyId,
         geminiModel: state.geminiModel,
