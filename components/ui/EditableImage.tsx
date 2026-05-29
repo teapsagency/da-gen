@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { ImagePlus, X, Crop } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
+import { useActiveScreenshots } from "@/lib/useActiveScreenshots";
 import { toast } from "sonner";
 import { RegionPicker } from "./RegionPicker";
 
@@ -53,21 +54,37 @@ export function EditableImage({
   const setCustomScreenshot = useDAStore((s) => s.setCustomScreenshot);
   const regionY = useDAStore((s) => s.regionY);
   const setRegionY = useDAStore((s) => s.setRegionY);
+  const activeScreenshots = useActiveScreenshots();
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
-  // Sélecteur de zone : on capture le ratio du slot à l'ouverture (le ratio
-  // est invariant au scale du preview, donc getBoundingClientRect suffit).
-  const [picker, setPicker] = useState<{ open: boolean; aspect: number }>({ open: false, aspect: 1 });
+  // Sélecteur de zone : on capture le ratio du slot à l'ouverture (invariant au
+  // scale du preview). Selon que le slot cliqué est paysage ou portrait, on
+  // l'utilise comme ratio de l'aperçu desktop OU mobile ; l'autre prend un ratio
+  // par défaut. La popup montre TOUJOURS les deux aperçus (regionY est global).
+  const [picker, setPicker] = useState<{ open: boolean; desktopAspect: number; mobileAspect: number }>({
+    open: false,
+    desktopAspect: 1.3,
+    mobileAspect: 0.46,
+  });
 
   const openPicker = (e: React.MouseEvent) => {
     e.stopPropagation();
     const r = wrapperRef.current?.getBoundingClientRect();
-    const aspect = r && r.height > 0 ? r.width / r.height : 1;
-    setPicker({ open: true, aspect });
+    const a = r && r.height > 0 ? r.width / r.height : 1;
+    const portrait = a < 1;
+    setPicker({
+      open: true,
+      desktopAspect: portrait ? 1.3 : a,
+      mobileAspect: portrait ? a : 0.46,
+    });
   };
 
   const hasCustom = Boolean(customSrc);
+  // Sources pleine page pour les DEUX aperçus de la popup (regionY étant global,
+  // on montre toujours desktop + mobile, quel que soit le slot qui ouvre).
+  const desktopRegionSrc = activeScreenshots?.desktopFull;
+  const mobileRegionSrc = activeScreenshots?.mobile;
   // Zone de capture globale : quand regionY > 0 et qu'une source pleine page est
   // fournie, on affiche cette source pan­née verticalement (object-position). Un
   // upload custom prime et n'est jamais déplacé.
@@ -240,8 +257,8 @@ export function EditableImage({
                 position: "absolute",
                 top: "clamp(8px, 1.4cqi, 28px)",
                 right: "clamp(8px, 1.4cqi, 28px)",
-                width: "clamp(28px, 4cqi, 64px)",
-                height: "clamp(28px, 4cqi, 64px)",
+                width: "clamp(36px, 5.5cqi, 64px)",
+                height: "clamp(36px, 5.5cqi, 64px)",
                 borderRadius: "50%",
                 background: "rgba(0, 0, 0, 0.7)",
                 color: "#fff",
@@ -259,8 +276,8 @@ export function EditableImage({
               <X
                 strokeWidth={2}
                 style={{
-                  width: "clamp(16px, 2.2cqi, 36px)",
-                  height: "clamp(16px, 2.2cqi, 36px)",
+                  width: "clamp(20px, 3cqi, 36px)",
+                  height: "clamp(20px, 3cqi, 36px)",
                 }}
               />
             </button>
@@ -277,9 +294,9 @@ export function EditableImage({
                 position: "absolute",
                 top: "clamp(8px, 1.4cqi, 28px)",
                 left: "clamp(8px, 1.4cqi, 28px)",
-                height: "clamp(28px, 4cqi, 64px)",
-                paddingLeft: "clamp(10px, 1.4cqi, 22px)",
-                paddingRight: "clamp(10px, 1.4cqi, 22px)",
+                height: "clamp(36px, 5.5cqi, 64px)",
+                paddingLeft: "clamp(14px, 1.8cqi, 22px)",
+                paddingRight: "clamp(14px, 1.8cqi, 22px)",
                 borderRadius: "9999px",
                 background: "rgba(0, 0, 0, 0.7)",
                 color: "#fff",
@@ -287,18 +304,18 @@ export function EditableImage({
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
-                gap: "clamp(4px, 0.8cqi, 12px)",
+                gap: "clamp(6px, 1cqi, 12px)",
                 opacity: isHovered ? 1 : 0,
                 transition: "opacity 160ms ease",
                 zIndex: 11,
                 fontFamily: "Satoshi, sans-serif",
                 fontWeight: 600,
-                fontSize: "clamp(10px, 1.5cqi, 24px)",
+                fontSize: "clamp(13px, 2cqi, 24px)",
                 whiteSpace: "nowrap",
               }}
               aria-label="Choisir la zone"
             >
-              <Crop style={{ width: "clamp(14px, 2.2cqi, 36px)", height: "clamp(14px, 2.2cqi, 36px)" }} strokeWidth={2} />
+              <Crop style={{ width: "clamp(18px, 3cqi, 36px)", height: "clamp(18px, 3cqi, 36px)" }} strokeWidth={2} />
               Zone
             </button>
           )}
@@ -312,10 +329,14 @@ export function EditableImage({
             style={{ display: "none" }}
           />
 
-          {picker.open && regionSource && (
+          {picker.open && regionSource && desktopRegionSrc && (
             <RegionPicker
-              source={regionSource}
-              aspect={picker.aspect}
+              navSource={desktopRegionSrc}
+              navAspect={picker.desktopAspect}
+              previews={[
+                { label: "Desktop", source: desktopRegionSrc, aspect: picker.desktopAspect },
+                ...(mobileRegionSrc ? [{ label: "Mobile", source: mobileRegionSrc, aspect: picker.mobileAspect }] : []),
+              ]}
               initialY={regionY}
               onConfirm={(ry) => {
                 setRegionY(ry);

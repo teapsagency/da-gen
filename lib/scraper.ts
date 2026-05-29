@@ -166,13 +166,18 @@ async function dismissPopups(page: Page) {
       '[class*="wheelio" i]', '[id*="wheelio" i]',
       '[class*="spin-a-sale" i]', '[id*="spin-a-sale" i]',
       'shopify-forms-embed',
-      // CookieYes (SaaS) — overlay, conteneur, modal préférences, bouton revisit
-      '[class*="cky-" i]', '[id*="cky-" i]', '[data-cky-tag]',
+      // CookieYes (SaaS) — overlay, conteneur, modal préférences, bouton revisit.
+      // ⚠ Le préfixe "cky-" DOIT matcher un token de classe entier (début ou
+      // après une espace) : un `[class*="cky-"]` naïf attrape "stiCKY-md" et
+      // toutes les utilitaires "sticky-*" → display:none sur le contenu en
+      // position sticky (galerie produit Shopify), d'où des captures blanches.
+      '[class^="cky-" i]', '[class*=" cky-" i]', '[id^="cky-" i]', '[data-cky-tag]',
       '.cky-consent-container', '.cky-overlay', '.cky-modal', '.cky-btn-revisit-wrapper',
       '.cky-consent-bar', '.cky-preference-center',
-      // CookieYes plugin WordPress (préfixe cli-/cookie-law)
+      // CookieYes plugin WordPress (préfixe cli-/cookie-law) — même précaution
+      // de token entier pour "cli-" (sinon "client-", "click-"…).
       '#cookie-law-info-bar', '#cookie-law-info-again', '.cli-modal-backdrop',
-      '.cli-bar-container', '[class*="cli-" i][class*="bar" i]',
+      '.cli-bar-container', '[class^="cli-" i][class*="bar" i]', '[class*=" cli-" i][class*="bar" i]',
     ];
     const style = document.createElement('style');
     style.innerHTML = overlaySelectors.map(s => `${s} { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }`).join('\n');
@@ -270,7 +275,13 @@ async function stabilizePage(page: Page) {
     style.textContent = `
       html, body { scroll-behavior: auto !important; }
       .elementor-invisible { visibility: visible !important; opacity: 1 !important; }
-      [data-aos], .wow { opacity: 1 !important; transform: none !important; visibility: visible !important; }
+      /* Reveals AOS/WOW : on neutralise l'état "caché" SANS forcer l'opacity en
+         !important. Forcer opacity:1 !important écrasait l'opacity:0 que des
+         carrousels (ex. testimonials Shopify) posent EN STYLE INLINE sur leurs
+         slides non-actives → toutes les slides se superposaient. La visibilité
+         finale est rétablie via la classe .aos-animate (cf. revealLazyContent),
+         que le style inline d'un slide masqué l'emporte toujours (inline > règle). */
+      [data-aos], .wow { transform: none !important; visibility: visible !important; }
       *, *::before, *::after {
         animation-duration: 0.01s !important; animation-delay: 0s !important;
         transition-duration: 0.01s !important; transition-delay: 0s !important;
@@ -326,6 +337,48 @@ async function revealLazyContent(page: Page) {
 
   await page.evaluate(() => window.scrollTo(0, 0));
   await new Promise((resolve) => setTimeout(resolve, 300));
+
+  await page.evaluate(() => {
+    // 1) Filet anti-"revert" : AOS (once:false) et WOW retirent la classe
+    //    d'animation quand l'élément ressort du viewport → après le retour en
+    //    haut, des sections déjà vues repassent à opacity:0 (fullpage blanche
+    //    par endroits). On ré-applique la classe « animée » partout.
+    document.querySelectorAll('[data-aos]').forEach((el) => el.classList.add('aos-animate'));
+    document.querySelectorAll('.wow').forEach((el) => el.classList.add('animated'));
+
+    // 2) Carrousels empilés sur-révélés : leurs slides occupent la MÊME cellule
+    //    (position/grid superposée) et ne sont distinguées qu'en JS (opacity
+    //    inline) — JS qui ne tourne pas de façon fiable en headless. Du coup AOS
+    //    révèle TOUTES les slides empilées d'un coup → textes superposés (ex.
+    //    témoignages Shopify). Heuristique : si des frères [data-aos] se
+    //    chevauchent et qu'UN SEUL porte une classe active (is-selected/active/
+    //    current/…), on masque les autres. Le chevauchement exclut les
+    //    nav/onglets/listes (disposés côte à côte, jamais superposés).
+    const ACTIVE = /(?:^|[\s_-])(is[-_]?selected|is[-_]?active|active|selected|current|swiper-slide-active)(?:$|[\s_-])/i;
+    const overlap = (a: Element, b: Element) => {
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      if (ra.width < 40 || ra.height < 40) return false;
+      const ox = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left);
+      const oy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
+      if (ox <= 0 || oy <= 0) return false;
+      return ox * oy > 0.6 * Math.min(ra.width * ra.height, rb.width * rb.height);
+    };
+    const parents = new Set<Element>();
+    document.querySelectorAll('[data-aos]').forEach((el) => { if (el.parentElement) parents.add(el.parentElement); });
+    parents.forEach((parent) => {
+      const slides = Array.from(parent.children).filter((c) => c.hasAttribute('data-aos'));
+      if (slides.length < 2 || slides.length > 12) return;
+      if (!slides.some((s, i) => slides.some((t, j) => i !== j && overlap(s, t)))) return;
+      const active = slides.filter((s) => ACTIVE.test(s.getAttribute('class') || ''));
+      if (active.length !== 1) return;
+      slides.forEach((s) => {
+        if (s !== active[0]) {
+          (s as HTMLElement).style.setProperty('opacity', '0', 'important');
+          (s as HTMLElement).style.setProperty('visibility', 'hidden', 'important');
+        }
+      });
+    });
+  });
 }
 
 /** Take desktop (viewport), desktop full page, scroll-position captures, and mobile screenshots */
