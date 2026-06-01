@@ -161,7 +161,10 @@ export const Frame1_DA = ({ id }: { id?: string }) => {
                 fontSize: "72px",
                 color: bgTextColor,
                 letterSpacing: "-0.02em",
-                textTransform: "uppercase",
+                // Casse alignée sur le toggle « majuscules » du panneau (même
+                // règle que l'aperçu « Aa » ci-dessus) : majuscules seulement si
+                // l'utilisateur le choisit, sinon la casse réelle du nom.
+                textTransform: fontUppercase ? "uppercase" : "none",
                 lineHeight: "1",
               }}
             >
