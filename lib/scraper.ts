@@ -152,6 +152,16 @@ async function dismissPopups(page: Page) {
       '[class*="avis-verifies" i]', '[id*="avis-verifies" i]',
       '[class*="chat-widget" i]', '[class*="chatWidget" i]', '[id*="chat-widget" i]',
       '[id*="intercom" i]', '[id*="crisp" i]', '[id*="hubspot-messages" i]', '[id*="tidio" i]',
+      // Zenchef (réservation resto) — widget flottant « Réserver une table ».
+      // Deux générations : (1) ancienne iframe SDK (classe au préfixe stable
+      // ZC_sdk__, hash variable) ; (2) nouvelle version Panda CSS dont les classes
+      // sont génériques (pos_fixed, d_flex, bdr_xl…) — donc PAS de "zenchef" en
+      // classe — mais marquée data-testid="zenchef-…". On ne vise QUE les éléments
+      // porteurs d'un marqueur zenchef/zc_sdk/zc-widget, jamais les boutons
+      // « réserver » du thème (qui n'ont aucun de ces marqueurs).
+      '[class*="zc_sdk" i]', '[class*="zc-widget" i]', '[id*="zc-widget" i]',
+      '[class*="zenchef" i]', '[id*="zenchef" i]',
+      '[data-testid*="zenchef" i]', 'iframe[src*="zenchef" i]',
       // Newsletter / promo popups
       '[class*="popup" i][class*="newsletter" i]', '[id*="popup" i][id*="newsletter" i]',
       '[class*="popup" i][class*="email" i]', '[class*="popup" i][class*="promo" i]',
