@@ -333,7 +333,30 @@ async function revealLazyContent(page: Page) {
     });
   });
 
-  // 3) Attendre les images déclenchées (borné à 3s pour ne pas bloquer).
+  // 3) Forcer le chargement des images en lazy-load AVANT d'attendre. Beaucoup
+  //    de thèmes (Shopify .image-lazy-load, lazysizes…) affichent un LQIP
+  //    minuscule (src ...width=10, très flou) et ne mettent le vrai visuel que
+  //    dans data-src/data-srcset, swappé en JS à l'entrée dans le viewport. Le
+  //    swap + téléchargement n'est pas toujours fini avant la capture fullpage
+  //    desktop → images floues (alors qu'OK en mobile, capturé plus tard). On
+  //    promeut donc le vrai src/srcset tout de suite et on passe en eager.
+  await page.evaluate(() => {
+    document.querySelectorAll('img[data-src], img[data-srcset]').forEach((img) => {
+      const el = img as HTMLImageElement;
+      const dSrcset = el.getAttribute('data-srcset');
+      const dSrc = el.getAttribute('data-src');
+      const dSizes = el.getAttribute('data-sizes');
+      if (dSrcset) el.setAttribute('srcset', dSrcset);
+      if (dSrc) el.setAttribute('src', dSrc);
+      if (dSizes && dSizes !== 'auto') el.setAttribute('sizes', dSizes);
+      el.setAttribute('loading', 'eager');
+      el.removeAttribute('data-srcset');
+      el.removeAttribute('data-src');
+    });
+  });
+
+  // 4) Attendre les images en vol (borné à 6s : certains visuels promus sont de
+  //    gros PNG, 3s ne suffisait pas pour les dernières sections).
   await page.evaluate(() => {
     const pending = Array.from(document.images).filter((img) => !img.complete);
     return Promise.race([
@@ -341,7 +364,7 @@ async function revealLazyContent(page: Page) {
         img.addEventListener('load', () => res());
         img.addEventListener('error', () => res());
       }))),
-      new Promise<void>((res) => setTimeout(res, 3000)),
+      new Promise<void>((res) => setTimeout(res, 6000)),
     ]);
   });
 
@@ -680,8 +703,12 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
 
       selectors.forEach(selector => {
         document.querySelectorAll(selector).forEach(el => {
-          if (el instanceof HTMLImageElement && el.src) {
-            candidates.push(el.src);
+          if (el instanceof HTMLImageElement) {
+            // currentSrc d'abord : c'est l'image réellement affichée (résolue
+            // depuis srcset), donc la vraie résolution — pas le LQIP minuscule
+            // (...width=10) parfois laissé dans `src` par le lazy-load.
+            const real = el.currentSrc || el.src;
+            if (real) candidates.push(real);
           }
           if (el instanceof SVGSVGElement) {
             try {
@@ -700,18 +727,48 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
     });
 
     log(`Found ${logoCandidates.length} logo candidates`);
-    const logosBase64: string[] = [];
-    for (const src of logoCandidates.slice(0, 8)) {
-      if (src.startsWith('data:')) {
-        logosBase64.push(src);
-        continue;
+    const candidates = logoCandidates.slice(0, 8);
+    const httpCandidates = candidates.filter((s) => !s.startsWith('data:'));
+
+    // Récupération PRINCIPALE via fetch() DANS le contexte de la page : profite
+    // de la session/des cookies, pas de CORS pour les images same-origin (cas
+    // courant, ex. captibulle /cdn/shop/…), et bien plus fiable qu'ouvrir une
+    // page par logo — qui échoue par intermittence sur les sites à anti-bot ou
+    // quand la page principale est lourde (gotos avortés). Aligné sur httpCandidates.
+    const viaFetch = await page.evaluate(async (urls) => {
+      const toDataUrl = (blob: Blob) => new Promise<string | null>((resolve) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(typeof fr.result === 'string' ? fr.result : null);
+        fr.onerror = () => resolve(null);
+        fr.readAsDataURL(blob);
+      });
+      const out: (string | null)[] = [];
+      for (const u of urls) {
+        try {
+          const res = await fetch(u, { credentials: 'include' });
+          if (!res.ok) { out.push(null); continue; }
+          const blob = await res.blob();
+          if (!blob.type.startsWith('image') || blob.size === 0 || blob.size > 3_000_000) { out.push(null); continue; }
+          out.push(await toDataUrl(blob));
+        } catch { out.push(null); }
       }
+      return out;
+    }, httpCandidates);
+    const fetchByUrl = new Map<string, string | null>();
+    httpCandidates.forEach((u, i) => fetchByUrl.set(u, viaFetch[i] ?? null));
+
+    const logosBase64: string[] = [];
+    for (const src of candidates) {
+      if (src.startsWith('data:')) { logosBase64.push(src); continue; }
+      const fetched = fetchByUrl.get(src);
+      if (fetched) { logosBase64.push(fetched); continue; }
+      // Repli : cross-origin sans CORS → fetch() a échoué ; on tente la navigation.
       let logoPage: Page | undefined;
       try {
         logoPage = await browser.newPage();
         const response = await logoPage.goto(src, { timeout: 10000 });
         const buffer = await response?.buffer();
-        if (buffer) {
+        if (buffer && buffer.length > 0) {
           const contentType = response?.headers()['content-type'] || 'image/png';
           logosBase64.push(`data:${contentType};base64,${buffer.toString('base64')}`);
         }
