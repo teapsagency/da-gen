@@ -25,13 +25,13 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
       }}
     >
       {/* Decorative lines */}
-      <div style={{ position: "absolute", left: "68px", top: 0, width: "1px", height: "1350px", background: "#e9eefa" }} />
-      <div style={{ position: "absolute", right: "68px", top: 0, width: "1px", height: "1350px", background: "#e9eefa" }} />
-      <div style={{ position: "absolute", left: 0, top: "68px", width: "1080px", height: "1px", background: "#e9eefa" }} />
+      <div style={{ position: "absolute", left: "68px", top: 0, width: "1px", height: "1350px", background: "#dfdfdf" }} />
+      <div style={{ position: "absolute", right: "68px", top: 0, width: "1px", height: "1350px", background: "#dfdfdf" }} />
+      <div style={{ position: "absolute", left: 0, top: "68px", width: "1080px", height: "1px", background: "#dfdfdf" }} />
 
       {/* Decorative dots */}
-      <div style={{ position: "absolute", left: "54px", top: "54px", width: "28px", height: "28px", borderRadius: "50%", background: "#c8d0f7" }} />
-      <div style={{ position: "absolute", right: "54px", top: "54px", width: "28px", height: "28px", borderRadius: "50%", background: "#c8d0f7" }} />
+      <div style={{ position: "absolute", left: "54px", top: "54px", width: "28px", height: "28px", borderRadius: "50%", background: "#cfcfcf" }} />
+      <div style={{ position: "absolute", right: "54px", top: "54px", width: "28px", height: "28px", borderRadius: "50%", background: "#cfcfcf" }} />
 
       {/* Title block */}
       <div
@@ -56,7 +56,7 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
             whiteSpace: "nowrap",
           }}
         >
-          Nouvelle
+          Focus
         </span>
         <span
           style={{
@@ -68,7 +68,7 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
             whiteSpace: "nowrap",
           }}
         >
-          Réalisation
+          Client
         </span>
       </div>
 
@@ -83,7 +83,7 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
           borderRadius: "32px",
           overflow: "hidden",
           background: "#ffffff",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)",
+          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
           display: "flex",
           flexDirection: "column",
           padding: "18px",
@@ -92,7 +92,7 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
       >
         <BrowserNavBar domain={domain} agencyLogo={agencyLogo} dotSize={12} />
 
-        {/* Screenshot with progressive fade */}
+        {/* Screenshot */}
         <div style={{ flex: 1, minHeight: 0, overflow: "hidden", position: "relative", borderRadius: "8px" }}>
           <EditableImage
             slotKey="frame-6-social-nouvelle__main"
@@ -100,17 +100,6 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
             alt=""
             editable={editable}
             style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block", borderRadius: "8px" }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: "200px",
-              background: "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.95) 100%)",
-              pointerEvents: "none",
-            }}
           />
         </div>
       </div>

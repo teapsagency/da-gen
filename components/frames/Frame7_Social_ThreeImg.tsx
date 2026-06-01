@@ -5,7 +5,7 @@ import { BrowserNavBar } from "./BrowserNavBar";
 import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
-  const { scrapeResult, bgColor, agencyLogo } = useDAStore();
+  const { scrapeResult, bgColor, agencyLogo, fontName, localFontFile } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
@@ -16,6 +16,10 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
   const siteName = domain.replace(/\.[^.]+$/, "");
   // Capitalize first letter
   const displayName = siteName.charAt(0).toUpperCase() + siteName.slice(1);
+  // Nom du projet rendu avec la police SÉLECTIONNÉE (celle du site scrapé /
+  // choisie dans le panneau), chargée globalement dans app/page.tsx. Archivo en
+  // repli si aucune police n'est définie.
+  const projectFont = localFontFile ? "LocalFont" : `"${fontName}", 'Archivo', sans-serif`;
 
   const extraPages = scrapeResult.extraPages || [];
   const hasMultipleUrls = extraPages.length >= 2;
@@ -94,7 +98,7 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
                 whiteSpace: "nowrap",
               }}
             >
-              Nouvelle
+              Focus
             </span>
             <span
               style={{
@@ -106,12 +110,12 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
                 whiteSpace: "nowrap",
               }}
             >
-              Réalisation
+              Client
             </span>
           </div>
           <span
             style={{
-              fontFamily: "'Archivo', sans-serif",
+              fontFamily: projectFont,
               fontWeight: 500,
               fontSize: "58px",
               color: "#000000",

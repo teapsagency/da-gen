@@ -16,8 +16,8 @@ export const Frame8_Social_CardSite = ({ id }: { id?: string }) => {
       id={id}
       style={{
         position: "relative",
-        width: "800px",
-        height: "1000px",
+        width: "1080px",
+        height: "1350px",
         overflow: "hidden",
         background: "#000",
       }}
@@ -47,7 +47,7 @@ export const Frame8_Social_CardSite = ({ id }: { id?: string }) => {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "80px",
+            padding: "108px",
           }}
         >
           <img
