@@ -5,7 +5,8 @@ import JSZip from 'jszip';
 export async function captureFrame(
   frameId: string,
   width = 2373,
-  height = 1473
+  height = 1473,
+  scale = 1,
 ): Promise<Blob | null> {
   const element = document.getElementById(frameId);
   if (!element) return null;
@@ -14,7 +15,9 @@ export async function captureFrame(
     const blob = await toBlob(element, {
       width,
       height,
-      pixelRatio: 1,
+      // Résolution de sortie : pixelRatio multiplie le canvas (canvas = width ×
+      // pixelRatio). scale=2 → visuels deux fois plus nets pour les réseaux.
+      pixelRatio: scale,
       cacheBust: true,
       skipAutoScale: true,
       canvasWidth: width,
@@ -35,8 +38,8 @@ export async function captureFrame(
   }
 }
 
-export async function exportFrame(frameId: string, filename: string) {
-  const blob = await captureFrame(frameId);
+export async function exportFrame(frameId: string, filename: string, width?: number, height?: number, scale = 1) {
+  const blob = await captureFrame(frameId, width, height, scale);
   if (blob) {
     saveAs(blob, `${filename}.png`);
   }
@@ -59,13 +62,13 @@ const SOCIAL_FRAMES: FrameDef[] = [
   { id: 'frame-5-social-hero',    name: '05_hero_simple',  width: 1080, height: 675 },
   { id: 'frame-6-social-nouvelle', name: '06_nouvelle_real', width: 1080, height: 1350 },
   { id: 'frame-7-social-three',   name: '07_three_images', width: 1080, height: 1350 },
-  { id: 'frame-8-social-card',    name: '08_card_site',    width: 800,  height: 1000 },
+  { id: 'frame-8-social-card',    name: '08_card_site',    width: 1080, height: 1350 },
 ];
 
 // Capture each frame and add it to the given JSZip target (zip root or a subfolder).
-async function addFramesToZip(target: JSZip, frames: FrameDef[], prefix: string) {
+async function addFramesToZip(target: JSZip, frames: FrameDef[], prefix: string, scale = 1) {
   for (const frame of frames) {
-    const blob = await captureFrame(frame.id, frame.width, frame.height);
+    const blob = await captureFrame(frame.id, frame.width, frame.height, scale);
     if (blob) {
       target.file(`${prefix}_${frame.name}.png`, blob);
     }
@@ -74,16 +77,16 @@ async function addFramesToZip(target: JSZip, frames: FrameDef[], prefix: string)
 
 // Pack complet : charte graphique + visuels desktop + réseaux sociaux,
 // rangés dans trois sous-dossiers.
-export async function exportFullPack(clientName: string) {
+export async function exportFullPack(clientName: string, scale = 1) {
   const sanitizedClientName = clientName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
   const zip = new JSZip();
 
   const charteFolder = zip.folder('charte_graphique');
   const desktopFolder = zip.folder('desktop');
   const socialFolder = zip.folder('reseaux_sociaux');
-  if (charteFolder) await addFramesToZip(charteFolder, CHARTE_FRAMES, sanitizedClientName);
-  if (desktopFolder) await addFramesToZip(desktopFolder, DESKTOP_FRAMES, sanitizedClientName);
-  if (socialFolder) await addFramesToZip(socialFolder, SOCIAL_FRAMES, sanitizedClientName);
+  if (charteFolder) await addFramesToZip(charteFolder, CHARTE_FRAMES, sanitizedClientName, scale);
+  if (desktopFolder) await addFramesToZip(desktopFolder, DESKTOP_FRAMES, sanitizedClientName, scale);
+  if (socialFolder) await addFramesToZip(socialFolder, SOCIAL_FRAMES, sanitizedClientName, scale);
 
   const content = await zip.generateAsync({ type: 'blob' });
   saveAs(content, `${sanitizedClientName}_assets.zip`);

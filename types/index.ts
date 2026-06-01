@@ -228,6 +228,11 @@ export type DAStore = {
   scrapeZoom: number;
   setScrapeZoom: (zoom: number) => void;
 
+  // Facteur de résolution à l'export PNG (1 = natif, 2 = double pour des visuels
+  // plus nets sur les réseaux). S'applique à l'export unitaire ET au pack ZIP.
+  exportScale: number;
+  setExportScale: (scale: number) => void;
+
   isLoading: boolean;
   setIsLoading: (v: boolean) => void;
   error: string | null;

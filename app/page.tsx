@@ -87,6 +87,8 @@ export default function Home() {
     fontName,
     fontUrl,
     localFontFile,
+    exportScale,
+    setExportScale,
     setUrl,
     setIsLoading,
     setScrapeResult,
@@ -276,7 +278,7 @@ export default function Home() {
       "frame-4-social-browser", "frame-5-social-hero", "frame-6-social-nouvelle", "frame-7-social-three", "frame-8-social-card",
     ]);
     try {
-      await exportFullPack(scrapeResult.domain);
+      await exportFullPack(scrapeResult.domain, exportScale);
       toast.success("Pack téléchargé !");
     } catch {
       toast.error("Erreur lors de l'export");
@@ -285,7 +287,7 @@ export default function Home() {
       setShowOffscreenFrames(false);
       setShowOffscreenSocialFrames(false);
     }
-  }, [scrapeResult]);
+  }, [scrapeResult, exportScale]);
 
 
   return (
@@ -701,6 +703,25 @@ export default function Home() {
                   </Accordion>
 
                   <div className="mt-8 mb-6">
+                    {/* Qualité d'export : ×2 = visuels deux fois plus nets pour
+                        les réseaux (fichiers plus lourds). S'applique au pack ET
+                        aux exports PNG unitaires. */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="text-xs font-medium text-foreground/40">Qualité d&apos;export</span>
+                      <div className="flex items-center gap-1 bg-foreground/5 border border-border rounded-lg p-0.5">
+                        {[1, 2].map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => setExportScale(s)}
+                            className={`px-2.5 h-6 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                              exportScale === s ? "bg-background shadow-sm text-foreground" : "text-foreground/50 hover:text-foreground/80"
+                            }`}
+                          >
+                            ×{s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <button
                       onClick={handleExportPack}
                       disabled={isExportingPack}
@@ -855,8 +876,8 @@ export default function Home() {
                     <PreviewContainer
                       title="08 / CARD SITE"
                       id="frame-8-social-card"
-                      nativeWidth={800}
-                      nativeHeight={1000}
+                      nativeWidth={1080}
+                      nativeHeight={1350}
                       actions={<CardImageUploadButton />}
                       actionsBelow
                     >
@@ -1164,7 +1185,7 @@ function PreviewContainer({
   const [scale, setScale] = React.useState(0.2);
   const [isExporting, setIsExporting] = React.useState(false);
   const [showExportFrame, setShowExportFrame] = React.useState(false);
-  const { scrapeResult, borderRadius } = useDAStore();
+  const { scrapeResult, borderRadius, exportScale } = useDAStore();
 
   useEffect(() => {
     const updateScale = () => {
@@ -1184,7 +1205,7 @@ function PreviewContainer({
       setShowExportFrame(true);
       await waitForFrames([id]);
       try {
-        await exportFrame(id, `${scrapeResult.domain}_${id}`);
+        await exportFrame(id, `${scrapeResult.domain}_${id}`, nativeWidth, nativeHeight, exportScale);
         toast.success("Frame exportée !");
       } catch {
         toast.error("Erreur lors de l'export");

@@ -190,6 +190,10 @@ export const useDAStore = create<DAStore>()(
       setScrapeZoom: (zoom: number) =>
         set({ scrapeZoom: Math.min(1.5, Math.max(0.5, Math.round(zoom * 20) / 20)) }),
 
+      // Résolution d'export : ×2 par défaut (visuels nets sur les réseaux).
+      exportScale: 2,
+      setExportScale: (scale: number) => set({ exportScale: scale === 2 ? 2 : 1 }),
+
       // UI state
       isLoading: false,
       setIsLoading: (v: boolean) => set({ isLoading: v }),
@@ -295,6 +299,7 @@ export const useDAStore = create<DAStore>()(
         agencyLogo: state.agencyLogo === '/logo-teaps.svg' ? state.agencyLogo : undefined,
         screenshotDelay: state.screenshotDelay,
         scrapeZoom: state.scrapeZoom,
+        exportScale: state.exportScale,
         geminiApiKeys: state.geminiApiKeys,
         activeApiKeyId: state.activeApiKeyId,
         geminiModel: state.geminiModel,
