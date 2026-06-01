@@ -373,6 +373,12 @@ async function revealLazyContent(page: Page) {
       if (ox <= 0 || oy <= 0) return false;
       return ox * oy > 0.6 * Math.min(ra.width * ra.height, rb.width * rb.height);
     };
+    // Signature de classe « stable » (hors classes d'animation/état) pour
+    // distinguer des slides RÉPÉTÉES (même composant) d'un design en calques.
+    const sig = (el: Element) => (el.getAttribute('class') || '')
+      .replace(/\baos-(init|animate)\b/g, '')
+      .replace(/\bis[-_]?(selected|active)\b/gi, '')
+      .replace(/\s+/g, ' ').trim();
     const parents = new Set<Element>();
     document.querySelectorAll('[data-aos]').forEach((el) => { if (el.parentElement) parents.add(el.parentElement); });
     parents.forEach((parent) => {
@@ -380,15 +386,58 @@ async function revealLazyContent(page: Page) {
       if (slides.length < 2 || slides.length > 12) return;
       if (!slides.some((s, i) => slides.some((t, j) => i !== j && overlap(s, t)))) return;
       const active = slides.filter((s) => ACTIVE.test(s.getAttribute('class') || ''));
-      if (active.length !== 1) return;
+      // Slide à garder : celle marquée active si elle existe ; sinon, UNIQUEMENT
+      // si les slides sont homogènes (même classe = vrai carrousel, ex. la liste
+      // d'images synchronisée des témoignages, sans marqueur actif), on garde la
+      // première. Si les frères ont des classes différentes (design en calques
+      // fond + contenu), on ne touche à rien.
+      let keep: Element | null = null;
+      if (active.length === 1) keep = active[0];
+      else if (active.length === 0 && slides.every((s) => sig(s) === sig(slides[0]))) keep = slides[0];
+      if (!keep) return;
       slides.forEach((s) => {
-        if (s !== active[0]) {
+        if (s !== keep) {
           (s as HTMLElement).style.setProperty('opacity', '0', 'important');
           (s as HTMLElement).style.setProperty('visibility', 'hidden', 'important');
         }
       });
     });
   });
+}
+
+/**
+ * Capture `fullPage` en restant sous la limite de rastérisation de Chromium.
+ * Au-delà d'environ **16384 px de HAUTEUR (device)**, une capture fullPage est
+ * « tuilée » et le rendu se corrompt : le HAUT de page est dupliqué en bas de
+ * l'image (footer recouvert par un fantôme header+hero). Le mobile (dsf 2) y
+ * tombe vite : 8200 px CSS × 2 = 16400 px > limite. Le desktop (dsf 1.5) bien
+ * plus tard, d'où des desktop OK mais des mobiles cassés.
+ *
+ * Parade : pour CETTE capture, on réduit le `deviceScaleFactor` juste assez pour
+ * que `docH × dsf ≤ 16000`. Le dsf ne change PAS le layout CSS (donc le contenu
+ * capturé est identique), seulement la résolution de rendu → la sortie est juste
+ * un peu moins dense sur les pages très longues, mais entière et non corrompue.
+ * Le viewport d'origine est restauré ensuite (captures mid/lower inchangées).
+ */
+async function captureFullPageSafely(
+  page: Page,
+  vp: { width: number; height: number; deviceScaleFactor: number },
+  jpeg: { type: 'jpeg'; quality: number },
+) {
+  const MAX_DEVICE_PX = 16000;
+  const docH = await page.evaluate(() =>
+    Math.max(document.body.scrollHeight, document.documentElement.scrollHeight),
+  );
+  const safeDsf = Math.min(vp.deviceScaleFactor, MAX_DEVICE_PX / Math.max(1, docH));
+  const reduced = safeDsf < vp.deviceScaleFactor - 0.001;
+  if (reduced) {
+    await page.setViewport({ ...vp, deviceScaleFactor: safeDsf });
+    await new Promise((r) => setTimeout(r, 150));
+    await page.evaluate(() => window.scrollTo(0, 0));
+  }
+  const buf = Buffer.from(await page.screenshot({ fullPage: true, ...jpeg }));
+  if (reduced) await page.setViewport(vp); // restaurer pour les captures suivantes
+  return buf;
 }
 
 /** Take desktop (viewport), desktop full page, scroll-position captures, and mobile screenshots */
@@ -422,12 +471,17 @@ async function captureScreenshots(page: Page, zoom: number = 1) {
   // captures fullpage/mid/lower) ; les images chargées persistent pour la suite.
   await revealLazyContent(page);
 
-  // Desktop full page (cap body height to avoid memory issues)
+  // Desktop full page — plafond de hauteur = garde-fou mémoire/stabilité (PAS
+  // supprimé : sans lui, une page à rallonge alloue un bitmap géant et peut
+  // faire planter Chromium → tout le scrape échoue). 20000px couvre tous les
+  // sites réalistes (le footer de chateaujasson ~7250px passe largement) ; on
+  // ne tronque que les pages pathologiques (feed infini…), qui de toute façon
+  // ne chargent plus de lazy-content au-delà de ~45000px (cf. revealLazyContent).
   await page.evaluate(() => {
-    document.body.style.maxHeight = '6000px';
+    document.body.style.maxHeight = '20000px';
     document.body.style.overflow = 'hidden';
   });
-  const desktopFullBuf = Buffer.from(await page.screenshot({ fullPage: true, ...JPEG }));
+  const desktopFullBuf = await captureFullPageSafely(page, { width: deskW, height: deskH, deviceScaleFactor: 1.5 * z }, JPEG);
 
   // Reset body constraints
   await page.evaluate(() => {
@@ -463,10 +517,10 @@ async function captureScreenshots(page: Page, zoom: number = 1) {
   // différentes et rejoue les animations d'entrée → sans ça, hero/sections vides.
   await revealLazyContent(page);
   await page.evaluate(() => {
-    document.body.style.maxHeight = '6000px';
+    document.body.style.maxHeight = '20000px';
     document.body.style.overflow = 'hidden';
   });
-  const mobileBuf = Buffer.from(await page.screenshot({ fullPage: true, ...JPEG }));
+  const mobileBuf = await captureFullPageSafely(page, { width: 390, height: 844, deviceScaleFactor: 2 }, JPEG);
 
   // Reset for potential next navigation
   await page.evaluate(() => {
