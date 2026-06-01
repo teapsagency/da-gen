@@ -410,14 +410,15 @@ async function revealLazyContent(page: Page) {
  * Au-delà d'environ **16384 px de HAUTEUR (device)**, une capture fullPage est
  * « tuilée » et le rendu se corrompt : le HAUT de page est dupliqué en bas de
  * l'image (footer recouvert par un fantôme header+hero). Le mobile (dsf 2) y
- * tombe vite : 8200 px CSS × 2 = 16400 px > limite. Le desktop (dsf 1.5) bien
- * plus tard, d'où des desktop OK mais des mobiles cassés.
+ * tombe vite : 8200 px CSS × 2 = 16400 px > limite ; le desktop (dsf 1.5) bien
+ * plus tard, d'où des desktop souvent OK mais des mobiles cassés.
  *
- * Parade : pour CETTE capture, on réduit le `deviceScaleFactor` juste assez pour
- * que `docH × dsf ≤ 16000`. Le dsf ne change PAS le layout CSS (donc le contenu
- * capturé est identique), seulement la résolution de rendu → la sortie est juste
- * un peu moins dense sur les pages très longues, mais entière et non corrompue.
- * Le viewport d'origine est restauré ensuite (captures mid/lower inchangées).
+ * Parade : on réduit la résolution de SORTIE via `clip.scale` (et non via
+ * setViewport). C'est crucial — changer le viewport déclenche un `resize` qui
+ * réinitialise les animations « au scroll » de certains sites réactifs (le
+ * contenu repasse alors à opacity:0 → capture blanche, ex. smarteen.fr).
+ * `clip.scale` ne touche pas au layout/au viewport : il rend juste la sortie un
+ * peu moins dense sur les pages très longues, mais entière et non corrompue.
  */
 async function captureFullPageSafely(
   page: Page,
@@ -425,19 +426,20 @@ async function captureFullPageSafely(
   jpeg: { type: 'jpeg'; quality: number },
 ) {
   const MAX_DEVICE_PX = 16000;
-  const docH = await page.evaluate(() =>
-    Math.max(document.body.scrollHeight, document.documentElement.scrollHeight),
-  );
-  const safeDsf = Math.min(vp.deviceScaleFactor, MAX_DEVICE_PX / Math.max(1, docH));
-  const reduced = safeDsf < vp.deviceScaleFactor - 0.001;
-  if (reduced) {
-    await page.setViewport({ ...vp, deviceScaleFactor: safeDsf });
-    await new Promise((r) => setTimeout(r, 150));
-    await page.evaluate(() => window.scrollTo(0, 0));
-  }
-  const buf = Buffer.from(await page.screenshot({ fullPage: true, ...jpeg }));
-  if (reduced) await page.setViewport(vp); // restaurer pour les captures suivantes
-  return buf;
+  const { width: cssW, height: docH } = await page.evaluate(() => ({
+    width: Math.max(document.documentElement.clientWidth, document.documentElement.scrollWidth),
+    height: Math.max(document.body.scrollHeight, document.documentElement.scrollHeight),
+  }));
+  // `clip.scale` est RELATIF au deviceScaleFactor (il se multiplie). La hauteur
+  // de sortie ≈ docH × dsf × scale ; on choisit scale pour la plafonner à
+  // MAX_DEVICE_PX (et ≤ 1 pour ne pas suréchantillonner). Les pages courtes
+  // gardent scale = 1 → pleine densité ; seules les très longues sont réduites.
+  const scale = Math.min(1, MAX_DEVICE_PX / Math.max(1, docH * vp.deviceScaleFactor));
+  return Buffer.from(await page.screenshot({
+    ...jpeg,
+    captureBeyondViewport: true,
+    clip: { x: 0, y: 0, width: cssW, height: docH, scale },
+  }));
 }
 
 /** Take desktop (viewport), desktop full page, scroll-position captures, and mobile screenshots */
