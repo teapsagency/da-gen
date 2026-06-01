@@ -444,22 +444,25 @@ async function captureFullPageSafely(
 
 /** Take desktop (viewport), desktop full page, scroll-position captures, and mobile screenshots */
 async function captureScreenshots(page: Page, zoom: number = 1) {
-  // JPEG q88 — site screenshots have no transparency; this keeps payloads
-  // ~5-10× smaller than PNG while staying crisp enough for presentation frames.
-  const JPEG = { type: 'jpeg' as const, quality: 88 };
+  // JPEG q92 — bon compromis netteté/poids (les screenshots n'ont pas de
+  // transparence). q88 laissait des artefacts de compression visibles quand on
+  // zoomait sur un asset exporté ; q92 les réduit nettement pour un coût modéré.
+  const JPEG = { type: 'jpeg' as const, quality: 92 };
   const dataUrl = (buf: Buffer) => `data:image/jpeg;base64,${buf.toString('base64')}`;
 
-  // Zoom navigateur : on élargit le viewport de 1/zoom et on réduit le
-  // deviceScaleFactor de ×zoom. Le site se rend donc comme à un zoom Chrome
-  // de `zoom` (innerWidth grandit, media queries réévaluées) tandis que les
-  // dimensions du screenshot final restent identiques (1440·1.5 = 2160px de
-  // large quel que soit le zoom). Le mobile reste en 390px natif.
+  // Densité des captures desktop : 2× → 2880px de large. À 1.5× (2160px) les
+  // screenshots du site pixelisaient quand on zoomait sur un asset exporté ; 2×
+  // donne de la marge de zoom. Zoom navigateur : on élargit le viewport de
+  // 1/zoom et on réduit le deviceScaleFactor de ×zoom → le site se rend comme à
+  // un zoom Chrome de `zoom` (media queries réévaluées) tandis que la largeur de
+  // sortie reste 1440·DESKTOP_DSF quel que soit le zoom. Mobile reste en 390px.
+  const DESKTOP_DSF = 2;
   const z = zoom > 0 ? zoom : 1;
   const deskW = Math.round(1440 / z);
   const deskH = Math.round(900 / z);
 
   // Desktop viewport (hero / top of page)
-  await page.setViewport({ width: deskW, height: deskH, deviceScaleFactor: 1.5 * z });
+  await page.setViewport({ width: deskW, height: deskH, deviceScaleFactor: DESKTOP_DSF * z });
   // Hero capturé AVANT tout déroulé : on stabilise (anims instantanées, visibilité,
   // scroll-behavior auto) puis on shoote au vrai sommet de page. Sinon, sur les
   // sites où le retour en haut après un scroll programmatique n'est pas immédiat,
@@ -483,7 +486,7 @@ async function captureScreenshots(page: Page, zoom: number = 1) {
     document.body.style.maxHeight = '20000px';
     document.body.style.overflow = 'hidden';
   });
-  const desktopFullBuf = await captureFullPageSafely(page, { width: deskW, height: deskH, deviceScaleFactor: 1.5 * z }, JPEG);
+  const desktopFullBuf = await captureFullPageSafely(page, { width: deskW, height: deskH, deviceScaleFactor: DESKTOP_DSF * z }, JPEG);
 
   // Reset body constraints
   await page.evaluate(() => {
