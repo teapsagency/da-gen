@@ -334,8 +334,12 @@ export function EditableImage({
               navSource={desktopRegionSrc}
               navAspect={picker.desktopAspect}
               previews={[
-                { label: "Desktop", source: desktopRegionSrc, aspect: picker.desktopAspect },
-                ...(mobileRegionSrc ? [{ label: "Mobile", source: mobileRegionSrc, aspect: picker.mobileAspect }] : []),
+                // Desktop : mockup non rogné (montre toute l'image) → visibleRatio 1.
+                { label: "Desktop", source: desktopRegionSrc, aspect: picker.desktopAspect, visibleRatio: 1 },
+                // Mobile : le mockup « téléphone » dépasse le cadre et n'en montre
+                // que ~85 % par le haut → on rogne pareil pour coller à l'asset
+                // (et masquer la fine bande blanche tout en bas de la capture).
+                ...(mobileRegionSrc ? [{ label: "Mobile", source: mobileRegionSrc, aspect: picker.mobileAspect, visibleRatio: 0.85 }] : []),
               ]}
               initialY={regionY}
               onConfirm={(ry) => {

@@ -5,7 +5,19 @@ import { createPortal } from "react-dom";
 import { Check, X } from "lucide-react";
 
 /** Un aperçu en direct (une orientation : desktop ou mobile). */
-export type PreviewSpec = { label: string; source: string; aspect: number };
+export type PreviewSpec = {
+  label: string;
+  source: string;
+  /** Ratio largeur/hauteur de l'IMAGE cover (= ratio du slot/mockup complet). */
+  aspect: number;
+  /**
+   * Fraction VERTICALE réellement visible dans le visuel final (0..1). Le mockup
+   * mobile dépasse le cadre et n'en montre que ~85 % par le haut ; on reproduit
+   * ce recadrage ici pour que l'aperçu colle à l'asset (et masque la bande
+   * blanche résiduelle tout en bas de la capture). Défaut 1 (desktop, non rogné).
+   */
+  visibleRatio?: number;
+};
 
 type Props = {
   /** Page entière servant de référence à la bande de navigation (desktop). */
@@ -39,15 +51,21 @@ export function RegionPicker({ navSource, navAspect, previews, initialY = 0, onC
   const clampedTop = Math.min(Math.max(0, top), maxTop);
   const regionY = maxTop > 0 ? clampedTop / maxTop : 0;
 
-  // Hauteur partagée des aperçus (chacun cappé en largeur pour le paysage).
+  // Dimensions des aperçus. Les hauteurs VISIBLES diffèrent volontairement
+  // (le mobile portrait est plus haut que le desktop paysage), pour refléter les
+  // proportions réelles des visuels. Chaque aperçu : une « fenêtre » (box) qui
+  // ne montre que `visibleRatio` du haut de l'image cover → recadrage identique
+  // au mockup. w/visH/fullH : largeur, hauteur de la fenêtre, hauteur de l'image.
   const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  const previewH = Math.min(340, vh * 0.44);
+  const baseH = Math.min(380, vh * 0.46);
   const previewMaxW = 440;
-  const boxFor = (aspect: number) => {
-    let w = aspect * previewH;
-    let h = previewH;
-    if (w > previewMaxW) { w = previewMaxW; h = previewMaxW / aspect; }
-    return { w, h };
+  const boxFor = (aspect: number, visibleRatio = 1) => {
+    // Hauteur visible cible : plus grande pour le portrait que pour le paysage.
+    let visH = aspect < 1 ? baseH : baseH * 0.78;
+    let w = (visH * aspect) / visibleRatio; // car visH = (w / aspect) * visibleRatio
+    if (w > previewMaxW) { w = previewMaxW; visH = (w / aspect) * visibleRatio; }
+    const fullH = w / aspect; // hauteur de l'image cover (≥ visH)
+    return { w, visH, fullH };
   };
 
   const onImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -120,12 +138,15 @@ export function RegionPicker({ navSource, navAspect, previews, initialY = 0, onC
             <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/30">Aperçu</span>
             <div style={{ display: "flex", gap: "16px", alignItems: "flex-end" }}>
               {previews.map((p) => {
-                const box = boxFor(p.aspect);
+                const box = boxFor(p.aspect, p.visibleRatio);
                 return (
                   <div key={p.label} className="flex flex-col gap-1.5 items-center">
-                    <div style={{ width: box.w, height: box.h, borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border, rgba(0,0,0,0.1))", background: "#000" }}>
+                    {/* Fenêtre = portion visible ; l'image (cover) est plus haute
+                        et ancrée en haut → on ne voit que `visibleRatio` du haut,
+                        exactement comme le mockup recadre le bas. */}
+                    <div style={{ width: box.w, height: box.visH, borderRadius: "8px", overflow: "hidden", border: "1px solid var(--border, rgba(0,0,0,0.1))", background: "#000" }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.source} alt="" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: `center ${regionY * 100}%`, display: "block" }} />
+                      <img src={p.source} alt="" draggable={false} style={{ width: "100%", height: box.fullH, objectFit: "cover", objectPosition: `center ${regionY * 100}%`, display: "block" }} />
                     </div>
                     <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">{p.label}</span>
                   </div>
