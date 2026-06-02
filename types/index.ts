@@ -127,7 +127,6 @@ export type ProjectSnapshot = {
   contentBrief: string;
   // Preview réseaux sociaux — état du post (par projet).
   previewCaption: string;
-  previewHashtags: string[];
   previewImages: PreviewImageRef[];
   previewFormat: PreviewFormat;
   // Custom screenshots that override the scraped ones per frame slot.
@@ -304,8 +303,6 @@ export type DAStore = {
   // Preview réseaux sociaux — état du post, par projet.
   previewCaption: string;
   setPreviewCaption: (v: string) => void;
-  previewHashtags: string[];
-  setPreviewHashtags: (v: string[]) => void;
   previewImages: PreviewImageRef[];
   setPreviewImages: (v: PreviewImageRef[]) => void;
   previewFormat: PreviewFormat;

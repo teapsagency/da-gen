@@ -160,7 +160,7 @@ export function ContentChat({
                     className="w-full h-9 flex items-center justify-center gap-2 text-[11px] font-semibold border border-border rounded-xl text-foreground/60 hover:text-foreground hover:border-foreground/20 transition-all cursor-pointer"
                   >
                     <MonitorSmartphone className="w-3.5 h-3.5" />
-                    Prévisualiser dans l&apos;onglet Preview
+                    Prévisualiser dans l&apos;onglet Aperçu
                   </button>
                 )}
 

@@ -1,36 +1,64 @@
 "use client";
 
 import React from "react";
-import { Sparkles, Plus, X, ImageUp } from "lucide-react";
+import { Sparkles, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useDAStore } from "@/store/daStore";
 import type { PreviewImageRef } from "@/types";
-import { listScreenshotSources, FRAME_SOURCES } from "./imageSources";
+import { listScreenshotSources, FRAME_SOURCES, type ImageSourceItem } from "./imageSources";
 import { PreviewImage } from "./PreviewImage";
+
+/**
+ * Vignette cliquable d'un asset disponible (capture ou visuel social).
+ * `div role=button` (et non `<button>`) : les frames rendues en live contiennent
+ * leurs propres `<button>` (EditableImage), interdits dans un bouton.
+ */
+function AssetThumb({ refItem, label, thumb, onAdd }: { refItem: PreviewImageRef; label: string; thumb?: string; onAdd: () => void }) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onAdd}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onAdd(); } }}
+      title={`Ajouter — ${label}`}
+      className="group flex flex-col gap-1 cursor-pointer"
+    >
+      <div className="relative w-full aspect-square rounded-md overflow-hidden border border-border bg-foreground/[0.03] group-hover:border-foreground/40 transition-colors">
+        {thumb ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <PreviewImage refItem={refItem} fit="cover" />
+        )}
+        <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/25 transition-colors">
+          <Plus className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        </span>
+      </div>
+      <span className="text-[9px] text-foreground/50 truncate text-center leading-tight">{label}</span>
+    </div>
+  );
+}
 
 export function PreviewSidebar() {
   const caption = useDAStore((s) => s.previewCaption);
   const setCaption = useDAStore((s) => s.setPreviewCaption);
-  const hashtags = useDAStore((s) => s.previewHashtags);
-  const setHashtags = useDAStore((s) => s.setPreviewHashtags);
   const images = useDAStore((s) => s.previewImages);
   const setImages = useDAStore((s) => s.setPreviewImages);
   const generatedContent = useDAStore((s) => s.generatedContent);
   const scrapeResult = useDAStore((s) => s.scrapeResult);
 
-  const fileRef = React.useRef<HTMLInputElement>(null);
-  const [hashtagInput, setHashtagInput] = React.useState("");
   const dragIndex = React.useRef<number | null>(null);
   const [overIndex, setOverIndex] = React.useState<number | null>(null);
 
   const importGenerated = () => {
     if (!generatedContent) return;
-    setCaption(generatedContent.socialPost.caption ?? "");
-    setHashtags((generatedContent.socialPost.hashtags ?? []).map((h) => h.replace(/^#/, "")));
+    const { caption: c, hashtags } = generatedContent.socialPost;
+    const tags = (hashtags ?? []).map((h) => `#${h.replace(/^#/, "")}`).join(" ");
+    setCaption([c ?? "", tags].filter(Boolean).join("\n\n"));
     toast.success("Post importé");
   };
 
-  // getState() : protège des closures périmées sur ajouts/clics rapprochés.
+  // getState() : protège des closures périmées sur clics rapprochés.
   const addImage = (ref: PreviewImageRef) => setImages([...useDAStore.getState().previewImages, ref]);
   const removeImage = (i: number) => setImages(useDAStore.getState().previewImages.filter((_, k) => k !== i));
   const reorder = (target: number) => {
@@ -44,23 +72,7 @@ export function PreviewSidebar() {
     setImages(next);
   };
 
-  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    files.forEach((f) => {
-      const reader = new FileReader();
-      reader.onloadend = () => addImage({ kind: "upload", dataUrl: reader.result as string });
-      reader.readAsDataURL(f);
-    });
-    e.target.value = "";
-  };
-
-  const addHashtag = () => {
-    const v = hashtagInput.trim().replace(/^#/, "");
-    if (v) setHashtags([...useDAStore.getState().previewHashtags, v]);
-    setHashtagInput("");
-  };
-
-  const screenshotSources = listScreenshotSources(scrapeResult);
+  const screenshotSources: ImageSourceItem[] = listScreenshotSources(scrapeResult);
 
   return (
     <div className="p-4 flex flex-col gap-5">
@@ -73,55 +85,23 @@ export function PreviewSidebar() {
         <Sparkles className="w-3.5 h-3.5" /> Importer le post généré
       </button>
 
-      {/* Caption */}
+      {/* Légende */}
       <label className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">Caption</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">Légende</span>
         <textarea
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
-          rows={6}
-          placeholder="Texte du post…"
+          rows={7}
+          placeholder="Texte du post (hashtags inclus)…"
           className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[12px] leading-relaxed resize-y focus:outline-none focus:border-foreground/30 transition-colors"
         />
       </label>
-
-      {/* Hashtags */}
-      <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">Hashtags</span>
-        <div className="flex flex-wrap gap-1.5">
-          {hashtags.map((h, i) => (
-            <span key={`${h}-${i}`} className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 bg-foreground/[0.06] rounded-full text-foreground/60">
-              #{h}
-              <button onClick={() => setHashtags(useDAStore.getState().previewHashtags.filter((_, k) => k !== i))} className="cursor-pointer hover:text-foreground">
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-1.5">
-          <input
-            value={hashtagInput}
-            onChange={(e) => setHashtagInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addHashtag();
-              }
-            }}
-            placeholder="ajouter…"
-            className="flex-1 h-8 px-2.5 bg-card border border-border rounded-md text-[11px] focus:outline-none focus:border-foreground/30"
-          />
-          <button onClick={addHashtag} className="w-8 h-8 rounded-md border border-border flex items-center justify-center text-foreground/50 hover:text-foreground cursor-pointer">
-            <Plus className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
 
       {/* Carrousel : vignettes + glisser-déposer */}
       <div className="flex flex-col gap-2">
         <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">Carrousel ({images.length})</span>
         {images.length === 0 ? (
-          <p className="text-[11px] text-foreground/30">Aucune image. Ajoute-en depuis les sources ci-dessous.</p>
+          <p className="text-[11px] text-foreground/30">Aucune image. Choisis un asset ci-dessous.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {images.map((img, i) => (
@@ -152,48 +132,38 @@ export function PreviewSidebar() {
         )}
       </div>
 
-      {/* Sources */}
-      <div className="flex flex-col gap-2">
-        <button
-          onClick={() => fileRef.current?.click()}
-          className="w-full h-9 flex items-center justify-center gap-2 text-[11px] font-semibold border border-border rounded-lg text-foreground/60 hover:text-foreground hover:border-foreground/20 cursor-pointer transition-all"
-        >
-          <ImageUp className="w-3.5 h-3.5" /> Upload / coller
-        </button>
-        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={onFile} />
-
-        {screenshotSources.length > 0 && (
-          <div className="flex flex-col gap-1">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-foreground/30 mt-1">Screenshots</span>
+      {/* Assets — captures du site */}
+      {screenshotSources.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">Captures du site</span>
+          <div className="grid grid-cols-3 gap-2">
             {screenshotSources.map((s) => (
-              <button
+              <AssetThumb
                 key={s.ref.kind === "screenshot" ? s.ref.key : s.label}
-                onClick={() => addImage(s.ref)}
-                className="text-left text-[11px] px-2 py-1.5 rounded-md text-foreground/60 hover:bg-foreground/[0.05] cursor-pointer"
-              >
-                + {s.label}
-              </button>
+                refItem={s.ref}
+                label={s.label}
+                thumb={s.thumb}
+                onAdd={() => addImage(s.ref)}
+              />
             ))}
           </div>
-        )}
+        </div>
+      )}
 
-        <div className="flex flex-col gap-1">
-          <span className="text-[9px] font-bold uppercase tracking-widest text-foreground/30 mt-1">Frames sociales</span>
+      {/* Assets — visuels sociaux */}
+      <div className="flex flex-col gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">Visuels sociaux</span>
+        <div className="grid grid-cols-3 gap-2">
           {FRAME_SOURCES.map((s) => (
-            <button
+            <AssetThumb
               key={s.ref.kind === "frame" ? s.ref.frame : s.label}
-              onClick={() => addImage(s.ref)}
-              className="text-left text-[11px] px-2 py-1.5 rounded-md text-foreground/60 hover:bg-foreground/[0.05] cursor-pointer"
-            >
-              + {s.label}
-            </button>
+              refItem={s.ref}
+              label={s.label}
+              onAdd={() => addImage(s.ref)}
+            />
           ))}
         </div>
       </div>
-
-      <p className="text-[10px] text-foreground/30 leading-relaxed">
-        Identité du compte (nom, @, abonnés, avatar) → Paramètres.
-      </p>
     </div>
   );
 }

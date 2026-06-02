@@ -42,7 +42,6 @@ export function PreviewStage() {
   const [platform, setPlatform] = React.useState<SocialPlatform>("instagram");
   const [viewport, setViewport] = React.useState<Viewport>("desktop");
   const caption = useDAStore((s) => s.previewCaption);
-  const hashtags = useDAStore((s) => s.previewHashtags);
   const images = useDAStore((s) => s.previewImages);
   const identity = useDAStore((s) => s.socialIdentity);
   const avatar = useDAStore((s) => s.agencyLogo);
@@ -51,9 +50,9 @@ export function PreviewStage() {
 
   const card =
     platform === "instagram" ? (
-      <InstagramPostView caption={caption} hashtags={hashtags} images={images} avatar={avatar} handle={identity.instagramHandle} format={format} layout={viewport} />
+      <InstagramPostView caption={caption} images={images} avatar={avatar} handle={identity.instagramHandle} format={format} layout={viewport} />
     ) : (
-      <LinkedInPostView caption={caption} hashtags={hashtags} images={images} avatar={avatar} displayName={identity.displayName} followers={identity.followers} format={format} layout={viewport} />
+      <LinkedInPostView caption={caption} images={images} avatar={avatar} displayName={identity.displayName} followers={identity.followers} format={format} layout={viewport} />
     );
 
   // Largeur d'affichage selon le viewport (sans scaling : rendu à taille réelle).

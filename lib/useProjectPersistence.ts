@@ -42,7 +42,6 @@ const pickSnapshot = (s: DAStore): ProjectSnapshot => ({
   contentChips: s.contentChips,
   contentBrief: s.contentBrief,
   previewCaption: s.previewCaption,
-  previewHashtags: s.previewHashtags,
   previewImages: s.previewImages,
   previewFormat: s.previewFormat,
   customScreenshots: s.customScreenshots,

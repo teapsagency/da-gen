@@ -355,7 +355,7 @@ export default function Home() {
             <div className="relative group">
               <button
                 onClick={() => setSidebarTab("preview")}
-                aria-label="Preview"
+                aria-label="Aperçu"
                 aria-current={sidebarTab === "preview"}
                 className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                   sidebarTab === "preview"
@@ -366,7 +366,7 @@ export default function Home() {
                 <MonitorSmartphone className="w-[18px] h-[18px]" />
               </button>
               <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-                Preview
+                Aperçu
               </span>
             </div>
             <div className="relative group">
@@ -872,10 +872,10 @@ export default function Home() {
 
                 {visualSubTab === "desktop" && (
                   <div className="max-w-5xl mx-auto space-y-32">
-                    <PreviewContainer title="02 / INTERFACE" id="frame-2-mockup">
+                    <PreviewContainer title="03 / INTERFACE" id="frame-2-mockup">
                       <Frame2_Mockup />
                     </PreviewContainer>
-                    <PreviewContainer title="03 / COUVERTURE" id="frame-3-cover">
+                    <PreviewContainer title="04 / COUVERTURE" id="frame-3-cover">
                       <Frame3_Cover />
                     </PreviewContainer>
                   </div>
@@ -884,7 +884,7 @@ export default function Home() {
                 {visualSubTab === "social" && (
                   <div className="max-w-3xl mx-auto space-y-32">
                     <PreviewContainer
-                      title="04 / BROWSER FULL"
+                      title="05 / BROWSER FULL"
                       id="frame-4-social-browser"
                       nativeWidth={1080}
                       nativeHeight={1350}
@@ -893,17 +893,17 @@ export default function Home() {
                     >
                       <Frame4_Social_BrowserFull />
                     </PreviewContainer>
-                    <PreviewContainer title="05 / HERO SIMPLE" id="frame-5-social-hero" nativeWidth={1080} nativeHeight={675}>
+                    <PreviewContainer title="06 / HERO SIMPLE" id="frame-5-social-hero" nativeWidth={1080} nativeHeight={675}>
                       <Frame5_Social_HeroSimple />
                     </PreviewContainer>
-                    <PreviewContainer title="06 / NOUVELLE RÉALISATION" id="frame-6-social-nouvelle" nativeWidth={1080} nativeHeight={1350} actions={<ShowcaseWordingControl />}>
+                    <PreviewContainer title="07 / NOUVELLE RÉALISATION" id="frame-6-social-nouvelle" nativeWidth={1080} nativeHeight={1350} actions={<ShowcaseWordingControl />}>
                       <Frame6_Social_NouvelleReal />
                     </PreviewContainer>
-                    <PreviewContainer title="07 / TROIS IMAGES" id="frame-7-social-three" nativeWidth={1080} nativeHeight={1350} actions={<ShowcaseWordingControl />}>
+                    <PreviewContainer title="08 / TROIS IMAGES" id="frame-7-social-three" nativeWidth={1080} nativeHeight={1350} actions={<ShowcaseWordingControl />}>
                       <Frame7_Social_ThreeImg />
                     </PreviewContainer>
                     <PreviewContainer
-                      title="08 / CARD SITE"
+                      title="09 / CARD SITE"
                       id="frame-8-social-card"
                       nativeWidth={1080}
                       nativeHeight={1350}
@@ -912,10 +912,10 @@ export default function Home() {
                     >
                       <Frame8_Social_CardSite />
                     </PreviewContainer>
-                    <PreviewContainer title="09 / PLANCHE DESKTOP" id="frame-9-board-desktop" nativeWidth={1080} nativeHeight={1350} actions={<BoardCountControl />}>
+                    <PreviewContainer title="10 / PLANCHE DESKTOP" id="frame-9-board-desktop" nativeWidth={1080} nativeHeight={1350} actions={<BoardCountControl />}>
                       <Frame9_Social_BoardDesktop />
                     </PreviewContainer>
-                    <PreviewContainer title="10 / PLANCHE MOBILE" id="frame-10-board-mobile" nativeWidth={1080} nativeHeight={1350} actions={<BoardCountControl />}>
+                    <PreviewContainer title="11 / PLANCHE MOBILE" id="frame-10-board-mobile" nativeWidth={1080} nativeHeight={1350} actions={<BoardCountControl />}>
                       <Frame10_Social_BoardMobile />
                     </PreviewContainer>
                   </div>

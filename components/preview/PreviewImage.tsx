@@ -38,8 +38,10 @@ function FrameCover({ frame }: { frame: SocialFrameId }) {
   }, []);
   const dim = FRAME_RENDER[frame];
   const scale = box.w && box.h ? Math.max(box.w / dim.w, box.h / dim.h) : 0;
+  // pointer-events:none → rendu purement visuel : on neutralise les overlays
+  // interactifs des frames (boutons EditableImage « Remplacer l'image »).
   return (
-    <div ref={ref} style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+    <div ref={ref} style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}>
       {scale > 0 && (
         <div style={{ position: "absolute", top: "50%", left: "50%", width: dim.w, height: dim.h, transform: `translate(-50%, -50%) scale(${scale})` }}>
           {dim.node}

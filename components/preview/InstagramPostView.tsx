@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile } from "lucide-react";
 import type { PreviewImageRef, PreviewFormat } from "@/types";
 import { parseCaption } from "./parseCaption";
@@ -8,7 +7,6 @@ import { PreviewCarousel } from "./PreviewCarousel";
 
 type Props = {
   caption: string;
-  hashtags: string[];
   images: PreviewImageRef[];
   avatar?: string;
   handle: string;
@@ -29,22 +27,11 @@ function Avatar({ avatar, size }: { avatar?: string; size: number }) {
   );
 }
 
-function CaptionText({ handle, caption, hashtags }: { handle: string; caption: string; hashtags: string[] }) {
+function CaptionText({ handle, caption }: { handle: string; caption: string }) {
   return (
     <p className="text-[14px] leading-[1.5] whitespace-pre-wrap break-words" style={{ color: "#262626" }}>
       <span className="font-semibold">{handle} </span>
       {parseCaption(caption, "instagram")}
-      {hashtags.length > 0 && (
-        <>
-          {" "}
-          {hashtags.map((h, i) => (
-            <React.Fragment key={`${h}-${i}`}>
-              {i > 0 && " "}
-              <span style={{ color: "#00376b" }}>#{h.replace(/^#/, "")}</span>
-            </React.Fragment>
-          ))}
-        </>
-      )}
     </p>
   );
 }
@@ -63,7 +50,7 @@ function ActionsRow() {
   );
 }
 
-export function InstagramPostView({ caption, hashtags, images, avatar, handle, format, layout }: Props) {
+export function InstagramPostView({ caption, images, avatar, handle, format, layout }: Props) {
   if (layout === "desktop") {
     return (
       <div
@@ -98,7 +85,7 @@ export function InstagramPostView({ caption, hashtags, images, avatar, handle, f
             <div className="flex gap-2.5">
               <Avatar avatar={avatar} size={32} />
               <div className="flex flex-col gap-1">
-                <CaptionText handle={handle} caption={caption} hashtags={hashtags} />
+                <CaptionText handle={handle} caption={caption} />
                 <span className="text-[11px] uppercase tracking-wide" style={{ color: "#8e8e8e" }}>72 sem</span>
               </div>
             </div>
@@ -148,7 +135,7 @@ export function InstagramPostView({ caption, hashtags, images, avatar, handle, f
       <div className="px-3 pt-1 pb-2">
         <p className="text-[14px] font-semibold" style={{ color: "#262626" }}>312 J&apos;aime</p>
         <div className="mt-1">
-          <CaptionText handle={handle} caption={caption} hashtags={hashtags} />
+          <CaptionText handle={handle} caption={caption} />
         </div>
         <p className="text-[11px] uppercase tracking-wide mt-2" style={{ color: "#8e8e8e" }}>Il y a 2 heures</p>
       </div>

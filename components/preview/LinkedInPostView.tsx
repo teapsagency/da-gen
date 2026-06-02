@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { MessageCircle, Send, MoreHorizontal, ThumbsUp, Repeat2, Globe } from "lucide-react";
 import type { PreviewImageRef, PreviewFormat } from "@/types";
 import { parseCaption } from "./parseCaption";
@@ -8,7 +7,6 @@ import { PreviewCarousel } from "./PreviewCarousel";
 
 type Props = {
   caption: string;
-  hashtags: string[];
   images: PreviewImageRef[];
   avatar?: string;
   displayName: string;
@@ -17,9 +15,7 @@ type Props = {
   layout: "mobile" | "desktop";
 };
 
-export function LinkedInPostView({ caption, hashtags, images, avatar, displayName, followers, format, layout }: Props) {
-  const hashtagsStr = hashtags.map((h) => `#${h.replace(/^#/, "")}`).join(" ");
-  const fullText = hashtagsStr ? caption + "\n\n" + hashtagsStr : caption;
+export function LinkedInPostView({ caption, images, avatar, displayName, followers, format, layout }: Props) {
   return (
     <div
       className="rounded-lg overflow-hidden"
@@ -54,7 +50,7 @@ export function LinkedInPostView({ caption, hashtags, images, avatar, displayNam
       {/* Texte */}
       <div className="px-4 pb-3">
         <p className="text-[14px] leading-[1.43] whitespace-pre-wrap break-words" style={{ color: "#000000e6" }}>
-          {parseCaption(fullText, "linkedin")}
+          {parseCaption(caption, "linkedin")}
         </p>
       </div>
 

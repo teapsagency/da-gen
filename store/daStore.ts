@@ -50,7 +50,6 @@ export const useDAStore = create<DAStore>()(
         contentChips: p.contentChips ?? [],
         contentBrief: p.contentBrief ?? '',
         previewCaption: p.previewCaption ?? '',
-        previewHashtags: p.previewHashtags ?? [],
         previewImages: p.previewImages ?? [],
         previewFormat: p.previewFormat ?? '1:1',
         customScreenshots: p.customScreenshots ?? {},
@@ -85,7 +84,6 @@ export const useDAStore = create<DAStore>()(
         // Un nouveau scrape = nouvelle page/client → les images de preview
         // (screenshot/frame) référencent la page précédente.
         previewCaption: '',
-        previewHashtags: [],
         previewImages: [],
         previewFormat: '1:1',
       }),
@@ -269,7 +267,6 @@ export const useDAStore = create<DAStore>()(
           contentChips: [],
           contentBrief: '',
           previewCaption: '',
-          previewHashtags: [],
           previewImages: [],
           previewFormat: '1:1',
           customScreenshots: {},
@@ -291,8 +288,6 @@ export const useDAStore = create<DAStore>()(
 
       previewCaption: '',
       setPreviewCaption: (v: string) => set({ previewCaption: v }),
-      previewHashtags: [],
-      setPreviewHashtags: (v: string[]) => set({ previewHashtags: v }),
       previewImages: [],
       setPreviewImages: (v: PreviewImageRef[]) => set({ previewImages: v }),
       previewFormat: '1:1',
