@@ -9,7 +9,7 @@ type Props = {
   caption: string;
   images: PreviewImageRef[];
   avatar?: string;
-  handle: string;
+  name: string;
   format: PreviewFormat;
   layout: "mobile" | "desktop";
 };
@@ -27,10 +27,10 @@ function Avatar({ avatar, size }: { avatar?: string; size: number }) {
   );
 }
 
-function CaptionText({ handle, caption }: { handle: string; caption: string }) {
+function CaptionText({ name, caption }: { name: string; caption: string }) {
   return (
     <p className="text-[14px] leading-[1.5] whitespace-pre-wrap break-words" style={{ color: "#262626" }}>
-      <span className="font-semibold">{handle} </span>
+      <span className="font-semibold">{name} </span>
       {parseCaption(caption, "instagram")}
     </p>
   );
@@ -50,7 +50,7 @@ function ActionsRow() {
   );
 }
 
-export function InstagramPostView({ caption, images, avatar, handle, format, layout }: Props) {
+export function InstagramPostView({ caption, images, avatar, name, format, layout }: Props) {
   if (layout === "desktop") {
     return (
       <div
@@ -76,7 +76,7 @@ export function InstagramPostView({ caption, images, avatar, handle, format, lay
           {/* Header */}
           <div className="flex items-center gap-2.5 px-4 py-3" style={{ borderBottom: "1px solid #efefef" }}>
             <Avatar avatar={avatar} size={32} />
-            <span className="text-[14px] font-semibold flex-1 min-w-0 truncate" style={{ color: "#262626" }}>{handle}</span>
+            <span className="text-[14px] font-semibold flex-1 min-w-0 truncate" style={{ color: "#262626" }}>{name}</span>
             <MoreHorizontal className="w-5 h-5 shrink-0" style={{ color: "#262626" }} />
           </div>
 
@@ -85,7 +85,7 @@ export function InstagramPostView({ caption, images, avatar, handle, format, lay
             <div className="flex gap-2.5">
               <Avatar avatar={avatar} size={32} />
               <div className="flex flex-col gap-1">
-                <CaptionText handle={handle} caption={caption} />
+                <CaptionText name={name} caption={caption} />
                 <span className="text-[11px] uppercase tracking-wide" style={{ color: "#8e8e8e" }}>72 sem</span>
               </div>
             </div>
@@ -122,7 +122,7 @@ export function InstagramPostView({ caption, images, avatar, handle, format, lay
     >
       <div className="flex items-center gap-2.5 px-3 py-2.5">
         <Avatar avatar={avatar} size={36} />
-        <span className="text-[14px] font-semibold flex-1 min-w-0 truncate" style={{ color: "#262626" }}>{handle}</span>
+        <span className="text-[14px] font-semibold flex-1 min-w-0 truncate" style={{ color: "#262626" }}>{name}</span>
         <MoreHorizontal className="w-6 h-6 shrink-0" style={{ color: "#262626" }} />
       </div>
 
@@ -135,7 +135,7 @@ export function InstagramPostView({ caption, images, avatar, handle, format, lay
       <div className="px-3 pt-1 pb-2">
         <p className="text-[14px] font-semibold" style={{ color: "#262626" }}>312 J&apos;aime</p>
         <div className="mt-1">
-          <CaptionText handle={handle} caption={caption} />
+          <CaptionText name={name} caption={caption} />
         </div>
         <p className="text-[11px] uppercase tracking-wide mt-2" style={{ color: "#8e8e8e" }}>Il y a 2 heures</p>
       </div>

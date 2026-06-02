@@ -51,7 +51,7 @@ export function PreviewStage() {
 
   const card =
     platform === "instagram" ? (
-      <InstagramPostView caption={caption} images={images} avatar={avatar} handle={identity.instagramHandle} format={format} layout={viewport} />
+      <InstagramPostView caption={caption} images={images} avatar={avatar} name={identity.displayName} format={format} layout={viewport} />
     ) : (
       <LinkedInPostView caption={caption} images={images} avatar={avatar} displayName={identity.displayName} followers={identity.followers} format={format} layout={viewport} />
     );
