@@ -11,8 +11,12 @@ import { Frame7_Social_ThreeImg } from "@/components/frames/Frame7_Social_ThreeI
 import { Frame8_Social_CardSite } from "@/components/frames/Frame8_Social_CardSite";
 import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_BoardDesktop";
 import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
+import { Frame1_DA_Mobile } from "@/components/frames/Frame1_DA_Mobile";
+import { FrameColors_Mobile } from "@/components/frames/FrameColors_Mobile";
 
 export const FRAME_RENDER: Record<SocialFrameId, { w: number; h: number; node: React.ReactNode }> = {
+  identityMobile: { w: 1080, h: 1350, node: <Frame1_DA_Mobile /> },
+  colorsMobile: { w: 1080, h: 1350, node: <FrameColors_Mobile /> },
   frame4: { w: 1080, h: 1350, node: <Frame4_Social_BrowserFull /> },
   frame5: { w: 1080, h: 675, node: <Frame5_Social_HeroSimple /> },
   frame6: { w: 1080, h: 1350, node: <Frame6_Social_NouvelleReal /> },

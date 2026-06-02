@@ -44,6 +44,9 @@ export type ScrapeResult = {
   siteUrl: string;
   domain: string;
   title: string;
+  // Nom de marque déduit (titre/og:site_name) plutôt que le domaine. Absent sur
+  // d'anciens projets → les frames retombent sur le nom dérivé du domaine.
+  siteName?: string;
 };
 
 export type GeminiApiKey = {
@@ -70,7 +73,8 @@ export type GeneratedContent = {
 };
 
 export type SocialFrameId =
-  | 'frame4' | 'frame5' | 'frame6' | 'frame7' | 'frame8' | 'frame9' | 'frame10';
+  | 'frame4' | 'frame5' | 'frame6' | 'frame7' | 'frame8' | 'frame9' | 'frame10'
+  | 'identityMobile' | 'colorsMobile';
 
 export type SocialPlatform = 'instagram' | 'linkedin';
 

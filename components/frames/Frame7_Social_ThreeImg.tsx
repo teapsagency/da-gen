@@ -5,7 +5,7 @@ import { BrowserNavBar } from "./BrowserNavBar";
 import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
-  const { scrapeResult, bgColor, agencyLogo, fontName, localFontFile, dropShadow, showcaseWording } = useDAStore();
+  const { scrapeResult, agencyLogo, fontName, localFontFile, dropShadow, showcaseWording } = useDAStore();
   const [titleLine1, titleLine2] =
     showcaseWording === "nouvelle" ? ["Nouvelle", "Réalisation"] : ["Focus", "Client"];
   const activeScreenshots = useActiveScreenshots();
@@ -14,10 +14,11 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
 
   const editable = !id;
   const domain = scrapeResult.domain.replace(/^www\./, "");
-  // Just the site name without extension
-  const siteName = domain.replace(/\.[^.]+$/, "");
-  // Capitalize first letter
-  const displayName = siteName.charAt(0).toUpperCase() + siteName.slice(1);
+  // Nom de marque déduit au scrape (titre / og:site_name, ex. « Le Gélys »).
+  // Fallback sur le nom dérivé du domaine pour les anciens projets sans siteName.
+  const fallbackName = domain.replace(/\.[^.]+$/, "");
+  const displayName =
+    scrapeResult.siteName?.trim() || fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1);
   // Nom du projet rendu avec la police SÉLECTIONNÉE (celle du site scrapé /
   // choisie dans le panneau), chargée globalement dans app/page.tsx. Archivo en
   // repli si aucune police n'est définie.
@@ -49,7 +50,7 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
         position: "relative",
         width: "1080px",
         height: "1350px",
-        background: bgColor,
+        background: "#ffffff",
         overflow: "hidden",
       }}
     >

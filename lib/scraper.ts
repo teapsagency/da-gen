@@ -4,6 +4,34 @@ import { cleanFontName } from './fontName';
 
 type ExtraPage = { label: string; url: string };
 
+/**
+ * Déduit le nom de marque (ex. « Le Gélys ») plutôt que le domaine
+ * (« Legelys-sanary »). Logique : 1er segment significatif du <title> (coupé sur
+ * un séparateur ENTOURÉ D'ESPACES — pour ne pas casser « Sanary-sur-mer »), arbitré
+ * avec og:site_name : si l'un contient l'autre, on garde le plus court (marque pure
+ * vs marque + lieu, ex. « Le Gélys » vs « Le Gélys Sanary »). Fallback : domaine.
+ */
+function extractBrandName(title: string, ogSiteName: string, domain: string): string {
+  const SEP = /\s+[|–—·•»:\-]\s+/; // |  –  —  ·  •  »  :  -  (entourés d'espaces)
+  const GENERIC = /^(accueil|home|bienvenue|welcome|page d'accueil|homepage|site officiel|official site)$/i;
+  const segs = (title || '').split(SEP).map((s) => s.trim()).filter(Boolean);
+  let fromTitle = '';
+  if (segs.length) {
+    fromTitle = segs.length > 1 && GENERIC.test(segs[0]) ? segs[segs.length - 1] : segs[0];
+  }
+  const og = (ogSiteName || '').trim();
+  if (fromTitle && og) {
+    const a = fromTitle.toLowerCase();
+    const b = og.toLowerCase();
+    if (a.includes(b) || b.includes(a)) return fromTitle.length <= og.length ? fromTitle : og;
+    return fromTitle;
+  }
+  if (fromTitle) return fromTitle;
+  if (og) return og;
+  const d = domain.replace(/^www\./, '').replace(/\.[^.]+$/, '');
+  return d ? d.charAt(0).toUpperCase() + d.slice(1) : domain;
+}
+
 /** Dismiss cookie banners, hide overlays & floating widgets */
 async function dismissPopups(page: Page) {
   // Age gates ("avez-vous 18 ans ?") en PREMIER : ils bloquent tout le reste
@@ -163,6 +191,20 @@ async function dismissPopups(page: Page) {
       '[class*="avis-verifies" i]', '[id*="avis-verifies" i]',
       '[class*="chat-widget" i]', '[class*="chatWidget" i]', '[id*="chat-widget" i]',
       '[id*="intercom" i]', '[id*="crisp" i]', '[id*="hubspot-messages" i]', '[id*="tidio" i]',
+      // Boutons « retour en haut » (scroll-to-top). Implémentations très variées
+      // d'un site à l'autre → on couvre les noms de classe/id/aria les plus courants.
+      // ⚠ NE PAS viser "scroll-up" ni "top" seul : utilisés par les en-têtes sticky
+      // (ex. captibulle : header en classe "scroll-up") → on masquerait le header.
+      '[class*="back-to-top" i]', '[class*="backtotop" i]', '[class*="back_to_top" i]',
+      '[class*="back-top" i]', '[class*="scroll-to-top" i]', '[class*="scrolltotop" i]',
+      '[class*="scroll-top" i]', '[class*="scrolltop" i]', '[class*="totop" i]',
+      '[class*="gotop" i]', '[class*="go-top" i]',
+      '[id*="back-to-top" i]', '[id*="backtotop" i]', '[id*="back-top" i]',
+      '[id*="scroll-to-top" i]', '[id*="scrolltop" i]', '[id*="totop" i]', '[id*="gotop" i]',
+      '.wpfront-scroll-top-container', '#wpfront-scroll-top-container',
+      '[aria-label*="back to top" i]', '[aria-label*="scroll to top" i]', '[aria-label*="top of page" i]',
+      '[aria-label*="haut de page" i]', '[aria-label*="retour en haut" i]', '[aria-label*="remonter" i]',
+      '[title*="haut de page" i]', '[title*="retour en haut" i]', '[title*="back to top" i]',
       // Zenchef (réservation resto) — widget flottant « Réserver une table ».
       // Deux générations : (1) ancienne iframe SDK (classe au préfixe stable
       // ZC_sdk__, hash variable) ; (2) nouvelle version Panda CSS dont les classes
@@ -685,7 +727,13 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
 
     const title = await page.title();
     const domain = new URL(url).hostname;
-    log(`Title: "${title}", Domain: ${domain}`);
+    const ogSiteName = await page.evaluate(() =>
+      document.querySelector('meta[property="og:site_name"]')?.getAttribute('content')?.trim()
+      || document.querySelector('meta[name="application-name"]')?.getAttribute('content')?.trim()
+      || ''
+    );
+    const siteName = extractBrandName(title, ogSiteName, domain);
+    log(`Title: "${title}", Site name: "${siteName}", Domain: ${domain}`);
     page.setDefaultTimeout(25000);
 
     // Main page screenshots
@@ -975,6 +1023,7 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
 
     return {
       title,
+      siteName,
       domain,
       siteUrl: url,
       logos: logosBase64,

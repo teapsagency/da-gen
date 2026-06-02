@@ -81,9 +81,11 @@ export function AssetPickerModal({ open, onClose }: { open: boolean; onClose: ()
 
   if (!open || !mounted) return null;
 
-  const shots: PickItem[] = listScreenshotSources(scrapeResult).map((s) => ({
-    id: refKey(s.ref), ref: s.ref, label: s.label, thumb: s.thumb,
-  }));
+  // Onglet preview = posts portrait → on ne propose que les captures MOBILE
+  // (les screenshots desktop paysage n'ont pas leur place dans un carrousel mobile).
+  const shots: PickItem[] = listScreenshotSources(scrapeResult)
+    .filter((s) => s.ref.kind === "screenshot" && s.ref.key.endsWith(":mobile"))
+    .map((s) => ({ id: refKey(s.ref), ref: s.ref, label: s.label, thumb: s.thumb }));
   const frames: PickItem[] = FRAME_SOURCES.map((s) => ({ id: refKey(s.ref), ref: s.ref, label: s.label }));
 
   // Assets déjà présents (un seul exemplaire par asset).

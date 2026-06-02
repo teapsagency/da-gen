@@ -17,11 +17,14 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Frame1_DA } from "@/components/frames/Frame1_DA";
+import { Frame1_DA_Mobile } from "@/components/frames/Frame1_DA_Mobile";
 import { FrameColors } from "@/components/frames/FrameColors";
+import { FrameColors_Mobile } from "@/components/frames/FrameColors_Mobile";
 import { Frame2_Mockup } from "@/components/frames/Frame2_Mockup";
+import { Frame2_Mockup_Mobile } from "@/components/frames/Frame2_Mockup_Mobile";
 import { Frame3_Cover } from "@/components/frames/Frame3_Cover";
+import { Frame3_Cover_Mobile } from "@/components/frames/Frame3_Cover_Mobile";
 import { Frame4_Social_BrowserFull } from "@/components/frames/Frame4_Social_BrowserFull";
-import { Frame5_Social_HeroSimple } from "@/components/frames/Frame5_Social_HeroSimple";
 import { Frame6_Social_NouvelleReal } from "@/components/frames/Frame6_Social_NouvelleReal";
 import { Frame7_Social_ThreeImg } from "@/components/frames/Frame7_Social_ThreeImg";
 import { Frame8_Social_CardSite } from "@/components/frames/Frame8_Social_CardSite";
@@ -65,6 +68,8 @@ import {
   Copy,
   Check,
   MonitorSmartphone,
+  Monitor,
+  Smartphone,
 } from "lucide-react";
 
 /** Wait until all frame IDs exist in the DOM, with a safety timeout */
@@ -140,6 +145,13 @@ export default function Home() {
     [loadProjectData],
   );
   const [visualSubTab, setVisualSubTab] = React.useState<"charte" | "desktop" | "social">("charte");
+  // Filtre de format des assets (à droite de la ligne des sous-onglets).
+  const [assetFormat, setAssetFormat] = React.useState<"all" | "desktop" | "mobile">("all");
+  const showFmt = (fmt: "desktop" | "mobile") => assetFormat === "all" || assetFormat === fmt;
+  const fmtBtn = (v: "all" | "desktop" | "mobile") =>
+    `px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+      assetFormat === v ? "bg-card text-foreground shadow-sm" : "text-foreground/40 hover:text-foreground/60"
+    }`;
 
   // Content generation state — chips/brief/result persisted in store (and IDB).
   // Files are kept locally (File objects can't be serialised). Streaming/error/loading
@@ -282,7 +294,7 @@ export default function Home() {
     setShowOffscreenSocialFrames(true);
     await waitForFrames([
       "frame-1-da", "frame-colors", "frame-2-mockup", "frame-3-cover",
-      "frame-4-social-browser", "frame-5-social-hero", "frame-6-social-nouvelle", "frame-7-social-three", "frame-8-social-card",
+      "frame-4-social-browser", "frame-6-social-nouvelle", "frame-7-social-three", "frame-8-social-card",
       "frame-9-board-desktop", "frame-10-board-mobile",
     ]);
     try {
@@ -823,8 +835,8 @@ export default function Home() {
           <main className="flex-1 ml-[344px] bg-background min-h-screen">
             {sidebarTab === "visuels" && (
               <div className="p-12 lg:p-20">
-                {/* Sub-tab switcher */}
-                <div className="max-w-5xl mx-auto mb-12">
+                {/* Sub-tab switcher + filtre de format */}
+                <div className="max-w-5xl mx-auto mb-12 flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex bg-foreground/[0.04] rounded-lg p-0.5 gap-0.5 w-fit">
                     <button
                       onClick={() => setVisualSubTab("charte")}
@@ -857,31 +869,69 @@ export default function Home() {
                       Réseaux sociaux
                     </button>
                   </div>
+                  {/* Filtre de format : tous / desktop / mobile */}
+                  <div className="flex bg-foreground/[0.04] rounded-lg p-0.5 gap-0.5 w-fit">
+                    <button onClick={() => setAssetFormat("all")} className={fmtBtn("all")}>Tous</button>
+                    <button onClick={() => setAssetFormat("desktop")} className={fmtBtn("desktop")}>
+                      <Monitor className="w-3.5 h-3.5" /> Desktop
+                    </button>
+                    <button onClick={() => setAssetFormat("mobile")} className={fmtBtn("mobile")}>
+                      <Smartphone className="w-3.5 h-3.5" /> Mobile
+                    </button>
+                  </div>
                 </div>
 
                 {visualSubTab === "charte" && (
                   <div className="max-w-5xl mx-auto space-y-32">
-                    <PreviewContainer title="01 / IDENTITÉ" id="frame-1-da" actions={<IdentityLogoScaleControl />}>
-                      <Frame1_DA />
-                    </PreviewContainer>
-                    <PreviewContainer title="02 / COULEURS" id="frame-colors" actions={<ColorsOrientationToggle />}>
-                      <FrameColors />
-                    </PreviewContainer>
+                    {showFmt("desktop") && (
+                      <PreviewContainer title="01 / IDENTITÉ" id="frame-1-da" actions={<IdentityLogoScaleControl />}>
+                        <Frame1_DA />
+                      </PreviewContainer>
+                    )}
+                    {showFmt("mobile") && (
+                      <PreviewContainer title="01 / IDENTITÉ — MOBILE" id="frame-1-da-mobile" nativeWidth={1080} nativeHeight={1350} actions={<IdentityLogoScaleControl />}>
+                        <Frame1_DA_Mobile />
+                      </PreviewContainer>
+                    )}
+                    {showFmt("desktop") && (
+                      <PreviewContainer title="02 / COULEURS" id="frame-colors" actions={<ColorsOrientationToggle />}>
+                        <FrameColors />
+                      </PreviewContainer>
+                    )}
+                    {showFmt("mobile") && (
+                      <PreviewContainer title="02 / COULEURS — MOBILE" id="frame-colors-mobile" nativeWidth={1080} nativeHeight={1350} actions={<ColorsOrientationToggle />}>
+                        <FrameColors_Mobile />
+                      </PreviewContainer>
+                    )}
                   </div>
                 )}
 
                 {visualSubTab === "desktop" && (
                   <div className="max-w-5xl mx-auto space-y-32">
-                    <PreviewContainer title="03 / INTERFACE" id="frame-2-mockup">
-                      <Frame2_Mockup />
-                    </PreviewContainer>
-                    <PreviewContainer title="04 / COUVERTURE" id="frame-3-cover">
-                      <Frame3_Cover />
-                    </PreviewContainer>
+                    {showFmt("desktop") && (
+                      <PreviewContainer title="03 / INTERFACE" id="frame-2-mockup">
+                        <Frame2_Mockup />
+                      </PreviewContainer>
+                    )}
+                    {showFmt("mobile") && (
+                      <PreviewContainer title="03 / INTERFACE — MOBILE" id="frame-2-mockup-mobile" nativeWidth={1080} nativeHeight={1350}>
+                        <Frame2_Mockup_Mobile />
+                      </PreviewContainer>
+                    )}
+                    {showFmt("desktop") && (
+                      <PreviewContainer title="04 / COUVERTURE" id="frame-3-cover">
+                        <Frame3_Cover />
+                      </PreviewContainer>
+                    )}
+                    {showFmt("mobile") && (
+                      <PreviewContainer title="04 / COUVERTURE — MOBILE" id="frame-3-cover-mobile" nativeWidth={1080} nativeHeight={1350}>
+                        <Frame3_Cover_Mobile />
+                      </PreviewContainer>
+                    )}
                   </div>
                 )}
 
-                {visualSubTab === "social" && (
+                {visualSubTab === "social" && (showFmt("mobile") ? (
                   <div className="max-w-3xl mx-auto space-y-32">
                     <PreviewContainer
                       title="05 / BROWSER FULL"
@@ -893,17 +943,14 @@ export default function Home() {
                     >
                       <Frame4_Social_BrowserFull />
                     </PreviewContainer>
-                    <PreviewContainer title="06 / HERO SIMPLE" id="frame-5-social-hero" nativeWidth={1080} nativeHeight={675}>
-                      <Frame5_Social_HeroSimple />
-                    </PreviewContainer>
-                    <PreviewContainer title="07 / NOUVELLE RÉALISATION" id="frame-6-social-nouvelle" nativeWidth={1080} nativeHeight={1350} actions={<ShowcaseWordingControl />}>
+                    <PreviewContainer title="06 / NOUVELLE RÉALISATION" id="frame-6-social-nouvelle" nativeWidth={1080} nativeHeight={1350} actions={<ShowcaseWordingControl />}>
                       <Frame6_Social_NouvelleReal />
                     </PreviewContainer>
-                    <PreviewContainer title="08 / TROIS IMAGES" id="frame-7-social-three" nativeWidth={1080} nativeHeight={1350} actions={<ShowcaseWordingControl />}>
+                    <PreviewContainer title="07 / TROIS IMAGES" id="frame-7-social-three" nativeWidth={1080} nativeHeight={1350} actions={<ShowcaseWordingControl />}>
                       <Frame7_Social_ThreeImg />
                     </PreviewContainer>
                     <PreviewContainer
-                      title="09 / CARD SITE"
+                      title="08 / CARD SITE"
                       id="frame-8-social-card"
                       nativeWidth={1080}
                       nativeHeight={1350}
@@ -912,14 +959,18 @@ export default function Home() {
                     >
                       <Frame8_Social_CardSite />
                     </PreviewContainer>
-                    <PreviewContainer title="10 / PLANCHE DESKTOP" id="frame-9-board-desktop" nativeWidth={1080} nativeHeight={1350} actions={<BoardCountControl />}>
+                    <PreviewContainer title="09 / PLANCHE DESKTOP" id="frame-9-board-desktop" nativeWidth={1080} nativeHeight={1350} actions={<BoardCountControl />}>
                       <Frame9_Social_BoardDesktop />
                     </PreviewContainer>
-                    <PreviewContainer title="11 / PLANCHE MOBILE" id="frame-10-board-mobile" nativeWidth={1080} nativeHeight={1350} actions={<BoardCountControl />}>
+                    <PreviewContainer title="10 / PLANCHE MOBILE" id="frame-10-board-mobile" nativeWidth={1080} nativeHeight={1350} actions={<BoardCountControl />}>
                       <Frame10_Social_BoardMobile />
                     </PreviewContainer>
                   </div>
-                )}
+                ) : (
+                  <div className="max-w-3xl mx-auto text-center text-[12px] text-foreground/40 py-24">
+                    Les visuels « Réseaux sociaux » sont tous au format mobile (1080×1350) — rien en Desktop.
+                  </div>
+                ))}
               </div>
             )}
 
@@ -961,7 +1012,6 @@ export default function Home() {
       {showOffscreenSocialFrames && (
         <div className="frames-offscreen">
           <Frame4_Social_BrowserFull id="frame-4-social-browser" />
-          <Frame5_Social_HeroSimple id="frame-5-social-hero" />
           <Frame6_Social_NouvelleReal id="frame-6-social-nouvelle" />
           <Frame7_Social_ThreeImg id="frame-7-social-three" />
           <Frame8_Social_CardSite id="frame-8-social-card" />
@@ -1348,7 +1398,11 @@ function PreviewContainer({
   // Ces frames desktop dessinent leur PROPRE bordure (incluse dans le PNG).
   // → on supprime alors la bordure de chrome du conteneur d'aperçu, sinon on
   // voit un double contour et l'aperçu ne correspond plus au fichier exporté.
-  const selfBordered = ["frame-1-da", "frame-2-mockup", "frame-3-cover"].includes(id);
+  const selfBordered = [
+    "frame-1-da", "frame-1-da-mobile",
+    "frame-2-mockup", "frame-2-mockup-mobile",
+    "frame-3-cover", "frame-3-cover-mobile",
+  ].includes(id);
 
   useEffect(() => {
     const updateScale = () => {
@@ -1382,11 +1436,14 @@ function PreviewContainer({
   const renderExportFrame = () => {
     switch (id) {
       case "frame-1-da": return <Frame1_DA id="frame-1-da" />;
+      case "frame-1-da-mobile": return <Frame1_DA_Mobile id="frame-1-da-mobile" />;
       case "frame-colors": return <FrameColors id="frame-colors" />;
+      case "frame-colors-mobile": return <FrameColors_Mobile id="frame-colors-mobile" />;
       case "frame-2-mockup": return <Frame2_Mockup id="frame-2-mockup" />;
+      case "frame-2-mockup-mobile": return <Frame2_Mockup_Mobile id="frame-2-mockup-mobile" />;
       case "frame-3-cover": return <Frame3_Cover id="frame-3-cover" />;
+      case "frame-3-cover-mobile": return <Frame3_Cover_Mobile id="frame-3-cover-mobile" />;
       case "frame-4-social-browser": return <Frame4_Social_BrowserFull id="frame-4-social-browser" />;
-      case "frame-5-social-hero": return <Frame5_Social_HeroSimple id="frame-5-social-hero" />;
       case "frame-6-social-nouvelle": return <Frame6_Social_NouvelleReal id="frame-6-social-nouvelle" />;
       case "frame-7-social-three": return <Frame7_Social_ThreeImg id="frame-7-social-three" />;
       case "frame-8-social-card": return <Frame8_Social_CardSite id="frame-8-social-card" />;

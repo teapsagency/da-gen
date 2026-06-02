@@ -38,11 +38,12 @@ export function listScreenshotSources(sr: ScrapeResult | null): ImageSourceItem[
 // Numérotation alignée sur les titres de l'app (Charte 01-02, Desktop 03-04,
 // puis réseaux sociaux 05-11) — séquentielle et sans collision.
 export const FRAME_SOURCES: { ref: PreviewImageRef; label: string }[] = [
+  { ref: { kind: "frame", frame: "identityMobile" }, label: "01 / Identité — Mobile" },
+  { ref: { kind: "frame", frame: "colorsMobile" }, label: "02 / Couleurs — Mobile" },
   { ref: { kind: "frame", frame: "frame4" }, label: "05 / Browser Full" },
-  { ref: { kind: "frame", frame: "frame5" }, label: "06 / Hero Simple" },
-  { ref: { kind: "frame", frame: "frame6" }, label: "07 / Nouvelle réal." },
-  { ref: { kind: "frame", frame: "frame7" }, label: "08 / Trois images" },
-  { ref: { kind: "frame", frame: "frame8" }, label: "09 / Card site" },
-  { ref: { kind: "frame", frame: "frame9" }, label: "10 / Planche desktop" },
-  { ref: { kind: "frame", frame: "frame10" }, label: "11 / Planche mobile" },
+  { ref: { kind: "frame", frame: "frame6" }, label: "06 / Nouvelle réal." },
+  { ref: { kind: "frame", frame: "frame7" }, label: "07 / Trois images" },
+  { ref: { kind: "frame", frame: "frame8" }, label: "08 / Card site" },
+  { ref: { kind: "frame", frame: "frame9" }, label: "09 / Planche desktop" },
+  { ref: { kind: "frame", frame: "frame10" }, label: "10 / Planche mobile" },
 ];

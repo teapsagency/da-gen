@@ -51,7 +51,7 @@ export const useDAStore = create<DAStore>()(
         contentBrief: p.contentBrief ?? '',
         previewCaption: p.previewCaption ?? '',
         previewImages: p.previewImages ?? [],
-        previewFormat: p.previewFormat ?? '1:1',
+        previewFormat: p.previewFormat ?? 'original',
         customScreenshots: p.customScreenshots ?? {},
         customLogos: p.customLogos ?? [],
         activeProjectId: p.id,
@@ -85,7 +85,7 @@ export const useDAStore = create<DAStore>()(
         // (screenshot/frame) référencent la page précédente.
         previewCaption: '',
         previewImages: [],
-        previewFormat: '1:1',
+        previewFormat: 'original',
       }),
 
       selectedLogo: '',
@@ -268,7 +268,7 @@ export const useDAStore = create<DAStore>()(
           contentBrief: '',
           previewCaption: '',
           previewImages: [],
-          previewFormat: '1:1',
+          previewFormat: 'original',
           customScreenshots: {},
           customLogos: [],
         });
