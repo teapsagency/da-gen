@@ -271,3 +271,20 @@ Suite à la première version (3 appareils empilés), retours utilisateur → **
 
 Vérifié dans le navigateur (scrape `example.com`) : desktop IG image-gauche/détails-droite, mobile 4:5,
 LinkedIn 16:9, carrousel multi-images + vignettes. `npm run build` + `npm run lint` : 0 erreur.
+
+### Révision 2 (feedback)
+
+- **Hashtags dans la légende** : suppression du champ et de l'état `previewHashtags` (types/store/
+  persistance/vues) — les hashtags se tapent dans la légende (stylés par `parseCaption`). « Importer le
+  post généré » fusionne caption + hashtags dans la légende.
+- **Français** : onglet **Preview → Aperçu** (nav + bouton ContentChat), *Caption → Légende*,
+  *Screenshots → Captures du site*, *Frames sociales → Visuels sociaux*.
+- **Suppression** du bouton « Upload / coller » (les assets viennent du site) et de la note
+  « Identité du compte → Paramètres ».
+- **Sélecteur d'assets visuel** : grille de **vignettes** (captures via `thumb`, visuels sociaux rendus
+  en live) — composant `AssetThumb`.
+- **Numérotation** corrigée (collision 02) → séquentielle globale : Charte 01-02, Desktop **03-04**,
+  réseaux sociaux **05-11** (titres `page.tsx` + `FRAME_SOURCES`).
+- **Fix** : `AssetThumb` en `div role="button"` (les frames live contiennent les `<button>` d'
+  `EditableImage` → `<button>` imbriqué interdit) ; frames rendues `pointer-events:none` dans l'aperçu
+  (visuel pur, pas d'overlay « Remplacer l'image »). Vérifié : plus d'erreur DOM en console.
