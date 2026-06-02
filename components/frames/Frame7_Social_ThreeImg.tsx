@@ -5,7 +5,9 @@ import { BrowserNavBar } from "./BrowserNavBar";
 import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
-  const { scrapeResult, bgColor, agencyLogo, fontName, localFontFile } = useDAStore();
+  const { scrapeResult, bgColor, agencyLogo, fontName, localFontFile, dropShadow, showcaseWording } = useDAStore();
+  const [titleLine1, titleLine2] =
+    showcaseWording === "nouvelle" ? ["Nouvelle", "Réalisation"] : ["Focus", "Client"];
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
@@ -98,7 +100,7 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
                 whiteSpace: "nowrap",
               }}
             >
-              Focus
+              {titleLine1}
             </span>
             <span
               style={{
@@ -110,7 +112,7 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
                 whiteSpace: "nowrap",
               }}
             >
-              Client
+              {titleLine2}
             </span>
           </div>
           <span
@@ -146,7 +148,7 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
               overflow: "hidden",
               padding: "18px",
               boxSizing: "border-box",
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              boxShadow: dropShadow ? "0 25px 50px -12px rgba(0, 0, 0, 0.25)" : "none",
             }}
           >
             <EditableImage
@@ -172,7 +174,7 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
               overflow: "hidden",
               padding: "18px",
               boxSizing: "border-box",
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              boxShadow: dropShadow ? "0 25px 50px -12px rgba(0, 0, 0, 0.25)" : "none",
             }}
           >
             <EditableImage
@@ -201,7 +203,7 @@ export const Frame7_Social_ThreeImg = ({ id }: { id?: string }) => {
               padding: "18px",
               gap: "12px",
               zIndex: 2,
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              boxShadow: dropShadow ? "0 25px 50px -12px rgba(0, 0, 0, 0.25)" : "none",
             }}
           >
             <BrowserNavBar domain={domain} agencyLogo={agencyLogo} dotSize={12} />

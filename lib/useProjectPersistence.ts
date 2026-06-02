@@ -23,6 +23,7 @@ const pickSnapshot = (s: DAStore): ProjectSnapshot => ({
   fontName: s.fontName,
   fontUrl: s.fontUrl,
   fontUppercase: s.fontUppercase,
+  showcaseWording: s.showcaseWording,
   bgColor: s.bgColor,
   borderRadius: s.borderRadius,
   logoScale: s.logoScale,

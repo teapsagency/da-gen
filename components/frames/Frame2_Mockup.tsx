@@ -8,7 +8,7 @@ export const Frame2_Mockup = ({ id }: { id?: string }) => {
   // on désactive le hover/upload pour qu'aucune affordance d'édition ne
   // puisse être capturée dans le PNG.
   const editable = !id;
-  const { scrapeResult, bgColor, borderRadius, desktopPadding } = useDAStore();
+  const { scrapeResult, bgColor, borderRadius, desktopPadding, dropShadow } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
@@ -34,6 +34,8 @@ export const Frame2_Mockup = ({ id }: { id?: string }) => {
         height: "1473px",
         background: bgColor,
         borderRadius: `${borderRadius}px`,
+        // Bordure grise légère : délimite la frame sur les sites à fond blanc.
+        border: "3px solid rgba(0, 0, 0, 0.1)",
       }}
     >
       {/* Desktop screenshot — extends from top padding to beyond bottom, clipped */}
@@ -48,7 +50,7 @@ export const Frame2_Mockup = ({ id }: { id?: string }) => {
           overflow: "hidden",
           border: "14px solid #FFFFFF",
           borderBottom: "none",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+          boxShadow: dropShadow ? "0 25px 50px -12px rgba(0, 0, 0, 0.25)" : "none",
           background: "#FFFFFF",
         }}
       >
@@ -79,7 +81,7 @@ export const Frame2_Mockup = ({ id }: { id?: string }) => {
           borderRadius: "32px",
           border: "14px solid #FFFFFF",
           overflow: "hidden",
-          boxShadow: "0 25px 80px -12px rgba(0, 0, 0, 0.35)",
+          boxShadow: dropShadow ? "0 25px 80px -12px rgba(0, 0, 0, 0.35)" : "none",
           background: "#FFFFFF",
           zIndex: 2,
         }}

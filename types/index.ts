@@ -90,6 +90,8 @@ export type ProjectSnapshot = {
   cardImageOpacity: number;
   frame4Blur: number;
   fontUppercase: boolean;
+  // Wording du titre des frames showcase client (06 & 07).
+  showcaseWording: 'focus' | 'nouvelle';
   regionY: number;
   localFontFile: string | null;
   importedFonts: Record<string, string>;
@@ -202,6 +204,11 @@ export type DAStore = {
   fontUppercase: boolean;
   setFontUppercase: (v: boolean) => void;
 
+  // Wording du titre des frames showcase client (06 & 07) :
+  // 'focus' = « Focus Client », 'nouvelle' = « Nouvelle réalisation ».
+  showcaseWording: 'focus' | 'nouvelle';
+  setShowcaseWording: (w: 'focus' | 'nouvelle') => void;
+
   // Zone de capture globale : position verticale (0 = haut, 1 = bas) de la
   // région de la page affichée par les visuels desktop/mobile. 0 = comportement
   // par défaut (haut de page). Réglée via le sélecteur de zone.
@@ -232,6 +239,14 @@ export type DAStore = {
   // plus nets sur les réseaux). S'applique à l'export unitaire ET au pack ZIP.
   exportScale: number;
   setExportScale: (scale: number) => void;
+
+  // Nombre de mockups affichés sur les planches « showcase » (frames 09/10).
+  boardMockups: number;
+  setBoardMockups: (n: number) => void;
+
+  // Ombre portée des mockups (navigateur / téléphone) sur toutes les frames.
+  dropShadow: boolean;
+  setDropShadow: (v: boolean) => void;
 
   isLoading: boolean;
   setIsLoading: (v: boolean) => void;

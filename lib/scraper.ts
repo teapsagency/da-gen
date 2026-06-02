@@ -108,12 +108,20 @@ async function dismissPopups(page: Page) {
       if (btn && btn.offsetParent !== null) { btn.click(); break; }
     }
 
-    // Text-based fallback
+    // Text-based fallback — n'accepte QUE des libellés courts ressemblant à un
+    // bouton de consentement, et matche les mots-clés sur des MOTS ENTIERS.
+    // ⚠ Un `includes()` naïf est dangereux : "agree" matche « Lagree » (méthode
+    // de fitness), "ok" matche « Book »/« cookie »… → le scraper cliquait une
+    // carte de cours et ouvrait une modale de réservation (cas studiobaya.fr).
     const allButtons = Array.from(document.querySelectorAll('button, a[role="button"]')) as HTMLElement[];
     const acceptKeywords = ['accept', 'agree', 'allow', 'accepter', 'acceptez', "j'accepte", 'tout accepter', 'ok', 'got it', 'understood'];
+    const isAcceptText = (text: string) => acceptKeywords.some(kw =>
+      text === kw || text.startsWith(kw + ' ') || text.endsWith(' ' + kw) || text.includes(' ' + kw + ' ')
+    );
     for (const btn of allButtons) {
       const text = (btn.innerText || btn.textContent || '').toLowerCase().trim();
-      if (acceptKeywords.some(kw => text.includes(kw)) && btn.offsetParent !== null) {
+      // Les boutons de consentement sont courts ; un libellé long est du contenu.
+      if (text.length > 0 && text.length <= 40 && isAcceptText(text) && btn.offsetParent !== null) {
         const rect = btn.getBoundingClientRect();
         if (rect.width < 400 && rect.width > 20) { btn.click(); break; }
       }
@@ -133,6 +141,9 @@ async function dismissPopups(page: Page) {
       '.privy-dismiss-button', '[class*="privy"] [class*="close"]',
       '[class*="optinmonster"] .om-close', '[class*="optimonk"] [class*="close"]',
       '[class*="wisepops"] [class*="close"]', '[class*="justuno"] [class*="close"]',
+      // Elementor Pro popups (.elementor-popup-modal = .dialog-widget.dialog-lightbox-widget)
+      '.elementor-popup-modal .dialog-close-button', '.dialog-widget .dialog-close-button',
+      '.elementor-popup-modal [aria-label*="close" i]', '.elementor-popup-modal [class*="close" i]',
     ];
     for (const sel of closeSelectors) {
       document.querySelectorAll(sel).forEach(btn => {
@@ -167,6 +178,15 @@ async function dismissPopups(page: Page) {
       '[class*="popup" i][class*="email" i]', '[class*="popup" i][class*="promo" i]',
       '[class*="popup" i][class*="signup" i]', '[class*="popup-overlay" i]',
       '[class*="modal-overlay" i]', '[class*="modalOverlay" i]',
+      // Elementor Pro popups : la modale d'entrée s'ouvre au chargement
+      // (.elementor-popup-modal porte un id #elementor-popup-modal-{id}). On vise
+      // la modale popup, PAS les lightboxes d'images (cachées par défaut de toute
+      // façon) ni les autres .dialog-widget génériques du thème.
+      '.elementor-popup-modal', '[id^="elementor-popup-modal" i]',
+      // bsport (widget de réservation fitness, basé MUI) — la modale de détail
+      // d'un cours (#bs-activity--dialog, z-index 1300) ne doit jamais sortir
+      // dans une capture si elle s'ouvre.
+      '#bs-activity--dialog', '.bs-activity--dialog_paper',
       '.privy-popup', '[class*="privy"]',
       '[class*="klaviyo" i]', '[id*="klaviyo" i]',
       '[class*="optinmonster" i]', '[id*="optinmonster" i]',

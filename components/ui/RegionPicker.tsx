@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Check, X } from "lucide-react";
 
@@ -45,6 +45,15 @@ export function RegionPicker({ navSource, navAspect, previews, initialY = 0, onC
   // Panneau de navigation (page entière) ajusté en hauteur.
   const [nav, setNav] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [top, setTop] = useState(0); // haut de la bande, en px d'affichage nav
+
+  // Fermeture au clavier (Échap).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const bandH = navAspect > 0 && nav.w ? nav.w / navAspect : nav.h;
   const maxTop = Math.max(0, nav.h - bandH);

@@ -5,12 +5,14 @@ type Props = {
   agencyLogo?: string;
   dotSize?: number;
   height?: number;
+  /** Override de la taille de police de l'URL (ex. "11px") — sinon dérivée du dotSize. */
+  urlFontSize?: string;
 };
 
-export function BrowserNavBar({ domain, agencyLogo, dotSize = 16, height }: Props) {
+export function BrowserNavBar({ domain, agencyLogo, dotSize = 16, height, urlFontSize }: Props) {
   const barHeight = height ?? (dotSize === 16 ? 48 : 36);
   const gap = dotSize >= 16 ? "12px" : "8px";
-  const fontSize = dotSize >= 16 ? "20px" : "13px";
+  const fontSize = urlFontSize ?? (dotSize >= 16 ? "20px" : "13px");
   const urlPadX = dotSize >= 16 ? "24px" : "14px";
   const urlPadY = dotSize >= 16 ? "8px" : "4px";
   const urlGap = dotSize >= 16 ? "12px" : "6px";

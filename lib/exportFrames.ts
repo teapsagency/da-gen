@@ -63,6 +63,8 @@ const SOCIAL_FRAMES: FrameDef[] = [
   { id: 'frame-6-social-nouvelle', name: '06_nouvelle_real', width: 1080, height: 1350 },
   { id: 'frame-7-social-three',   name: '07_three_images', width: 1080, height: 1350 },
   { id: 'frame-8-social-card',    name: '08_card_site',    width: 1080, height: 1350 },
+  { id: 'frame-9-board-desktop',  name: '09_board_desktop', width: 1080, height: 1350 },
+  { id: 'frame-10-board-mobile',  name: '10_board_mobile',  width: 1080, height: 1350 },
 ];
 
 // Capture each frame and add it to the given JSZip target (zip root or a subfolder).

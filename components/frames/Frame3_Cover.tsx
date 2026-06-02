@@ -5,7 +5,7 @@ import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame3_Cover = ({ id }: { id?: string }) => {
   const editable = !id;
-  const { scrapeResult, bgColor, agencyLogo, borderRadius, desktopPadding } = useDAStore();
+  const { scrapeResult, bgColor, agencyLogo, borderRadius, desktopPadding, dropShadow } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
@@ -29,6 +29,8 @@ export const Frame3_Cover = ({ id }: { id?: string }) => {
         height: "1473px",
         background: bgColor,
         borderRadius: `${borderRadius}px`,
+        // Bordure grise légère : délimite la frame sur les sites à fond blanc.
+        border: "3px solid rgba(0, 0, 0, 0.1)",
         paddingTop: `${pad}px`,
         paddingLeft: `${pad}px`,
         paddingRight: `${pad}px`,
@@ -43,7 +45,7 @@ export const Frame3_Cover = ({ id }: { id?: string }) => {
           borderTopRightRadius: `${winTopRadius}px`,
           borderBottomLeftRadius: "0",
           borderBottomRightRadius: "0",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+          boxShadow: dropShadow ? "0 25px 50px -12px rgba(0, 0, 0, 0.25)" : "none",
           display: "flex",
           flexDirection: "column",
           gap: "32px",

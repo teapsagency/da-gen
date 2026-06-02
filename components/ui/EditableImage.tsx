@@ -75,8 +75,13 @@ export function EditableImage({
     const portrait = a < 1;
     setPicker({
       open: true,
+      // Le slot ouvrant la popup affiche toujours une capture DESKTOP : son ratio
+      // pilote donc l'aperçu desktop (paysage → le ratio réel ; portrait → 1.3
+      // par défaut). L'aperçu MOBILE représente toujours un téléphone → ratio
+      // fixe ~0.46 (390/844), jamais celui du slot (sinon une fenêtre navigateur
+      // portrait, ex. frame 04, zoomait l'aperçu mobile).
       desktopAspect: portrait ? 1.3 : a,
-      mobileAspect: portrait ? a : 0.46,
+      mobileAspect: 0.46,
     });
   };
 

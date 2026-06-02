@@ -1,6 +1,6 @@
 import React from "react";
 import { useDAStore } from "@/store/daStore";
-import { Globe, FileText, Plus, Loader2, X, ArrowRight, RefreshCw } from "lucide-react";
+import { Globe, FileText, Plus, Loader2, X, ArrowRight, RefreshCw, Copy, Check } from "lucide-react";
 import { PageScreenshots as PageScreenshotsType, ScrapeResult } from "@/types";
 import { toast } from "sonner";
 
@@ -87,6 +87,18 @@ export const PageScreenshots = () => {
   const [addLabel, setAddLabel] = React.useState("");
   const [addError, setAddError] = React.useState("");
   const [reloadingIndex, setReloadingIndex] = React.useState<number | null>(null);
+  const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
+
+  const handleCopyUrl = async (url: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedIndex(index);
+      toast.success("URL copiée");
+      setTimeout(() => setCopiedIndex((c) => (c === index ? null : c)), 1500);
+    } catch {
+      toast.error("Copie impossible");
+    }
+  };
 
   if (!scrapeResult) return null;
 
@@ -209,27 +221,51 @@ export const PageScreenshots = () => {
       </span>
 
       {pages.map((page, i) => (
-        <div key={i} className="relative group">
+        <div
+          key={i}
+          className={`relative group flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${
+            activePageIndex === i
+              ? "border-foreground/15 bg-foreground/[0.04]"
+              : "border-transparent hover:bg-foreground/[0.02]"
+          }`}
+        >
           <button
             onClick={() => setActivePageIndex(i)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-              activePageIndex === i
-                ? "border-foreground/15 bg-foreground/[0.04]"
-                : "border-transparent hover:bg-foreground/[0.02] opacity-50 hover:opacity-80"
-            }`}
-          >
-            <div className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all shrink-0 ${
+            title="Sélectionner cette page"
+            className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all shrink-0 cursor-pointer ${
               activePageIndex === i
                 ? "bg-foreground text-background"
-                : "bg-foreground/5 text-foreground/40"
-            }`}>
-              {i === 0 ? <Globe className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold leading-tight">{page.label}</p>
-              <p className="text-[10px] text-foreground/30 font-medium truncate mt-0.5">{page.url}</p>
-            </div>
+                : "bg-foreground/5 text-foreground/40 opacity-50 group-hover:opacity-80"
+            }`}
+          >
+            {i === 0 ? <Globe className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
           </button>
+          <div className={`flex-1 min-w-0 ${activePageIndex === i ? "" : "opacity-50 group-hover:opacity-80"}`}>
+            <button
+              onClick={() => setActivePageIndex(i)}
+              className="block w-full text-left cursor-pointer"
+            >
+              <p className="text-xs font-semibold leading-tight truncate">{page.label}</p>
+            </button>
+            <div className={`flex items-center gap-1 mt-0.5 ${i > 0 ? "pr-16" : "pr-8"}`}>
+              <a
+                href={page.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Ouvrir dans un nouvel onglet"
+                className="text-[10px] text-foreground/30 hover:text-foreground/60 hover:underline font-medium truncate min-w-0 transition-colors cursor-pointer"
+              >
+                {page.url}
+              </a>
+              <button
+                onClick={() => handleCopyUrl(page.url, i)}
+                title="Copier l'URL"
+                className="shrink-0 opacity-0 group-hover:opacity-100 transition-all w-4 h-4 flex items-center justify-center text-foreground/40 hover:text-foreground/80 hover:bg-foreground/10 rounded cursor-pointer"
+              >
+                {copiedIndex === i ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+              </button>
+            </div>
+          </div>
           <button
             onClick={() => handleReload(i)}
             disabled={reloadingIndex !== null || isAddingPage}

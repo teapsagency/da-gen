@@ -5,13 +5,15 @@ import { BrowserNavBar } from "./BrowserNavBar";
 import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
-  const { scrapeResult, agencyLogo } = useDAStore();
+  const { scrapeResult, agencyLogo, dropShadow, showcaseWording } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
 
   const editable = !id;
   const domain = scrapeResult.domain.replace(/^www\./, "");
+  const [titleLine1, titleLine2] =
+    showcaseWording === "nouvelle" ? ["Nouvelle", "Réalisation"] : ["Focus", "Client"];
 
   return (
     <div
@@ -20,7 +22,7 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
         position: "relative",
         width: "1080px",
         height: "1350px",
-        background: "#ffffff",
+        background: scrapeResult.siteBgColor || "#ffffff",
         overflow: "hidden",
       }}
     >
@@ -56,7 +58,7 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
             whiteSpace: "nowrap",
           }}
         >
-          Focus
+          {titleLine1}
         </span>
         <span
           style={{
@@ -68,7 +70,7 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
             whiteSpace: "nowrap",
           }}
         >
-          Client
+          {titleLine2}
         </span>
       </div>
 
@@ -83,7 +85,7 @@ export const Frame6_Social_NouvelleReal = ({ id }: { id?: string }) => {
           borderRadius: "32px",
           overflow: "hidden",
           background: "#ffffff",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+          boxShadow: dropShadow ? "0 25px 50px -12px rgba(0, 0, 0, 0.25)" : "none",
           display: "flex",
           flexDirection: "column",
           padding: "18px",

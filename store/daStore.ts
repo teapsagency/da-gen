@@ -31,6 +31,7 @@ export const useDAStore = create<DAStore>()(
         fontName: p.fontName ?? '',
         fontUrl: p.fontUrl,
         fontUppercase: p.fontUppercase ?? false,
+        showcaseWording: p.showcaseWording ?? 'focus',
         bgColor: p.bgColor ?? '#f5f5f5',
         borderRadius: p.borderRadius ?? 28,
         logoScale: p.logoScale ?? 1,
@@ -153,6 +154,9 @@ export const useDAStore = create<DAStore>()(
       fontUppercase: false,
       setFontUppercase: (v: boolean) => set({ fontUppercase: v }),
 
+      showcaseWording: 'focus',
+      setShowcaseWording: (w) => set({ showcaseWording: w }),
+
       regionY: 0,
       setRegionY: (v: number) => set({ regionY: Math.min(1, Math.max(0, v)) }),
 
@@ -194,6 +198,14 @@ export const useDAStore = create<DAStore>()(
       exportScale: 2,
       setExportScale: (scale: number) => set({ exportScale: scale === 2 ? 2 : 1 }),
 
+      // Nombre de mockups sur les planches showcase (09/10). Bornes 2–9.
+      boardMockups: 6,
+      setBoardMockups: (n: number) => set({ boardMockups: Math.min(9, Math.max(2, Math.round(n))) }),
+
+      // Ombre portée des mockups (navigateur / téléphone) sur toutes les frames.
+      dropShadow: true,
+      setDropShadow: (v: boolean) => set({ dropShadow: v }),
+
       // UI state
       isLoading: false,
       setIsLoading: (v: boolean) => set({ isLoading: v }),
@@ -228,6 +240,7 @@ export const useDAStore = create<DAStore>()(
           fontName: '',
           fontUrl: undefined,
           fontUppercase: false,
+          showcaseWording: 'focus',
           bgColor: '#f5f5f5',
           borderRadius: 28,
           logoScale: 1,
@@ -300,15 +313,17 @@ export const useDAStore = create<DAStore>()(
         screenshotDelay: state.screenshotDelay,
         scrapeZoom: state.scrapeZoom,
         exportScale: state.exportScale,
+        boardMockups: state.boardMockups,
+        dropShadow: state.dropShadow,
         geminiApiKeys: state.geminiApiKeys,
         activeApiKeyId: state.activeApiKeyId,
         geminiModel: state.geminiModel,
         contentPrompt: state.contentPrompt,
         includeSitemapInContent: state.includeSitemapInContent,
       }),
-      version: 3,
+      version: 4,
       migrate: (persisted: unknown, version: number) => {
-        let state = (persisted ?? {}) as LegacyPersistedState & { contentPrompt?: string };
+        let state = (persisted ?? {}) as LegacyPersistedState & { contentPrompt?: string; boardMockups?: number };
         if (version < 2 && state.geminiApiKey && !state.geminiApiKeys?.length) {
           const id = `key_${Date.now()}`;
           state = {
@@ -325,6 +340,10 @@ export const useDAStore = create<DAStore>()(
         // Users who had customized their prompt can re-edit from Settings.
         if (version < 3) {
           state = { ...state, contentPrompt: DEFAULT_CONTENT_PROMPT };
+        }
+        // v4 : nouveau défaut de mockups sur les planches showcase (4 → 6).
+        if (version < 4) {
+          state = { ...state, boardMockups: 6 };
         }
         return state;
       },

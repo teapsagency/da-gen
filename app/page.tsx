@@ -25,6 +25,8 @@ import { Frame5_Social_HeroSimple } from "@/components/frames/Frame5_Social_Hero
 import { Frame6_Social_NouvelleReal } from "@/components/frames/Frame6_Social_NouvelleReal";
 import { Frame7_Social_ThreeImg } from "@/components/frames/Frame7_Social_ThreeImg";
 import { Frame8_Social_CardSite } from "@/components/frames/Frame8_Social_CardSite";
+import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_BoardDesktop";
+import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ContentChat } from "@/components/ContentChat";
 import { FileUpload } from "@/components/ui/FileUpload";
@@ -58,6 +60,8 @@ import {
   Plus,
   StretchHorizontal,
   StretchVertical,
+  Copy,
+  Check,
 } from "lucide-react";
 
 /** Wait until all frame IDs exist in the DOM, with a safety timeout */
@@ -276,6 +280,7 @@ export default function Home() {
     await waitForFrames([
       "frame-1-da", "frame-colors", "frame-2-mockup", "frame-3-cover",
       "frame-4-social-browser", "frame-5-social-hero", "frame-6-social-nouvelle", "frame-7-social-three", "frame-8-social-card",
+      "frame-9-board-desktop", "frame-10-board-mobile",
     ]);
     try {
       await exportFullPack(scrapeResult.domain, exportScale);
@@ -626,9 +631,10 @@ export default function Home() {
               <h2 className="text-sm font-bold truncate leading-tight">
                 {scrapeResult.title || "Projet"}
               </h2>
-              <p className="text-[11px] text-foreground/30 font-medium mt-0.5 truncate">
-                {scrapeResult.domain}
-              </p>
+              <ProjectUrlLine
+                domain={scrapeResult.domain}
+                url={scrapeResult.siteUrl || `https://${scrapeResult.domain}`}
+              />
             </div>
 
             {/* Panel content */}
@@ -697,6 +703,7 @@ export default function Home() {
                       <AccordionContent>
                         <RadiusSelector />
                         <DesktopPaddingToggle />
+                        <DropShadowToggle />
                       </AccordionContent>
                     </AccordionItem>
 
@@ -867,10 +874,10 @@ export default function Home() {
                     <PreviewContainer title="05 / HERO SIMPLE" id="frame-5-social-hero" nativeWidth={1080} nativeHeight={675}>
                       <Frame5_Social_HeroSimple />
                     </PreviewContainer>
-                    <PreviewContainer title="06 / NOUVELLE RÉALISATION" id="frame-6-social-nouvelle" nativeWidth={1080} nativeHeight={1350}>
+                    <PreviewContainer title="06 / NOUVELLE RÉALISATION" id="frame-6-social-nouvelle" nativeWidth={1080} nativeHeight={1350} actions={<ShowcaseWordingControl />}>
                       <Frame6_Social_NouvelleReal />
                     </PreviewContainer>
-                    <PreviewContainer title="07 / TROIS IMAGES" id="frame-7-social-three" nativeWidth={1080} nativeHeight={1350}>
+                    <PreviewContainer title="07 / TROIS IMAGES" id="frame-7-social-three" nativeWidth={1080} nativeHeight={1350} actions={<ShowcaseWordingControl />}>
                       <Frame7_Social_ThreeImg />
                     </PreviewContainer>
                     <PreviewContainer
@@ -882,6 +889,12 @@ export default function Home() {
                       actionsBelow
                     >
                       <Frame8_Social_CardSite />
+                    </PreviewContainer>
+                    <PreviewContainer title="09 / PLANCHE DESKTOP" id="frame-9-board-desktop" nativeWidth={1080} nativeHeight={1350} actions={<BoardCountControl />}>
+                      <Frame9_Social_BoardDesktop />
+                    </PreviewContainer>
+                    <PreviewContainer title="10 / PLANCHE MOBILE" id="frame-10-board-mobile" nativeWidth={1080} nativeHeight={1350} actions={<BoardCountControl />}>
+                      <Frame10_Social_BoardMobile />
                     </PreviewContainer>
                   </div>
                 )}
@@ -927,6 +940,8 @@ export default function Home() {
           <Frame6_Social_NouvelleReal id="frame-6-social-nouvelle" />
           <Frame7_Social_ThreeImg id="frame-7-social-three" />
           <Frame8_Social_CardSite id="frame-8-social-card" />
+          <Frame9_Social_BoardDesktop id="frame-9-board-desktop" />
+          <Frame10_Social_BoardMobile id="frame-10-board-mobile" />
         </div>
       )}
     </main>
@@ -959,6 +974,31 @@ function BrowserBlurControl() {
         parse={pxParse}
         inputWidth={42}
       />
+    </div>
+  );
+}
+
+// Nombre de mockups sur les planches showcase (frames 09/10), 2–6.
+function BoardCountControl() {
+  const { boardMockups, setBoardMockups } = useDAStore();
+  return (
+    <div className="flex items-center gap-2 border border-border bg-card px-3 py-1.5 rounded-md">
+      <span className="text-[10px] font-bold text-foreground/40 whitespace-nowrap">Mockups</span>
+      <button
+        onClick={() => setBoardMockups(boardMockups - 1)}
+        disabled={boardMockups <= 2}
+        className="w-5 h-5 rounded flex items-center justify-center text-foreground/70 hover:bg-foreground/10 disabled:opacity-30 cursor-pointer text-base font-bold leading-none"
+      >
+        −
+      </button>
+      <span className="text-[11px] font-bold text-foreground w-3 text-center tabular-nums">{boardMockups}</span>
+      <button
+        onClick={() => setBoardMockups(boardMockups + 1)}
+        disabled={boardMockups >= 9}
+        className="w-5 h-5 rounded flex items-center justify-center text-foreground/70 hover:bg-foreground/10 disabled:opacity-30 cursor-pointer text-base font-bold leading-none"
+      >
+        +
+      </button>
     </div>
   );
 }
@@ -1100,6 +1140,100 @@ function DesktopPaddingToggle() {
   );
 }
 
+function ProjectUrlLine({ domain, url }: { domain: string; url: string }) {
+  const [copied, setCopied] = React.useState(false);
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.success("URL copiée");
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error("Copie impossible");
+    }
+  };
+  return (
+    <div className="flex items-center gap-1 mt-0.5 group/url">
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Ouvrir dans un nouvel onglet"
+        className="text-[11px] text-foreground/30 hover:text-foreground/70 hover:underline font-medium truncate min-w-0 transition-colors cursor-pointer"
+      >
+        {domain}
+      </a>
+      <button
+        onClick={handleCopy}
+        title="Copier l'URL"
+        className="shrink-0 opacity-0 group-hover/url:opacity-100 transition-all w-4 h-4 flex items-center justify-center text-foreground/40 hover:text-foreground/80 hover:bg-foreground/10 rounded cursor-pointer"
+      >
+        {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      </button>
+    </div>
+  );
+}
+
+function ShowcaseWordingControl() {
+  const { showcaseWording, setShowcaseWording } = useDAStore();
+  const options = [
+    { value: "focus" as const, label: "Focus client" },
+    { value: "nouvelle" as const, label: "Nouvelle réal." },
+  ];
+  return (
+    <div className="flex items-center gap-1 bg-foreground/5 border border-border rounded-lg p-0.5">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => setShowcaseWording(opt.value)}
+          className={`px-2.5 h-6 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+            showcaseWording === opt.value
+              ? "bg-background shadow-sm text-foreground"
+              : "text-foreground/50 hover:text-foreground/80"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function DropShadowToggle() {
+  const { dropShadow, setDropShadow } = useDAStore();
+  const options = [
+    { value: true, label: "Avec ombre" },
+    { value: false, label: "Sans ombre" },
+  ];
+  return (
+    <div className="flex flex-col gap-3 pt-4 mt-4 border-t border-border">
+      <span className="text-xs font-medium text-foreground/40">
+        Ombre portée des mockups
+      </span>
+      <div className="flex gap-1.5">
+        {options.map((opt) => (
+          <button
+            key={String(opt.value)}
+            onClick={() => setDropShadow(opt.value)}
+            className={`flex-1 h-8 rounded-lg border text-[11px] font-medium transition-all cursor-pointer ${
+              dropShadow === opt.value
+                ? "border-foreground bg-foreground/5 text-foreground"
+                : "border-border text-foreground/40 hover:border-foreground/20 hover:text-foreground/70"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <span className="text-[10px] text-foreground/25 font-medium">
+        Concerne tous les mockups navigateur &amp; téléphone
+      </span>
+    </div>
+  );
+}
+
 function IdentityLogoScaleControl() {
   const { logoScale, setLogoScale } = useDAStore();
   return (
@@ -1186,6 +1320,10 @@ function PreviewContainer({
   const [isExporting, setIsExporting] = React.useState(false);
   const [showExportFrame, setShowExportFrame] = React.useState(false);
   const { scrapeResult, borderRadius, exportScale } = useDAStore();
+  // Ces frames desktop dessinent leur PROPRE bordure (incluse dans le PNG).
+  // → on supprime alors la bordure de chrome du conteneur d'aperçu, sinon on
+  // voit un double contour et l'aperçu ne correspond plus au fichier exporté.
+  const selfBordered = ["frame-1-da", "frame-2-mockup", "frame-3-cover"].includes(id);
 
   useEffect(() => {
     const updateScale = () => {
@@ -1227,6 +1365,8 @@ function PreviewContainer({
       case "frame-6-social-nouvelle": return <Frame6_Social_NouvelleReal id="frame-6-social-nouvelle" />;
       case "frame-7-social-three": return <Frame7_Social_ThreeImg id="frame-7-social-three" />;
       case "frame-8-social-card": return <Frame8_Social_CardSite id="frame-8-social-card" />;
+      case "frame-9-board-desktop": return <Frame9_Social_BoardDesktop id="frame-9-board-desktop" />;
+      case "frame-10-board-mobile": return <Frame10_Social_BoardMobile id="frame-10-board-mobile" />;
       default: return null;
     }
   };
@@ -1261,7 +1401,7 @@ function PreviewContainer({
       </div>
       <div
         ref={containerRef}
-        className="overflow-hidden relative shadow-2xl shadow-black/[0.03] dark:shadow-white/[0.01] bg-card border border-border"
+        className={`overflow-hidden relative shadow-2xl shadow-black/[0.03] dark:shadow-white/[0.01] bg-card ${selfBordered ? "" : "border border-border"}`}
         style={{
           height: `${nativeHeight * scale}px`,
           borderRadius: `${borderRadius * scale}px`,

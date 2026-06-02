@@ -5,7 +5,7 @@ import { BrowserNavBar } from "./BrowserNavBar";
 import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame4_Social_BrowserFull = ({ id }: { id?: string }) => {
-  const { scrapeResult, agencyLogo, customScreenshots, frame4Blur } = useDAStore();
+  const { scrapeResult, agencyLogo, customScreenshots, frame4Blur, dropShadow } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
@@ -61,7 +61,7 @@ export const Frame4_Social_BrowserFull = ({ id }: { id?: string }) => {
           gap: "16px",
           padding: "24px",
           paddingBottom: 0,
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+          boxShadow: dropShadow ? "0 25px 50px -12px rgba(0, 0, 0, 0.25)" : "none",
         }}
       >
         <BrowserNavBar domain={domain} agencyLogo={agencyLogo} dotSize={14} />
