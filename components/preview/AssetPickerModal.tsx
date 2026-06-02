@@ -2,7 +2,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
-import { X, Plus } from "lucide-react";
+import { X, Check } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
 import type { PreviewImageRef } from "@/types";
 import { listScreenshotSources, FRAME_SOURCES } from "./imageSources";
@@ -19,6 +19,7 @@ const refKey = (r: PreviewImageRef): string =>
  * dans un bouton. Chaque clic ajoute un exemplaire (doublons possibles).
  */
 function PickCard({ item, count, onAdd }: { item: PickItem; count: number; onAdd: () => void }) {
+  const checked = count > 0;
   return (
     <div
       role="button"
@@ -30,7 +31,7 @@ function PickCard({ item, count, onAdd }: { item: PickItem; count: number; onAdd
     >
       <div
         className={`relative w-full aspect-square rounded-lg overflow-hidden border bg-foreground/[0.03] transition-colors ${
-          count > 0 ? "border-foreground/40" : "border-border"
+          checked ? "border-foreground/40 ring-2 ring-foreground/20" : "border-border"
         }`}
       >
         {item.thumb ? (
@@ -39,18 +40,17 @@ function PickCard({ item, count, onAdd }: { item: PickItem; count: number; onAdd
         ) : (
           <PreviewImage refItem={item.ref} fit="cover" />
         )}
-        {/* Overlay d'ajout */}
-        <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/25 transition-colors">
-          <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/90 text-black text-[11px] font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-            <Plus className="w-3.5 h-3.5" /> Ajouter
-          </span>
+        {/* Léger voile au survol pour signaler le clic */}
+        <span className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors" />
+        {/* Case à cocher : cochée tant que l'asset est dans le carrousel (sticky).
+            Affiche ×N si plusieurs exemplaires. */}
+        <span
+          className={`absolute top-2 right-2 min-w-5 h-5 px-1 rounded-md flex items-center justify-center border transition-all ${
+            checked ? "bg-foreground border-foreground text-background" : "bg-white/85 border-black/20 text-transparent"
+          }`}
+        >
+          {count > 1 ? <span className="text-[10px] font-bold leading-none">×{count}</span> : <Check className="w-3.5 h-3.5" />}
         </span>
-        {/* Compteur d'exemplaires dans le carrousel */}
-        {count > 0 && (
-          <span className="absolute top-2 right-2 min-w-5 h-5 px-1.5 rounded-full bg-foreground text-background text-[11px] font-bold flex items-center justify-center">
-            ×{count}
-          </span>
-        )}
       </div>
       <span className="text-[11px] font-medium text-foreground/60 truncate px-0.5">{item.label}</span>
     </div>
@@ -112,7 +112,7 @@ export function AssetPickerModal({ open, onClose }: { open: boolean; onClose: ()
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div>
             <h2 className="text-[15px] font-bold text-foreground">Choisir les visuels</h2>
-            <p className="text-[11px] text-foreground/40 mt-0.5">Clique pour ajouter — re-clique pour ajouter un autre exemplaire.</p>
+            <p className="text-[11px] text-foreground/40 mt-0.5">Coche pour ajouter au carrousel — re-clique pour un exemplaire de plus. Le retrait se fait dans la barre du bas.</p>
           </div>
           <button onClick={onClose} aria-label="Fermer" className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground/40 hover:text-foreground hover:bg-foreground/5 cursor-pointer">
             <X className="w-4 h-4" />
