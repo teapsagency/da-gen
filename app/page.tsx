@@ -27,6 +27,8 @@ import { Frame7_Social_ThreeImg } from "@/components/frames/Frame7_Social_ThreeI
 import { Frame8_Social_CardSite } from "@/components/frames/Frame8_Social_CardSite";
 import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_BoardDesktop";
 import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
+import { PreviewStage } from "@/components/preview/PreviewStage";
+import { PreviewSidebar } from "@/components/preview/PreviewSidebar";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ContentChat } from "@/components/ContentChat";
 import { FileUpload } from "@/components/ui/FileUpload";
@@ -62,6 +64,7 @@ import {
   StretchVertical,
   Copy,
   Check,
+  MonitorSmartphone,
 } from "lucide-react";
 
 /** Wait until all frame IDs exist in the DOM, with a safety timeout */
@@ -111,7 +114,7 @@ export default function Home() {
   const [isExportingPack, setIsExportingPack] = React.useState(false);
   const [showOffscreenFrames, setShowOffscreenFrames] = React.useState(false);
   const [showOffscreenSocialFrames, setShowOffscreenSocialFrames] = React.useState(false);
-  const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu" | "settings" | "historique">("visuels");
+  const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu" | "preview" | "settings" | "historique">("visuels");
 
   // Saved projects — drives the recent-projects shortlist on the home screen.
   // Refreshed every time the home screen comes back into view.
@@ -347,6 +350,23 @@ export default function Home() {
               </button>
               <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
                 Contenu
+              </span>
+            </div>
+            <div className="relative group">
+              <button
+                onClick={() => setSidebarTab("preview")}
+                aria-label="Preview"
+                aria-current={sidebarTab === "preview"}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                  sidebarTab === "preview"
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5"
+                }`}
+              >
+                <MonitorSmartphone className="w-[18px] h-[18px]" />
+              </button>
+              <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                Preview
               </span>
             </div>
             <div className="relative group">
@@ -794,6 +814,8 @@ export default function Home() {
                   </Accordion>
                 </div>
               )}
+
+              {sidebarTab === "preview" && <PreviewSidebar />}
             </div>
           </aside>
 
@@ -915,9 +937,12 @@ export default function Home() {
                   isGenerating={isGeneratingContent}
                   content={generatedContent}
                   error={contentError}
+                  onOpenPreview={() => setSidebarTab("preview")}
                 />
               </div>
             )}
+
+            {sidebarTab === "preview" && <PreviewStage />}
           </main>
         </div>
       )}

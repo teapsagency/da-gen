@@ -5,16 +5,10 @@ import {
   Loader2, ArrowUp, Copy, Check,
   ChevronDown, ChevronUp, Paperclip, X,
   Linkedin, Instagram,
-  FileText, Braces, Code, Eye, Sparkles,
+  FileText, Braces, Code, Sparkles, MonitorSmartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { GeneratedContent } from "@/types";
-import { useDAStore } from "@/store/daStore";
-import { SocialPreview } from "@/components/ui/SocialPreview";
-import { Frame4_Social_BrowserFull } from "@/components/frames/Frame4_Social_BrowserFull";
-import { Frame5_Social_HeroSimple } from "@/components/frames/Frame5_Social_HeroSimple";
-import { Frame6_Social_NouvelleReal } from "@/components/frames/Frame6_Social_NouvelleReal";
-import { Frame7_Social_ThreeImg } from "@/components/frames/Frame7_Social_ThreeImg";
 
 type Props = {
   chips: string[];
@@ -28,6 +22,7 @@ type Props = {
   isGenerating: boolean;
   content: GeneratedContent | null;
   error: string | null;
+  onOpenPreview: () => void;
 };
 
 const ACCEPTED_EXTS = [".md", ".txt", ".pdf", ".html", ".json"];
@@ -39,15 +34,13 @@ export function ContentChat({
   brief, onBriefChange,
   onGenerate, isGenerating,
   content, error,
+  onOpenPreview,
 }: Props) {
-  const { scrapeResult, agencyLogo } = useDAStore();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [expandedSections, setExpandedSections] = React.useState<Set<string>>(
     new Set(["case-study", "social"])
   );
-  const [previewPlatform, setPreviewPlatform] = React.useState<"linkedin" | "instagram" | null>(null);
-  const [previewAsset, setPreviewAsset] = React.useState("screenshot");
 
   // Auto-grow textarea
   React.useEffect(() => {
@@ -144,44 +137,7 @@ export function ContentChat({
                 expanded={expandedSections.has("social")} onToggle={toggleSection}
               >
               <div className="flex flex-col gap-4">
-                {/* Preview toggle */}
-                <div className="flex items-center gap-1 p-0.5 bg-foreground/[0.05] rounded-lg w-fit">
-                  <button
-                    onClick={() => setPreviewPlatform(null)}
-                    className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
-                      previewPlatform === null
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-foreground/40 hover:text-foreground/60"
-                    }`}
-                  >
-                    Texte
-                  </button>
-                  <button
-                    onClick={() => setPreviewPlatform("linkedin")}
-                    className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
-                      previewPlatform === "linkedin"
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-foreground/40 hover:text-foreground/60"
-                    }`}
-                  >
-                    <Eye className="w-3 h-3" />
-                    LinkedIn
-                  </button>
-                  <button
-                    onClick={() => setPreviewPlatform("instagram")}
-                    className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
-                      previewPlatform === "instagram"
-                        ? "bg-card text-foreground shadow-sm"
-                        : "text-foreground/40 hover:text-foreground/60"
-                    }`}
-                  >
-                    <Eye className="w-3 h-3" />
-                    Instagram
-                  </button>
-                </div>
-
-                {/* Content or Preview */}
-                {content.socialPost && previewPlatform === null ? (
+                {content.socialPost && (
                   <div className="bg-foreground/[0.03] rounded-xl p-4 border border-border">
                     <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap font-medium">
                       {content.socialPost.caption ?? ""}
@@ -196,37 +152,17 @@ export function ContentChat({
                     </div>
                     )}
                   </div>
-                ) : content.socialPost && previewPlatform !== null ? (
-                  <div className="flex flex-col gap-3">
-                    {/* Asset selector */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/25">Image du post</span>
-                      <select
-                        value={previewAsset}
-                        onChange={(e) => setPreviewAsset(e.target.value)}
-                        className="text-[11px] font-medium text-foreground/60 bg-foreground/[0.04] border border-border rounded-lg px-2 py-1 outline-none cursor-pointer"
-                      >
-                        <option value="screenshot">Screenshot du site</option>
-                        <option value="frame4">04 / Browser Full</option>
-                        <option value="frame5">05 / Hero Simple</option>
-                        <option value="frame6">06 / Nouvelle Réalisation</option>
-                        <option value="frame7">07 / Trois Images</option>
-                      </select>
-                    </div>
-                    <div className="flex justify-center">
-                      <SocialPreview
-                        platform={previewPlatform}
-                        caption={content.socialPost.caption ?? ""}
-                        hashtags={content.socialPost.hashtags ?? []}
-                        imageUrl={previewAsset === "screenshot" ? scrapeResult?.screenshots?.desktop : undefined}
-                        imageContent={previewAsset !== "screenshot" ? (
-                          <AssetPreviewImage assetKey={previewAsset} />
-                        ) : undefined}
-                        agencyLogo={agencyLogo}
-                      />
-                    </div>
-                  </div>
-                ) : null}
+                )}
+
+                {content.socialPost?.caption && (
+                  <button
+                    onClick={onOpenPreview}
+                    className="w-full h-9 flex items-center justify-center gap-2 text-[11px] font-semibold border border-border rounded-xl text-foreground/60 hover:text-foreground hover:border-foreground/20 transition-all cursor-pointer"
+                  >
+                    <MonitorSmartphone className="w-3.5 h-3.5" />
+                    Prévisualiser dans l&apos;onglet Preview
+                  </button>
+                )}
 
                 {/* Publish buttons */}
                 {content.socialPost?.caption && <PublishButtons content={content} />}
@@ -426,61 +362,6 @@ function PublishButtons({ content }: { content: GeneratedContent }) {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-function AssetPreviewImage({ assetKey }: { assetKey: string }) {
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = React.useState(0);
-
-  React.useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const obs = new ResizeObserver((entries) => {
-      setContainerWidth(entries[0].contentRect.width);
-    });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  const assets: Record<string, { component: React.ReactNode; width: number; height: number }> = {
-    frame4: { component: <Frame4_Social_BrowserFull />, width: 1080, height: 1350 },
-    frame5: { component: <Frame5_Social_HeroSimple />, width: 1080, height: 723 },
-    frame6: { component: <Frame6_Social_NouvelleReal />, width: 1080, height: 1350 },
-    frame7: { component: <Frame7_Social_ThreeImg />, width: 1080, height: 1350 },
-  };
-
-  const asset = assets[assetKey];
-  if (!asset) return null;
-
-  const scale = containerWidth > 0 ? containerWidth / asset.width : 0;
-
-  return (
-    <div
-      ref={containerRef}
-      style={{
-        width: "100%",
-        height: scale > 0 ? `${asset.height * scale}px` : "auto",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {scale > 0 && (
-        <div
-          style={{
-            width: `${asset.width}px`,
-            height: `${asset.height}px`,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-            position: "absolute",
-            top: 0,
-            left: 0,
-          }}
-        >
-          {asset.component}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function ResultSection({ id, title, badge, expanded, onToggle, children }: {
   id: string; title: string; badge: string;
