@@ -1,3 +1,7 @@
+/** Date du jour en français : "2 juin 2026" (les vues qui appliquent `uppercase` l'afficheront « 2 JUIN 2026 »). */
+export const todayLong = (): string =>
+  new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+
 /** Human-friendly relative time in French: "à l'instant", "il y a 3 h", "hier", "12 mai 2026". */
 export const formatWhen = (ts: number): string => {
   const diff = Date.now() - ts;

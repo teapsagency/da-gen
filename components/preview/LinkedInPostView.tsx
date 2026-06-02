@@ -4,6 +4,7 @@ import { MessageCircle, Send, MoreHorizontal, ThumbsUp, Repeat2, Globe } from "l
 import type { PreviewImageRef, PreviewFormat } from "@/types";
 import { parseCaption } from "./parseCaption";
 import { PreviewCarousel } from "./PreviewCarousel";
+import { todayLong } from "@/lib/format";
 
 type Props = {
   caption: string;
@@ -41,7 +42,7 @@ export function LinkedInPostView({ caption, images, avatar, displayName, followe
           <p className="text-[14px] font-semibold leading-tight" style={{ color: "#000000e6" }}>{displayName}</p>
           <p className="text-[12px] leading-tight mt-0.5" style={{ color: "#00000099" }}>{followers}</p>
           <p className="text-[12px] leading-tight mt-0.5 flex items-center gap-1" style={{ color: "#00000099" }}>
-            Maintenant · <Globe className="w-3 h-3" />
+            {todayLong()} · <Globe className="w-3 h-3" />
           </p>
         </div>
         <MoreHorizontal className="w-6 h-6 mt-1" style={{ color: "#00000099" }} />

@@ -16,17 +16,17 @@ const refKey = (r: PreviewImageRef): string =>
 /**
  * Carte d'asset cliquable. `div role=button` (et non `<button>`) : les frames
  * rendues en live contiennent leurs propres `<button>` (EditableImage), interdits
- * dans un bouton. Chaque clic ajoute un exemplaire (doublons possibles).
+ * dans un bouton. Toggle : un clic ajoute l'asset, un autre le retire (jamais de doublon).
  */
-function PickCard({ item, count, onAdd }: { item: PickItem; count: number; onAdd: () => void }) {
-  const checked = count > 0;
+function PickCard({ item, checked, onToggle }: { item: PickItem; checked: boolean; onToggle: () => void }) {
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={onAdd}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onAdd(); } }}
-      title={`Ajouter — ${item.label}`}
+      aria-pressed={checked}
+      onClick={onToggle}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
+      title={checked ? `Retirer — ${item.label}` : `Ajouter — ${item.label}`}
       className="group relative flex flex-col gap-1.5 text-left cursor-pointer rounded-xl p-1.5 hover:bg-foreground/[0.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 transition-colors"
     >
       <div
@@ -42,14 +42,14 @@ function PickCard({ item, count, onAdd }: { item: PickItem; count: number; onAdd
         )}
         {/* Léger voile au survol pour signaler le clic */}
         <span className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors" />
-        {/* Case à cocher : cochée tant que l'asset est dans le carrousel (sticky).
-            Affiche ×N si plusieurs exemplaires. */}
+        {/* Case à cocher carrée : un asset = un seul exemplaire dans le carrousel.
+            Cochée tant qu'il est présent ; re-cliquer le retire. */}
         <span
-          className={`absolute top-2 right-2 min-w-5 h-5 px-1 rounded-md flex items-center justify-center border transition-all ${
+          className={`absolute top-2 right-2 w-5 h-5 rounded-md flex items-center justify-center border transition-all ${
             checked ? "bg-foreground border-foreground text-background" : "bg-white/85 border-black/20 text-transparent"
           }`}
         >
-          {count > 1 ? <span className="text-[10px] font-bold leading-none">×{count}</span> : <Check className="w-3.5 h-3.5" />}
+          <Check className="w-3.5 h-3.5" />
         </span>
       </div>
       <span className="text-[11px] font-medium text-foreground/60 truncate px-0.5">{item.label}</span>
@@ -86,16 +86,20 @@ export function AssetPickerModal({ open, onClose }: { open: boolean; onClose: ()
   }));
   const frames: PickItem[] = FRAME_SOURCES.map((s) => ({ id: refKey(s.ref), ref: s.ref, label: s.label }));
 
-  // Nombre d'exemplaires de chaque asset déjà dans le carrousel.
-  const counts: Record<string, number> = {};
-  for (const img of images) counts[refKey(img)] = (counts[refKey(img)] ?? 0) + 1;
+  // Assets déjà présents (un seul exemplaire par asset).
+  const present = new Set(images.map(refKey));
 
-  const addOne = (ref: PreviewImageRef) => setImages([...useDAStore.getState().previewImages, ref]);
+  // Toggle : ajoute l'asset s'il est absent, le retire sinon.
+  const toggle = (ref: PreviewImageRef) => {
+    const cur = useDAStore.getState().previewImages;
+    const k = refKey(ref);
+    setImages(cur.some((i) => refKey(i) === k) ? cur.filter((i) => refKey(i) !== k) : [...cur, ref]);
+  };
 
   const renderGrid = (items: PickItem[]) => (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
       {items.map((it) => (
-        <PickCard key={it.id} item={it} count={counts[it.id] ?? 0} onAdd={() => addOne(it.ref)} />
+        <PickCard key={it.id} item={it} checked={present.has(it.id)} onToggle={() => toggle(it.ref)} />
       ))}
     </div>
   );
@@ -112,7 +116,7 @@ export function AssetPickerModal({ open, onClose }: { open: boolean; onClose: ()
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div>
             <h2 className="text-[15px] font-bold text-foreground">Choisir les visuels</h2>
-            <p className="text-[11px] text-foreground/40 mt-0.5">Coche pour ajouter au carrousel — re-clique pour un exemplaire de plus. Le retrait se fait dans la barre du bas.</p>
+            <p className="text-[11px] text-foreground/40 mt-0.5">Coche un visuel pour l&apos;ajouter au carrousel, décoche-le pour le retirer.</p>
           </div>
           <button onClick={onClose} aria-label="Fermer" className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground/40 hover:text-foreground hover:bg-foreground/5 cursor-pointer">
             <X className="w-4 h-4" />

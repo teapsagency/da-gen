@@ -60,9 +60,10 @@ export function PreviewStage() {
   const stageWidth = viewport === "mobile" ? 430 : platform === "instagram" ? 1040 : 555;
 
   return (
-    <div className="p-8 lg:p-12 min-h-screen pb-44">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
+    <div className="min-h-screen pb-44">
+      {/* Toolbar — sticky + fond opaque : reste accessible et ne laisse jamais
+          la carte (haute, ex. LinkedIn) transparaître/déborder par-dessus. */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50 flex flex-wrap items-center justify-center gap-3 px-8 py-4">
         <Segmented<SocialPlatform>
           value={platform}
           onChange={setPlatform}
@@ -87,7 +88,7 @@ export function PreviewStage() {
       </div>
 
       {/* Scène */}
-      <div className="w-full flex justify-center">
+      <div className="w-full flex justify-center px-8 lg:px-12 pt-8">
         <div style={{ width: "100%", maxWidth: stageWidth }} className="transition-[max-width] duration-300">
           {card}
         </div>

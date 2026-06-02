@@ -4,6 +4,7 @@ import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Smile } from "luc
 import type { PreviewImageRef, PreviewFormat } from "@/types";
 import { parseCaption } from "./parseCaption";
 import { PreviewCarousel } from "./PreviewCarousel";
+import { todayLong } from "@/lib/format";
 
 type Props = {
   caption: string;
@@ -95,7 +96,7 @@ export function InstagramPostView({ caption, images, avatar, name, format, layou
           <div className="px-4 pt-2 pb-3" style={{ borderTop: "1px solid #efefef" }}>
             <ActionsRow />
             <p className="text-[14px] font-semibold mt-1" style={{ color: "#262626" }}>312 J&apos;aime</p>
-            <p className="text-[11px] uppercase tracking-wide mt-1" style={{ color: "#8e8e8e" }}>8 janvier 2025</p>
+            <p className="text-[11px] uppercase tracking-wide mt-1" style={{ color: "#8e8e8e" }}>{todayLong()}</p>
             <div className="flex items-center gap-2 mt-3 pt-3" style={{ borderTop: "1px solid #efefef" }}>
               <Smile className="w-5 h-5" style={{ color: "#8e8e8e" }} />
               <span className="text-[14px] flex-1" style={{ color: "#8e8e8e" }}>Ajouter un commentaire…</span>
@@ -137,7 +138,7 @@ export function InstagramPostView({ caption, images, avatar, name, format, layou
         <div className="mt-1">
           <CaptionText name={name} caption={caption} />
         </div>
-        <p className="text-[11px] uppercase tracking-wide mt-2" style={{ color: "#8e8e8e" }}>Il y a 2 heures</p>
+        <p className="text-[11px] uppercase tracking-wide mt-2" style={{ color: "#8e8e8e" }}>{todayLong()}</p>
       </div>
     </div>
   );
