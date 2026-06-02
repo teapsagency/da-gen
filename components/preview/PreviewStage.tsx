@@ -60,7 +60,7 @@ export function PreviewStage() {
   const stageWidth = viewport === "mobile" ? 430 : platform === "instagram" ? 1040 : 555;
 
   return (
-    <div className="p-8 lg:p-12 min-h-screen pb-28">
+    <div className="p-8 lg:p-12 min-h-screen pb-44">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
         <Segmented<SocialPlatform>

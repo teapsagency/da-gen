@@ -43,7 +43,7 @@ export function PreviewCarouselBar() {
             Choisis des assets dans le panneau de gauche pour composer le carrousel, puis glisse-les ici pour l&apos;ordre.
           </p>
         ) : (
-          <div className="flex items-center gap-2 overflow-x-auto py-0.5">
+          <div className="flex items-center gap-3 overflow-x-auto py-0.5">
             {images.map((img, i) => (
               <div
                 key={i}
@@ -53,18 +53,18 @@ export function PreviewCarouselBar() {
                 onDrop={() => reorder(i)}
                 onDragEnd={() => { dragIndex.current = null; setOverIndex(null); }}
                 title="Glisser pour réordonner"
-                className={`relative w-[56px] h-[56px] shrink-0 rounded-md overflow-hidden border bg-foreground/[0.03] cursor-grab active:cursor-grabbing group ${
+                className={`relative w-[104px] h-[104px] shrink-0 rounded-lg overflow-hidden border bg-foreground/[0.03] cursor-grab active:cursor-grabbing group ${
                   overIndex === i ? "border-foreground/60 ring-2 ring-foreground/20" : "border-border"
                 }`}
               >
                 <PreviewImage refItem={img} fit="cover" />
-                <span className="absolute bottom-0.5 left-0.5 px-1 rounded text-[8px] font-bold text-white bg-black/50">{i + 1}</span>
+                <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-white bg-black/55">{i + 1}</span>
                 <button
                   onClick={() => removeImage(i)}
-                  className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/55 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/55 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                   aria-label="Retirer"
                 >
-                  <X className="w-2.5 h-2.5" />
+                  <X className="w-3 h-3" />
                 </button>
               </div>
             ))}
