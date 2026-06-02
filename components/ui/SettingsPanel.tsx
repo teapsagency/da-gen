@@ -17,6 +17,7 @@ import {
   Trash2,
   Plus,
   X,
+  AtSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { GeminiApiKey } from "@/types";
@@ -522,6 +523,43 @@ function ResetButton({ onClick }: { onClick: () => void }) {
   );
 }
 
+/* ---------- Identité réseaux sociaux ---------- */
+
+function SocialIdentitySection() {
+  const identity = useDAStore((s) => s.socialIdentity);
+  const setSocialIdentity = useDAStore((s) => s.setSocialIdentity);
+  const fields: { key: keyof typeof identity; label: string; placeholder: string }[] = [
+    { key: "displayName", label: "Nom affiché", placeholder: "Agence TEAPS" },
+    { key: "instagramHandle", label: "@ Instagram", placeholder: "agence.teaps" },
+    { key: "followers", label: "Abonnés", placeholder: "528 abonnés" },
+  ];
+  return (
+    <div className="rounded-xl border border-border bg-background/40 p-5">
+      <SectionHeader
+        icon={AtSign}
+        title="Identité réseaux sociaux"
+        description="Nom, @ et abonnés affichés sur les previews. L'avatar est repris d'« Identité agence »."
+      />
+      <div className="flex flex-col gap-2.5">
+        {fields.map((f) => (
+          <label key={f.key} className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">
+              {f.label}
+            </span>
+            <input
+              type="text"
+              value={identity[f.key]}
+              onChange={(e) => setSocialIdentity({ [f.key]: e.target.value })}
+              placeholder={f.placeholder}
+              className="w-full h-9 px-3 bg-card border border-border rounded-md text-[12px] focus:outline-none focus:border-foreground/30 transition-colors"
+            />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Main panel ---------- */
 
 export function SettingsPanel() {
@@ -581,6 +619,9 @@ export function SettingsPanel() {
             </code>
           </div>
         </div>
+
+        {/* Identité réseaux sociaux */}
+        <SocialIdentitySection />
 
         {/* Model */}
         <div className="rounded-xl border border-border bg-background/40 p-5">
