@@ -242,3 +242,32 @@ Pas de suite de tests dans le projet. Validation :
 5. Câblage `app/page.tsx` (onglet, nav, rendus).
 6. Nettoyage `ContentChat` + suppression/migration `SocialPreview`.
 7. `npm run build` + `npm run lint` + test manuel.
+
+---
+
+## Révision 2026-06-02 (feedback après v1, vérifiée en navigateur)
+
+Suite à la première version (3 appareils empilés), retours utilisateur → **redesign** :
+
+- **Présentation** : abandon des 3 appareils empilés (trop petits) et du **chrome d'appareil**
+  (`DeviceFrame` **supprimé**). À la place : **une seule preview en grand** + toggle **Mobile / Desktop**
+  (tablette abandonnée, pas de layout propre). Rendu à taille réelle (plus de `transform: scale`),
+  largeur de scène : mobile 430, desktop 1040 (IG) / 555 (LinkedIn).
+- **Layout desktop fidèle** : sur Instagram desktop, `InstagramPostView` rend **image à gauche (~58%) /
+  détails à droite** (header, caption scrollable + « 72 sem », réactions, « 312 J'aime », date, ajouter un
+  commentaire). Mobile = carte empilée. LinkedIn = colonne unique (mobile/desktop, largeur différente).
+- **Formats Instagram** : nouveau type `PreviewFormat = 'original' | '1:1' | '4:5' | '16:9'`, persisté par
+  projet (`previewFormat`, défaut `'1:1'`, ajouté à `ProjectSnapshot`/`DAStore`/`pickSnapshot`/reset).
+  Sélecteur segmenté dans la toolbar. `PreviewCarousel` applique le ratio (cover) ; `'original'` = ratio
+  naturel.
+- **`PreviewImage`** : prop `fit: 'cover' | 'natural'` (cover = remplit un conteneur dimensionné ;
+  natural = flux au ratio naturel pour « Original »). Frame en live via `FrameCover` (ResizeObserver +
+  scale cover). `FRAME_RENDER`/`FORMAT_ASPECT` exportés.
+- **Carrousel (sidebar)** : remplace labels + flèches par une grille flex de **vignettes réelles**
+  (via `PreviewImage` cover, numérotées) avec **réordonnancement par glisser-déposer** (HTML5 DnD) et
+  retrait au survol.
+- **Correctif** : `addImage`/`removeImage`/reorder/`addHashtag` lisent l'état frais via
+  `useDAStore.getState()` (closures périmées sur clics rapprochés).
+
+Vérifié dans le navigateur (scrape `example.com`) : desktop IG image-gauche/détails-droite, mobile 4:5,
+LinkedIn 16:9, carrousel multi-images + vignettes. `npm run build` + `npm run lint` : 0 erreur.
