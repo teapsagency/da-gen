@@ -6,6 +6,7 @@ import { useDAStore } from "@/store/daStore";
 import type { SocialPlatform, PreviewFormat } from "@/types";
 import { InstagramPostView } from "./InstagramPostView";
 import { LinkedInPostView } from "./LinkedInPostView";
+import { PreviewCarouselBar } from "./PreviewCarouselBar";
 
 type Viewport = "mobile" | "desktop";
 
@@ -59,7 +60,7 @@ export function PreviewStage() {
   const stageWidth = viewport === "mobile" ? 430 : platform === "instagram" ? 1040 : 555;
 
   return (
-    <div className="p-8 lg:p-12 min-h-screen">
+    <div className="p-8 lg:p-12 min-h-screen pb-28">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
         <Segmented<SocialPlatform>
@@ -91,6 +92,9 @@ export function PreviewStage() {
           {card}
         </div>
       </div>
+
+      {/* Barre du bas : ordre du carrousel */}
+      <PreviewCarouselBar />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Sparkles, X, Plus } from "lucide-react";
+import { Sparkles, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useDAStore } from "@/store/daStore";
 import type { PreviewImageRef } from "@/types";
@@ -42,13 +42,9 @@ function AssetThumb({ refItem, label, thumb, onAdd }: { refItem: PreviewImageRef
 export function PreviewSidebar() {
   const caption = useDAStore((s) => s.previewCaption);
   const setCaption = useDAStore((s) => s.setPreviewCaption);
-  const images = useDAStore((s) => s.previewImages);
   const setImages = useDAStore((s) => s.setPreviewImages);
   const generatedContent = useDAStore((s) => s.generatedContent);
   const scrapeResult = useDAStore((s) => s.scrapeResult);
-
-  const dragIndex = React.useRef<number | null>(null);
-  const [overIndex, setOverIndex] = React.useState<number | null>(null);
 
   const importGenerated = () => {
     if (!generatedContent) return;
@@ -60,17 +56,6 @@ export function PreviewSidebar() {
 
   // getState() : protège des closures périmées sur clics rapprochés.
   const addImage = (ref: PreviewImageRef) => setImages([...useDAStore.getState().previewImages, ref]);
-  const removeImage = (i: number) => setImages(useDAStore.getState().previewImages.filter((_, k) => k !== i));
-  const reorder = (target: number) => {
-    const from = dragIndex.current;
-    dragIndex.current = null;
-    setOverIndex(null);
-    if (from === null || from === target) return;
-    const next = [...useDAStore.getState().previewImages];
-    const [moved] = next.splice(from, 1);
-    next.splice(target, 0, moved);
-    setImages(next);
-  };
 
   const screenshotSources: ImageSourceItem[] = listScreenshotSources(scrapeResult);
 
@@ -96,41 +81,6 @@ export function PreviewSidebar() {
           className="w-full px-3 py-2 bg-card border border-border rounded-lg text-[12px] leading-relaxed resize-y focus:outline-none focus:border-foreground/30 transition-colors"
         />
       </label>
-
-      {/* Carrousel : vignettes + glisser-déposer */}
-      <div className="flex flex-col gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">Carrousel ({images.length})</span>
-        {images.length === 0 ? (
-          <p className="text-[11px] text-foreground/30">Aucune image. Choisis un asset ci-dessous.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {images.map((img, i) => (
-              <div
-                key={i}
-                draggable
-                onDragStart={() => (dragIndex.current = i)}
-                onDragOver={(e) => { e.preventDefault(); if (overIndex !== i) setOverIndex(i); }}
-                onDrop={() => reorder(i)}
-                onDragEnd={() => { dragIndex.current = null; setOverIndex(null); }}
-                title="Glisser pour réordonner"
-                className={`relative w-[60px] h-[60px] rounded-md overflow-hidden border bg-foreground/[0.03] cursor-grab active:cursor-grabbing group ${
-                  overIndex === i ? "border-foreground/60 ring-2 ring-foreground/20" : "border-border"
-                }`}
-              >
-                <PreviewImage refItem={img} fit="cover" />
-                <span className="absolute bottom-0.5 left-0.5 px-1 rounded text-[8px] font-bold text-white bg-black/50">{i + 1}</span>
-                <button
-                  onClick={() => removeImage(i)}
-                  className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/55 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                  aria-label="Retirer"
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* Assets — captures du site */}
       {screenshotSources.length > 0 && (
@@ -164,6 +114,10 @@ export function PreviewSidebar() {
           ))}
         </div>
       </div>
+
+      <p className="text-[10px] text-foreground/30 leading-relaxed">
+        Clique sur un asset pour l&apos;ajouter au carrousel. L&apos;ordre se règle dans la barre du bas.
+      </p>
     </div>
   );
 }
