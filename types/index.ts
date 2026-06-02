@@ -69,6 +69,26 @@ export type GeneratedContent = {
   };
 };
 
+export type SocialFrameId =
+  | 'frame4' | 'frame5' | 'frame6' | 'frame7' | 'frame8' | 'frame9' | 'frame10';
+
+export type SocialPlatform = 'instagram' | 'linkedin';
+
+// Une image du carrousel de preview : upload/coller, screenshot scrapé (résolu
+// via une clé), ou frame sociale rendue en live.
+export type PreviewImageRef =
+  | { kind: 'upload'; dataUrl: string }
+  | { kind: 'screenshot'; key: string }
+  | { kind: 'frame'; frame: SocialFrameId };
+
+// Identité du compte agence affichée sur les cartes de post (globale).
+// L'avatar n'en fait PAS partie : il est repris de `agencyLogo`.
+export type SocialIdentity = {
+  displayName: string;     // nom affiché (LinkedIn), défaut "Agence TEAPS"
+  instagramHandle: string; // défaut "agence.teaps"
+  followers: string;       // défaut "528 abonnés"
+};
+
 export type SitemapStatus = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
 
 // The slice of state that belongs to a single project (persisted in IndexedDB).
@@ -102,6 +122,10 @@ export type ProjectSnapshot = {
   generatedContent: GeneratedContent | null;
   contentChips: string[];
   contentBrief: string;
+  // Preview réseaux sociaux — état du post (par projet).
+  previewCaption: string;
+  previewHashtags: string[];
+  previewImages: PreviewImageRef[];
   // Custom screenshots that override the scraped ones per frame slot.
   // Key = stable slot id (e.g. "frame-2-mockup__desktop"), value = data URL.
   customScreenshots: Record<string, string>;
@@ -272,6 +296,18 @@ export type DAStore = {
   setContentChips: (chips: string[]) => void;
   contentBrief: string;
   setContentBrief: (brief: string) => void;
+
+  // Preview réseaux sociaux — état du post, par projet.
+  previewCaption: string;
+  setPreviewCaption: (v: string) => void;
+  previewHashtags: string[];
+  setPreviewHashtags: (v: string[]) => void;
+  previewImages: PreviewImageRef[];
+  setPreviewImages: (v: PreviewImageRef[]) => void;
+
+  // Identité du compte agence sur les cartes (globale, persistée en localStorage).
+  socialIdentity: SocialIdentity;
+  setSocialIdentity: (v: Partial<SocialIdentity>) => void;
 
   geminiApiKeys: GeminiApiKey[];
   activeApiKeyId: string | null;

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DAStore, GeminiApiKey, GeneratedContent, ScrapeResult } from '@/types';
+import { DAStore, GeminiApiKey, GeneratedContent, PreviewImageRef, ScrapeResult, SocialIdentity } from '@/types';
 import { DEFAULT_CONTENT_PROMPT, DEFAULT_GEMINI_MODEL } from '@/lib/defaultPrompt';
 
 type LegacyPersistedState = Partial<{
@@ -49,6 +49,9 @@ export const useDAStore = create<DAStore>()(
         generatedContent: p.generatedContent ?? null,
         contentChips: p.contentChips ?? [],
         contentBrief: p.contentBrief ?? '',
+        previewCaption: p.previewCaption ?? '',
+        previewHashtags: p.previewHashtags ?? [],
+        previewImages: p.previewImages ?? [],
         customScreenshots: p.customScreenshots ?? {},
         customLogos: p.customLogos ?? [],
         activeProjectId: p.id,
@@ -78,6 +81,11 @@ export const useDAStore = create<DAStore>()(
         customScreenshots: {},
         customLogos: [],
         regionY: 0,
+        // Un nouveau scrape = nouvelle page/client → les images de preview
+        // (screenshot/frame) référencent la page précédente.
+        previewCaption: '',
+        previewHashtags: [],
+        previewImages: [],
       }),
 
       selectedLogo: '',
@@ -258,6 +266,9 @@ export const useDAStore = create<DAStore>()(
           generatedContent: null,
           contentChips: [],
           contentBrief: '',
+          previewCaption: '',
+          previewHashtags: [],
+          previewImages: [],
           customScreenshots: {},
           customLogos: [],
         });
@@ -274,6 +285,21 @@ export const useDAStore = create<DAStore>()(
       setContentChips: (chips: string[]) => set({ contentChips: chips }),
       contentBrief: '',
       setContentBrief: (brief: string) => set({ contentBrief: brief }),
+
+      previewCaption: '',
+      setPreviewCaption: (v: string) => set({ previewCaption: v }),
+      previewHashtags: [],
+      setPreviewHashtags: (v: string[]) => set({ previewHashtags: v }),
+      previewImages: [],
+      setPreviewImages: (v: PreviewImageRef[]) => set({ previewImages: v }),
+
+      socialIdentity: {
+        displayName: 'Agence TEAPS',
+        instagramHandle: 'agence.teaps',
+        followers: '528 abonnés',
+      },
+      setSocialIdentity: (v: Partial<SocialIdentity>) =>
+        set((state) => ({ socialIdentity: { ...state.socialIdentity, ...v } })),
 
       geminiApiKeys: [],
       activeApiKeyId: null,
@@ -320,6 +346,7 @@ export const useDAStore = create<DAStore>()(
         geminiModel: state.geminiModel,
         contentPrompt: state.contentPrompt,
         includeSitemapInContent: state.includeSitemapInContent,
+        socialIdentity: state.socialIdentity,
       }),
       version: 4,
       migrate: (persisted: unknown, version: number) => {
