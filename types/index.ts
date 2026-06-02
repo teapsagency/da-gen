@@ -74,6 +74,9 @@ export type SocialFrameId =
 
 export type SocialPlatform = 'instagram' | 'linkedin';
 
+// Format (ratio) de la zone média du post, comme imposé par Instagram.
+export type PreviewFormat = 'original' | '1:1' | '4:5' | '16:9';
+
 // Une image du carrousel de preview : upload/coller, screenshot scrapé (résolu
 // via une clé), ou frame sociale rendue en live.
 export type PreviewImageRef =
@@ -126,6 +129,7 @@ export type ProjectSnapshot = {
   previewCaption: string;
   previewHashtags: string[];
   previewImages: PreviewImageRef[];
+  previewFormat: PreviewFormat;
   // Custom screenshots that override the scraped ones per frame slot.
   // Key = stable slot id (e.g. "frame-2-mockup__desktop"), value = data URL.
   customScreenshots: Record<string, string>;
@@ -304,6 +308,8 @@ export type DAStore = {
   setPreviewHashtags: (v: string[]) => void;
   previewImages: PreviewImageRef[];
   setPreviewImages: (v: PreviewImageRef[]) => void;
+  previewFormat: PreviewFormat;
+  setPreviewFormat: (v: PreviewFormat) => void;
 
   // Identité du compte agence sur les cartes (globale, persistée en localStorage).
   socialIdentity: SocialIdentity;

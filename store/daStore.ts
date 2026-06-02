@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DAStore, GeminiApiKey, GeneratedContent, PreviewImageRef, ScrapeResult, SocialIdentity } from '@/types';
+import { DAStore, GeminiApiKey, GeneratedContent, PreviewFormat, PreviewImageRef, ScrapeResult, SocialIdentity } from '@/types';
 import { DEFAULT_CONTENT_PROMPT, DEFAULT_GEMINI_MODEL } from '@/lib/defaultPrompt';
 
 type LegacyPersistedState = Partial<{
@@ -52,6 +52,7 @@ export const useDAStore = create<DAStore>()(
         previewCaption: p.previewCaption ?? '',
         previewHashtags: p.previewHashtags ?? [],
         previewImages: p.previewImages ?? [],
+        previewFormat: p.previewFormat ?? '1:1',
         customScreenshots: p.customScreenshots ?? {},
         customLogos: p.customLogos ?? [],
         activeProjectId: p.id,
@@ -86,6 +87,7 @@ export const useDAStore = create<DAStore>()(
         previewCaption: '',
         previewHashtags: [],
         previewImages: [],
+        previewFormat: '1:1',
       }),
 
       selectedLogo: '',
@@ -269,6 +271,7 @@ export const useDAStore = create<DAStore>()(
           previewCaption: '',
           previewHashtags: [],
           previewImages: [],
+          previewFormat: '1:1',
           customScreenshots: {},
           customLogos: [],
         });
@@ -292,6 +295,8 @@ export const useDAStore = create<DAStore>()(
       setPreviewHashtags: (v: string[]) => set({ previewHashtags: v }),
       previewImages: [],
       setPreviewImages: (v: PreviewImageRef[]) => set({ previewImages: v }),
+      previewFormat: '1:1',
+      setPreviewFormat: (v: PreviewFormat) => set({ previewFormat: v }),
 
       socialIdentity: {
         displayName: 'Agence TEAPS',

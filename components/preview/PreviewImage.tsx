@@ -12,7 +12,7 @@ import { Frame8_Social_CardSite } from "@/components/frames/Frame8_Social_CardSi
 import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_BoardDesktop";
 import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
 
-const FRAME_RENDER: Record<SocialFrameId, { w: number; h: number; node: React.ReactNode }> = {
+export const FRAME_RENDER: Record<SocialFrameId, { w: number; h: number; node: React.ReactNode }> = {
   frame4: { w: 1080, h: 1350, node: <Frame4_Social_BrowserFull /> },
   frame5: { w: 1080, h: 675, node: <Frame5_Social_HeroSimple /> },
   frame6: { w: 1080, h: 1350, node: <Frame6_Social_NouvelleReal /> },
@@ -22,8 +22,8 @@ const FRAME_RENDER: Record<SocialFrameId, { w: number; h: number; node: React.Re
   frame10: { w: 1080, h: 1350, node: <Frame10_Social_BoardMobile /> },
 };
 
-/** Rend une frame sociale en live, mise à l'échelle « cover » dans son conteneur. */
-function FrameImage({ frame }: { frame: SocialFrameId }) {
+/** Frame sociale rendue en live, scalée « cover » dans son conteneur absolu. */
+function FrameCover({ frame }: { frame: SocialFrameId }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const [box, setBox] = React.useState({ w: 0, h: 0 });
   React.useEffect(() => {
@@ -41,16 +41,7 @@ function FrameImage({ frame }: { frame: SocialFrameId }) {
   return (
     <div ref={ref} style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
       {scale > 0 && (
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            width: dim.w,
-            height: dim.h,
-            transform: `translate(-50%, -50%) scale(${scale})`,
-          }}
-        >
+        <div style={{ position: "absolute", top: "50%", left: "50%", width: dim.w, height: dim.h, transform: `translate(-50%, -50%) scale(${scale})` }}>
           {dim.node}
         </div>
       )}
@@ -58,18 +49,46 @@ function FrameImage({ frame }: { frame: SocialFrameId }) {
   );
 }
 
-/** Une image de preview, occupant tout son conteneur (parent en position: relative). */
-export function PreviewImage({ refItem }: { refItem: PreviewImageRef }) {
+function useSrc(refItem: PreviewImageRef): string | undefined {
   const scrapeResult = useDAStore((s) => s.scrapeResult);
-  if (refItem.kind === "frame") return <FrameImage frame={refItem.frame} />;
-  const src = refItem.kind === "upload" ? refItem.dataUrl : resolveScreenshotKey(refItem.key, scrapeResult);
-  if (!src) return null;
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt=""
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-    />
-  );
+  if (refItem.kind === "upload") return refItem.dataUrl;
+  if (refItem.kind === "screenshot") return resolveScreenshotKey(refItem.key, scrapeResult);
+  return undefined;
 }
+
+/**
+ * Image de preview.
+ * - `fit="cover"` : remplit un conteneur déjà dimensionné (ratio fixe). Doit être
+ *   placée dans un parent `position: relative`.
+ * - `fit="natural"` : rendue dans le flux à son ratio naturel (format « Original »).
+ */
+export function PreviewImage({ refItem, fit }: { refItem: PreviewImageRef; fit: "cover" | "natural" }) {
+  const src = useSrc(refItem);
+
+  if (refItem.kind === "frame") {
+    const dim = FRAME_RENDER[refItem.frame];
+    if (fit === "natural") {
+      return (
+        <div style={{ position: "relative", width: "100%", aspectRatio: `${dim.w} / ${dim.h}` }}>
+          <FrameCover frame={refItem.frame} />
+        </div>
+      );
+    }
+    return <FrameCover frame={refItem.frame} />;
+  }
+
+  if (!src) return null;
+  if (fit === "natural") {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={src} alt="" style={{ display: "block", width: "100%", height: "auto" }} />;
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />;
+}
+
+/** Ratio CSS d'une vignette/zone média pour un format donné (cover). */
+export const FORMAT_ASPECT: Record<"1:1" | "4:5" | "16:9", string> = {
+  "1:1": "1 / 1",
+  "4:5": "4 / 5",
+  "16:9": "16 / 9",
+};
