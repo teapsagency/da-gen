@@ -9,6 +9,8 @@ import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_Bo
 import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
 import { Frame1_DA_Mobile } from "@/components/frames/Frame1_DA_Mobile";
 import { FrameColors_Mobile } from "@/components/frames/FrameColors_Mobile";
+import { Frame2_Mockup_Mobile } from "@/components/frames/Frame2_Mockup_Mobile";
+import { Frame3_Cover_Mobile } from "@/components/frames/Frame3_Cover_Mobile";
 
 /**
  * Pour exporter en PNG un visuel « frame » du carrousel : son id DOM dédié
@@ -30,4 +32,6 @@ export const CAROUSEL_FRAME_EXPORT: Record<
   frame10: { id: "carousel-frame10", w: 1080, h: 1350, name: "planche_mobile", node: <Frame10_Social_BoardMobile id="carousel-frame10" /> },
   identityMobile: { id: "carousel-identityMobile", w: 1080, h: 1350, name: "identite_mobile", node: <Frame1_DA_Mobile id="carousel-identityMobile" /> },
   colorsMobile: { id: "carousel-colorsMobile", w: 1080, h: 1350, name: "couleurs_mobile", node: <FrameColors_Mobile id="carousel-colorsMobile" /> },
+  mockupMobile: { id: "carousel-mockupMobile", w: 1080, h: 1350, name: "interface_mobile", node: <Frame2_Mockup_Mobile id="carousel-mockupMobile" /> },
+  coverMobile: { id: "carousel-coverMobile", w: 1080, h: 1350, name: "couverture_mobile", node: <Frame3_Cover_Mobile id="carousel-coverMobile" /> },
 };

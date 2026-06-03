@@ -13,10 +13,14 @@ import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_Bo
 import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
 import { Frame1_DA_Mobile } from "@/components/frames/Frame1_DA_Mobile";
 import { FrameColors_Mobile } from "@/components/frames/FrameColors_Mobile";
+import { Frame2_Mockup_Mobile } from "@/components/frames/Frame2_Mockup_Mobile";
+import { Frame3_Cover_Mobile } from "@/components/frames/Frame3_Cover_Mobile";
 
 export const FRAME_RENDER: Record<SocialFrameId, { w: number; h: number; node: React.ReactNode }> = {
   identityMobile: { w: 1080, h: 1350, node: <Frame1_DA_Mobile /> },
   colorsMobile: { w: 1080, h: 1350, node: <FrameColors_Mobile /> },
+  mockupMobile: { w: 1080, h: 1350, node: <Frame2_Mockup_Mobile /> },
+  coverMobile: { w: 1080, h: 1350, node: <Frame3_Cover_Mobile /> },
   frame4: { w: 1080, h: 1350, node: <Frame4_Social_BrowserFull /> },
   frame5: { w: 1080, h: 675, node: <Frame5_Social_HeroSimple /> },
   frame6: { w: 1080, h: 1350, node: <Frame6_Social_NouvelleReal /> },

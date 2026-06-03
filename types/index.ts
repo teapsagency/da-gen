@@ -74,7 +74,7 @@ export type GeneratedContent = {
 
 export type SocialFrameId =
   | 'frame4' | 'frame5' | 'frame6' | 'frame7' | 'frame8' | 'frame9' | 'frame10'
-  | 'identityMobile' | 'colorsMobile';
+  | 'identityMobile' | 'colorsMobile' | 'mockupMobile' | 'coverMobile';
 
 export type SocialPlatform = 'instagram' | 'linkedin';
 

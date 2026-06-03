@@ -40,6 +40,8 @@ export function listScreenshotSources(sr: ScrapeResult | null): ImageSourceItem[
 export const FRAME_SOURCES: { ref: PreviewImageRef; label: string }[] = [
   { ref: { kind: "frame", frame: "identityMobile" }, label: "01 / Identité — Mobile" },
   { ref: { kind: "frame", frame: "colorsMobile" }, label: "02 / Couleurs — Mobile" },
+  { ref: { kind: "frame", frame: "mockupMobile" }, label: "03 / Interface — Mobile" },
+  { ref: { kind: "frame", frame: "coverMobile" }, label: "04 / Couverture — Mobile" },
   { ref: { kind: "frame", frame: "frame4" }, label: "05 / Browser Full" },
   { ref: { kind: "frame", frame: "frame6" }, label: "06 / Nouvelle réal." },
   { ref: { kind: "frame", frame: "frame7" }, label: "07 / Trois images" },
