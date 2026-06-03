@@ -13,7 +13,6 @@ export const Frame1_DA = ({ id }: { id?: string }) => {
     bgColor,
     fontName,
     localFontFile,
-    borderRadius,
     logoScale,
     fontUppercase,
   } = useDAStore();
@@ -31,11 +30,8 @@ export const Frame1_DA = ({ id }: { id?: string }) => {
         width: "2373px",
         height: "1473px",
         background: bgColor,
-        borderRadius: `${borderRadius}px`,
-        // Bordure grise légère : délimite la frame sur les sites à fond blanc
-        // (sinon carte blanche invisible sur le fond clair de l'app/du dossier).
-        // Discrète sur les fonds colorés/sombres.
-        border: "3px solid rgba(0, 0, 0, 0.1)",
+        // Asset plat : ni bordure ni arrondi (rajoutés ensuite sur Elementor).
+        borderRadius: 0,
         padding: "28px",
         boxSizing: "border-box",
         overflow: "hidden",

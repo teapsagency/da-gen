@@ -32,8 +32,6 @@ export const Frame3_Cover_Mobile = ({ id }: { id?: string }) => {
         height: "1350px",
         background: bgColor,
         borderRadius: 0,
-        // Bordure grise légère : délimite la frame sur les sites à fond blanc.
-        border: "3px solid rgba(0, 0, 0, 0.1)",
         boxSizing: "border-box",
         overflow: "hidden",
         display: "flex",

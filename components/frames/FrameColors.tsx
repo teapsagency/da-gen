@@ -2,7 +2,7 @@ import React from "react";
 import { useDAStore } from "@/store/daStore";
 
 export const FrameColors = ({ id }: { id?: string }) => {
-  const { scrapeResult, selectedColors, colorsOrientation, borderRadius } = useDAStore();
+  const { scrapeResult, selectedColors, colorsOrientation } = useDAStore();
 
   if (!scrapeResult) return null;
 
@@ -16,7 +16,7 @@ export const FrameColors = ({ id }: { id?: string }) => {
       style={{
         width: "2373px",
         height: "1473px",
-        borderRadius: `${borderRadius}px`,
+        borderRadius: 0,
         overflow: "hidden",
         boxSizing: "border-box",
         display: "flex",

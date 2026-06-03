@@ -5,17 +5,16 @@ import { EditableImage } from "@/components/ui/EditableImage";
 
 export const Frame3_Cover = ({ id }: { id?: string }) => {
   const editable = !id;
-  const { scrapeResult, bgColor, agencyLogo, borderRadius, desktopPadding, dropShadow } = useDAStore();
+  const { scrapeResult, bgColor, agencyLogo, desktopPadding, dropShadow } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
 
   // Marge bgColor autour de la fenêtre ; 0 = fenêtre bord à bord.
   const pad = desktopPadding ? 58 : 0;
-  // Sans marge, la fenêtre touche le bord du frame : son rayon doit alors
-  // ÉGALER celui du frame, sinon un croissant de bgColor apparaît au coin
-  // (rayons concentriques différents). Avec marge, c'est une carte flottante.
-  const winTopRadius = pad > 0 ? 40 : borderRadius;
+  // Cadre toujours carré : sans marge la fenêtre épouse le bord (top carré, pas
+  // de croissant de fond) ; avec marge, c'est une carte flottante arrondie.
+  const winTopRadius = pad > 0 ? 40 : 0;
 
   return (
     <div
@@ -28,9 +27,8 @@ export const Frame3_Cover = ({ id }: { id?: string }) => {
         width: "2373px",
         height: "1473px",
         background: bgColor,
-        borderRadius: `${borderRadius}px`,
-        // Bordure grise légère : délimite la frame sur les sites à fond blanc.
-        border: "3px solid rgba(0, 0, 0, 0.1)",
+        // Asset plat : ni bordure ni arrondi (rajoutés ensuite sur Elementor).
+        borderRadius: 0,
         paddingTop: `${pad}px`,
         paddingLeft: `${pad}px`,
         paddingRight: `${pad}px`,

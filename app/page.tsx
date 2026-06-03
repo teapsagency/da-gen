@@ -7,7 +7,6 @@ import { ColorPicker } from "@/components/ui/ColorPicker";
 import { FontSelector } from "@/components/ui/FontSelector";
 import { LogoSelector } from "@/components/ui/LogoSelector";
 import { AgencyLogoUpload } from "@/components/ui/AgencyLogoUpload";
-import { RadiusSelector } from "@/components/ui/RadiusSelector";
 import { EditableValue, percentFormat, percentParse, pxFormat, pxParse } from "@/components/ui/EditableValue";
 import { PageScreenshots } from "@/components/ui/PageScreenshots";
 import {
@@ -733,7 +732,6 @@ export default function Home() {
                         Structure
                       </AccordionTrigger>
                       <AccordionContent>
-                        <RadiusSelector />
                         <DesktopPaddingToggle />
                         <DropShadowToggle />
                       </AccordionContent>
@@ -832,7 +830,7 @@ export default function Home() {
           </aside>
 
           {/* MAIN AREA */}
-          <main className="flex-1 ml-[344px] bg-background min-h-screen">
+          <main className={`flex-1 ml-[344px] min-h-screen ${sidebarTab === "visuels" ? "bg-foreground/[0.04]" : "bg-background"}`}>
             {sidebarTab === "visuels" && (
               <div className="p-12 lg:p-20">
                 {/* Sub-tab switcher + filtre de format */}
@@ -884,7 +882,7 @@ export default function Home() {
                 {visualSubTab === "charte" && (
                   <div className="max-w-5xl mx-auto space-y-32">
                     {showFmt("desktop") && (
-                      <PreviewContainer title="01 / IDENTITÉ" id="frame-1-da" actions={<IdentityLogoScaleControl />}>
+                      <PreviewContainer title="01 / IDENTITÉ" id="frame-1-da" baseStyleHint={{ radius: 28, border: "3px", color: "rgba(0,0,0,0.1)" }} actions={<IdentityLogoScaleControl />}>
                         <Frame1_DA />
                       </PreviewContainer>
                     )}
@@ -909,7 +907,7 @@ export default function Home() {
                 {visualSubTab === "desktop" && (
                   <div className="max-w-5xl mx-auto space-y-32">
                     {showFmt("desktop") && (
-                      <PreviewContainer title="03 / INTERFACE" id="frame-2-mockup">
+                      <PreviewContainer title="03 / INTERFACE" id="frame-2-mockup" baseStyleHint={{ radius: 28, border: "3px", color: "rgba(0,0,0,0.1)" }}>
                         <Frame2_Mockup />
                       </PreviewContainer>
                     )}
@@ -919,7 +917,7 @@ export default function Home() {
                       </PreviewContainer>
                     )}
                     {showFmt("desktop") && (
-                      <PreviewContainer title="04 / COUVERTURE" id="frame-3-cover">
+                      <PreviewContainer title="04 / COUVERTURE" id="frame-3-cover" baseStyleHint={{ radius: 28, border: "3px", color: "rgba(0,0,0,0.1)" }}>
                         <Frame3_Cover />
                       </PreviewContainer>
                     )}
@@ -1375,6 +1373,7 @@ function PreviewContainer({
   nativeHeight = 1473,
   actions,
   actionsBelow = false,
+  baseStyleHint,
 }: {
   children: React.ReactNode;
   title: string;
@@ -1389,20 +1388,14 @@ function PreviewContainer({
    * otherwise cram the title row.
    */
   actionsBelow?: boolean;
+  /** Valeurs de l'effet « de base » (bordure/arrondi retirés de l'export) à recréer sur Elementor. */
+  baseStyleHint?: { radius?: number; border?: string; color?: string };
 }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [scale, setScale] = React.useState(0.2);
   const [isExporting, setIsExporting] = React.useState(false);
   const [showExportFrame, setShowExportFrame] = React.useState(false);
-  const { scrapeResult, borderRadius, exportScale } = useDAStore();
-  // Ces frames desktop dessinent leur PROPRE bordure (incluse dans le PNG).
-  // → on supprime alors la bordure de chrome du conteneur d'aperçu, sinon on
-  // voit un double contour et l'aperçu ne correspond plus au fichier exporté.
-  const selfBordered = [
-    "frame-1-da", "frame-1-da-mobile",
-    "frame-2-mockup", "frame-2-mockup-mobile",
-    "frame-3-cover", "frame-3-cover-mobile",
-  ].includes(id);
+  const { scrapeResult, exportScale } = useDAStore();
 
   useEffect(() => {
     const updateScale = () => {
@@ -1472,6 +1465,23 @@ function PreviewContainer({
             </button>
           </div>
         </div>
+        {baseStyleHint && (
+          <div className="flex items-center gap-1.5 px-2 text-[10px] font-medium text-foreground/45 flex-wrap">
+            <span className="uppercase tracking-wider text-foreground/30">À recréer sur Elementor</span>
+            {baseStyleHint.radius != null && (
+              <span className="px-1.5 py-0.5 rounded bg-foreground/[0.05]">arrondi {baseStyleHint.radius}px</span>
+            )}
+            {baseStyleHint.border && (
+              <span className="px-1.5 py-0.5 rounded bg-foreground/[0.05]">bordure {baseStyleHint.border}</span>
+            )}
+            {baseStyleHint.color && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-foreground/[0.05]">
+                <span className="w-2.5 h-2.5 rounded-[2px] ring-1 ring-foreground/15" style={{ background: baseStyleHint.color }} />
+                {baseStyleHint.color}
+              </span>
+            )}
+          </div>
+        )}
         {actionsBelow && actions && (
           // Donne aux contrôles toute la largeur de la ligne pour respirer ;
           // flex-wrap pour qu'un viewport étroit fasse passer en plusieurs lignes
@@ -1483,10 +1493,9 @@ function PreviewContainer({
       </div>
       <div
         ref={containerRef}
-        className={`overflow-hidden relative shadow-2xl shadow-black/[0.03] dark:shadow-white/[0.01] bg-card ${selfBordered ? "" : "border border-border"}`}
+        className="overflow-hidden relative shadow-2xl shadow-black/[0.03] dark:shadow-white/[0.01] bg-card"
         style={{
           height: `${nativeHeight * scale}px`,
-          borderRadius: `${borderRadius * scale}px`,
         }}
       >
         <div

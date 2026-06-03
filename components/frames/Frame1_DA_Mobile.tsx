@@ -42,7 +42,6 @@ export const Frame1_DA_Mobile = ({ id }: { id?: string }) => {
         height: "1350px",
         background: bgColor,
         borderRadius: 0,
-        border: "3px solid rgba(0, 0, 0, 0.1)",
         padding: "28px",
         boxSizing: "border-box",
         overflow: "hidden",
