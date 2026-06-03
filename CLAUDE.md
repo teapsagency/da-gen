@@ -47,16 +47,25 @@ URL saisie (`components/ui/UrlInput.tsx`) → `POST /api/scrape` → `ScrapeResu
 ### Persistance (deux niveaux distincts)
 - **localStorage** — Zustand `persist` + `partialize` (`store/daStore.ts`) : uniquement les réglages globaux (clés Gemini, modèle, prompt, délai + zoom de capture, thème, logo agence, inclusion sitemap). **Jamais** les screenshots base64 (trop lourd).
 - **IndexedDB** (`lib/projectStorage.ts`, câblé par `lib/useProjectPersistence.ts`) — deux object stores :
-  - `projects` : la donnée complète par projet (`ScrapeResult` + customisations : couleurs, logo, fonts, border-radius, images custom, flou de fond, zone de capture, casse, marge…). `loadProjectData` recharge un projet dans le store.
+  - `projects` : la donnée complète par projet (`ScrapeResult` + customisations : couleurs, logo, fonts, images custom, flou de fond, zone de capture, casse, marge…). `loadProjectData` recharge un projet dans le store.
   - `meta` : descripteurs légers pour la liste d'historique (domaine, titre, dates) + une **vignette JPEG downscalée** de la hero (`lib/thumbnail.ts`, générée à la demande) → l'historique (`HistoryPanel` / `ProjectCard`) s'affiche sans charger les lourds base64.
 
-### Frames
-- **3 desktop** (2373×1473 px fixes) : `Frame1_DA` (Identity), `Frame2_Mockup`, `Frame3_Cover`.
-- **5 réseaux sociaux** : `Frame4_Social_BrowserFull`, `Frame5_…HeroSimple`, `Frame6_…NouvelleReal`, `Frame7_…ThreeImg`, `Frame8_…CardSite`. Helpers partagés : `BrowserNavBar`, `FrameColors`.
-- Taille CSS fixe, scalées via `transform` dans le preview. Export ZIP = desktop uniquement.
+### Frames (`components/frames/`)
+Convention : une frame reçoit un prop `id` **uniquement** montée offscreen pour l'export (`<Frame id="…" />`) ; sans `id` = instance d'aperçu éditable (`const editable = !id`). L'export PNG capture le nœud DOM de cet `id` (`captureFrame`).
+- **Desktop** (2373×1473) : `Frame1_DA` (01 Identité), `FrameColors` (02 Couleurs), `Frame2_Mockup` (03 Interface), `Frame3_Cover` (04 Couverture).
+- **Mobile** (1080×1350, versions portrait des desktop) : `Frame1_DA_Mobile`, `FrameColors_Mobile`, `Frame2_Mockup_Mobile`, `Frame3_Cover_Mobile`.
+- **Réseaux sociaux** (1080×1350 ; Frame5 en 1080×675) : `Frame4_…BrowserFull`, `Frame5_…HeroSimple`, `Frame6_…NouvelleReal`, `Frame7_…ThreeImg`, `Frame8_…CardSite`, `Frame9_…BoardDesktop`, `Frame10_…BoardMobile`. Helper partagé : `BrowserNavBar`.
+- **Assets plats** : le conteneur racine de **chaque** frame n'a ni bordure ni arrondi, en aperçu **comme** à l'export (neutre exprès ; bordure + radius rajoutés à la main sur Elementor — **ne pas les remettre**). Les arrondis/bordures **internes** (fenêtres navigateur, bezels device, cartes) restent : c'est le design des mockups. Les frames 01/03/04 desktop affichent un rappel des valeurs « de base » dans leur en-tête (`baseStyleHint` de `PreviewContainer`).
+- Taille CSS fixe, scalées via `transform`. Export : `lib/exportFrames.ts` (`exportFullPack` → dossiers `charte_graphique` / `desktop` / `reseaux_sociaux`) + export unitaire via `PreviewContainer` (`app/page.tsx`).
+
+### Aperçu réseaux sociaux & carrousel (`components/preview/`)
+Onglet « Réseaux sociaux » : maquette de post Instagram/LinkedIn (`PreviewStage` → `InstagramPostView` / `LinkedInPostView`) autour d'un carrousel (`PreviewCarousel`, slide `translateX` unifié sur tous les formats ; en « Original » la hauteur du conteneur suit la slide active via ResizeObserver).
+- Une image de carrousel (`PreviewImageRef`) = upload collé, screenshot scrapé (clé résolue par `resolveScreenshotKey`), ou **frame sociale rendue en live** (`PreviewImage` → `FrameCover`, scalée « cover »).
+- **Ajouter une frame au carrousel = 4 points** (les `Record<SocialFrameId,…>` sont exhaustifs → le type-check casse si on en oublie un) : le type `SocialFrameId` (`types/index.ts`), `FRAME_RENDER` (rendu live, `PreviewImage.tsx`), `CAROUSEL_FRAME_EXPORT` (mont offscreen + export, `carouselExport.tsx`), `FRAME_SOURCES` (picker, `imageSources.ts`).
+- `AssetPickerModal` (palette d'ajout), `PreviewSidebar` (ordre + export ZIP du carrousel), `PreviewCarouselBar` (réordonnancement).
 
 ### Customisation & édition des frames
-- Réglages visuels **par projet** (persistés en IndexedDB) : couleurs, logo + échelle, police (+ casse majuscule détectée), border-radius, marge desktop (`desktopPadding`, défaut sans marge), flou de fond (04), opacité/échelle de la card (08), et **zone de capture globale** (`regionY`).
+- Réglages visuels **par projet** (persistés en IndexedDB) : couleurs, logo + échelle, police (+ casse majuscule détectée), marge desktop (`desktopPadding`, défaut sans marge), flou de fond (04), opacité/échelle de la card (08), et **zone de capture globale** (`regionY`).
 - `components/ui/EditableImage.tsx` enveloppe le screenshot de chaque slot (`slotKey`) : au survol on peut **remplacer/coller** une image (stockée dans `customScreenshots[slotKey]`) ou ouvrir le **sélecteur de zone** (`RegionPicker`, rendu en **portal** pour échapper au `transform: scale` du preview) qui règle `regionY` (0..1) — appliqué en `object-position` sur les visuels desktop/mobile. `regionY` est remis à 0 à chaque nouveau scrape (spécifique à une page).
 
 ## Points d'attention
@@ -68,6 +77,8 @@ URL saisie (`components/ui/UrlInput.tsx`) → `POST /api/scrape` → `ScrapeResu
 - Export PNG côté client → `skipFonts: true` (sinon erreurs CORS sur les polices).
 - Fonts de l'UI (Satoshi, Cabinet Grotesk) chargées depuis Fontshare via `<link>` au niveau page.
 - Frames sociales montées dans le DOM uniquement quand l'onglet « Réseaux sociaux » est actif.
+- **Assets plats à l'export** : le contour des frames (bordure grise 3px + arrondi) a été retiré — l'export est volontairement neutre, bordure + radius rajoutés à la main sur Elementor. Le chrome `PreviewContainer` (`app/page.tsx`) est aussi plat ; le fond de l'onglet Visuels est légèrement assombri (`bg-foreground/[0.04]`) pour faire ressortir les sites à fond blanc. Conséquence : le champ store `borderRadius` / `setBorderRadius` est **mort** (plus aucun consommateur ; le réglage `RadiusSelector` a été supprimé) — à nettoyer un jour.
+- **Piège `tw-animate-css`** : le paquet est dans `package.json` mais **jamais importé** dans `app/globals.css` → sous Tailwind 4 les classes `animate-in` / `fade-in` / `slide-in-*` / `zoom-in-*` ne génèrent rien (no-op silencieux ; des usages restent inertes dans `AssetPickerModal`, `UrlInput`). Pour animer : convention maison = `@keyframes` dans `globals.css` + `style={{ animation: "… both" }}` inline (cf. `SettingsPanel`, `app/page.tsx`).
 
 ## Environnement & déploiement
 
