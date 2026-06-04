@@ -208,53 +208,28 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
           <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
         </div>
 
-        {/* Sliders : voile + cadrage */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex items-center gap-2 text-[10px] font-bold text-foreground/40">
-            <span className="whitespace-nowrap">Voile</span>
-            <input
-              type="range"
-              min={0}
-              max={0.6}
-              step={0.02}
-              value={asset.veil}
-              onChange={(e) => updateSectorAsset(asset.id, { veil: Number(e.target.value) })}
-              className="flex-1 accent-foreground cursor-pointer"
-            />
-            <EditableValue
-              value={asset.veil}
-              min={0}
-              max={0.6}
-              step={0.02}
-              onChange={(v) => updateSectorAsset(asset.id, { veil: v })}
-              format={percentFormat}
-              parse={percentParse}
-              inputWidth={42}
-            />
-          </div>
-          <div className="flex items-center gap-2 text-[10px] font-bold text-foreground/40">
-            <span className="whitespace-nowrap">Cadrage</span>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.02}
-              value={asset.regionY}
-              disabled={!hasPhoto}
-              onChange={(e) => updateSectorAsset(asset.id, { regionY: Number(e.target.value) })}
-              className="flex-1 accent-foreground disabled:opacity-40 cursor-pointer"
-            />
-            <EditableValue
-              value={asset.regionY}
-              min={0}
-              max={1}
-              step={0.02}
-              onChange={(v) => updateSectorAsset(asset.id, { regionY: v })}
-              format={percentFormat}
-              parse={percentParse}
-              inputWidth={42}
-            />
-          </div>
+        {/* Voile */}
+        <div className="flex items-center gap-2 text-[10px] font-bold text-foreground/40">
+          <span className="whitespace-nowrap">Voile</span>
+          <input
+            type="range"
+            min={0}
+            max={0.6}
+            step={0.02}
+            value={asset.veil}
+            onChange={(e) => updateSectorAsset(asset.id, { veil: Number(e.target.value) })}
+            className="flex-1 accent-foreground cursor-pointer"
+          />
+          <EditableValue
+            value={asset.veil}
+            min={0}
+            max={0.6}
+            step={0.02}
+            onChange={(v) => updateSectorAsset(asset.id, { veil: v })}
+            format={percentFormat}
+            parse={percentParse}
+            inputWidth={42}
+          />
         </div>
 
         {/* Format + icône */}
