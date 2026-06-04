@@ -7,6 +7,7 @@ import { useDAStore } from "@/store/daStore";
 import { FrameSectorAsset } from "@/components/frames/FrameSectorAsset";
 import { StockPickerModal } from "./StockPickerModal";
 import { IconPickerModal } from "./IconPickerModal";
+import { EditableValue, percentFormat, percentParse } from "@/components/ui/EditableValue";
 import { searchStock, stockToDataUrl, StockUnavailableError, type StockPhoto } from "@/lib/stock";
 import { exportSectorAsset } from "@/lib/exportFrames";
 import { ASSET_DIMS, ASSET_RATIOS } from "@/lib/sectorThemes";
@@ -209,7 +210,7 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
 
         {/* Sliders : voile + cadrage */}
         <div className="grid grid-cols-2 gap-3">
-          <label className="flex items-center gap-2 text-[10px] font-bold text-foreground/40">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-foreground/40">
             <span className="whitespace-nowrap">Voile</span>
             <input
               type="range"
@@ -218,10 +219,20 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
               step={0.02}
               value={asset.veil}
               onChange={(e) => updateSectorAsset(asset.id, { veil: Number(e.target.value) })}
-              className="flex-1 accent-foreground"
+              className="flex-1 accent-foreground cursor-pointer"
             />
-          </label>
-          <label className="flex items-center gap-2 text-[10px] font-bold text-foreground/40">
+            <EditableValue
+              value={asset.veil}
+              min={0}
+              max={0.6}
+              step={0.02}
+              onChange={(v) => updateSectorAsset(asset.id, { veil: v })}
+              format={percentFormat}
+              parse={percentParse}
+              inputWidth={42}
+            />
+          </div>
+          <div className="flex items-center gap-2 text-[10px] font-bold text-foreground/40">
             <span className="whitespace-nowrap">Cadrage</span>
             <input
               type="range"
@@ -231,9 +242,19 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
               value={asset.regionY}
               disabled={!hasPhoto}
               onChange={(e) => updateSectorAsset(asset.id, { regionY: Number(e.target.value) })}
-              className="flex-1 accent-foreground disabled:opacity-40"
+              className="flex-1 accent-foreground disabled:opacity-40 cursor-pointer"
             />
-          </label>
+            <EditableValue
+              value={asset.regionY}
+              min={0}
+              max={1}
+              step={0.02}
+              onChange={(v) => updateSectorAsset(asset.id, { regionY: v })}
+              format={percentFormat}
+              parse={percentParse}
+              inputWidth={42}
+            />
+          </div>
         </div>
 
         {/* Format + icône */}
