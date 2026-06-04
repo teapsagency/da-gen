@@ -104,23 +104,12 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
         ) : null;
       case "pill": {
         const PillIcon = layer.iconName ? ICON_RECORD[layer.iconName] ?? Briefcase : null;
-        // Glyphe : emoji custom → icône Lucide custom → rien (noGlyph) → flèche.
+        // Glyphe : emoji custom → icône Lucide custom → rien.
         const glyph = layer.iconEmoji ? (
           <span style={{ fontSize: chipFont * 1.1, lineHeight: 1, flexShrink: 0 }}>{layer.iconEmoji}</span>
         ) : PillIcon ? (
           <PillIcon style={{ width: chipFont * 1.15, height: chipFont * 1.15, color: accent, flexShrink: 0 }} strokeWidth={2.4} />
-        ) : layer.noGlyph ? null : (
-          <span
-            style={{
-              width: 0,
-              height: 0,
-              borderTop: `${Math.round(w * 0.008)}px solid transparent`,
-              borderBottom: `${Math.round(w * 0.008)}px solid transparent`,
-              borderLeft: `${Math.round(w * 0.012)}px solid ${accent}`,
-              flexShrink: 0,
-            }}
-          />
-        );
+        ) : null;
         return (
           <div
             style={{

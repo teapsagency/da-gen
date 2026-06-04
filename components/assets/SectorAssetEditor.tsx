@@ -345,17 +345,14 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
                         {brand ? brand.title : "Choisir"}
                       </button>
                       {brand && (
-                        <button
-                          title={layer.hideLabel ? "Afficher le nom" : "Logo seul"}
-                          onClick={() => updateLayer(layer.id, { hideLabel: !layer.hideLabel })}
-                          className={`text-[10px] font-bold px-2 py-1 rounded-md border cursor-pointer transition-all ${
-                            !layer.hideLabel
-                              ? "border-foreground bg-foreground text-background"
-                              : "border-border text-foreground/40 hover:text-foreground/70"
-                          }`}
-                        >
-                          Nom
-                        </button>
+                        <div className="flex items-center border border-border rounded-md overflow-hidden shrink-0 text-[10px] font-bold">
+                          <button title="Logo seul" onClick={() => updateLayer(layer.id, { hideLabel: true })} className={segCls(!!layer.hideLabel)}>
+                            Logo
+                          </button>
+                          <button title="Logo + nom" onClick={() => updateLayer(layer.id, { hideLabel: false })} className={segCls(!layer.hideLabel)}>
+                            + Nom
+                          </button>
+                        </div>
                       )}
                     </>
                   )}
@@ -369,11 +366,11 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
                       />
                       <div className="flex items-center border border-border rounded-md overflow-hidden shrink-0" title="Glyphe de la pilule">
                         <button
-                          title="Flèche (défaut)"
-                          onClick={() => updateLayer(layer.id, { iconName: undefined, iconEmoji: undefined, noGlyph: false })}
-                          className={segCls(!layer.iconName && !layer.iconEmoji && !layer.noGlyph)}
+                          title="Aucun glyphe"
+                          onClick={() => updateLayer(layer.id, { iconName: undefined, iconEmoji: undefined })}
+                          className={segCls(!layer.iconName && !layer.iconEmoji)}
                         >
-                          <span className="text-[11px] leading-none">▶</span>
+                          <Ban className="w-3.5 h-3.5" />
                         </button>
                         <button
                           title="Icône custom"
@@ -381,13 +378,6 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
                           className={segCls(!!(layer.iconName || layer.iconEmoji))}
                         >
                           {layer.iconEmoji ? <span className="text-[13px] leading-none">{layer.iconEmoji}</span> : <Shapes className="w-3.5 h-3.5" />}
-                        </button>
-                        <button
-                          title="Aucun glyphe"
-                          onClick={() => updateLayer(layer.id, { iconName: undefined, iconEmoji: undefined, noGlyph: true })}
-                          className={segCls(!!layer.noGlyph && !layer.iconName && !layer.iconEmoji)}
-                        >
-                          <Ban className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </>
@@ -437,8 +427,8 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
         onClose={() => setIconEditId(null)}
         onPick={(sel) => {
           if (iconEditId) {
-            if (sel.iconName) updateLayer(iconEditId, { iconName: sel.iconName, iconEmoji: undefined, noGlyph: false });
-            else if (sel.iconEmoji) updateLayer(iconEditId, { iconName: undefined, iconEmoji: sel.iconEmoji, noGlyph: false });
+            if (sel.iconName) updateLayer(iconEditId, { iconName: sel.iconName, iconEmoji: undefined });
+            else if (sel.iconEmoji) updateLayer(iconEditId, { iconName: undefined, iconEmoji: sel.iconEmoji });
           }
           setIconEditId(null);
         }}

@@ -125,7 +125,7 @@ export type AssetLayer = {
   brandSlug?: string;  // type 'brand' (simple-icons)
   hideLabel?: boolean; // type 'brand' : logo seul (sans le nom de la marque)
   text?: string;       // type 'pill' | 'badge'
-  noGlyph?: boolean;   // type 'pill' : aucun glyphe (ni flèche ni icône)
+  // (pilule : un glyphe = iconName/iconEmoji ; sinon rien)
 };
 
 // Un visuel d'illustration thématique (hero ou contenu) d'une page SEO TEAPS :
