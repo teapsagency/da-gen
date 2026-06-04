@@ -123,6 +123,7 @@ export type AssetLayer = {
   iconName?: string;   // type 'icon' ou glyphe custom d'une 'pill' (nom Lucide)
   iconEmoji?: string;  // type 'icon' ou glyphe custom d'une 'pill' (emoji)
   brandSlug?: string;  // type 'brand' (simple-icons)
+  hideLabel?: boolean; // type 'brand' : logo seul (sans le nom de la marque)
   text?: string;       // type 'pill' | 'badge'
   noGlyph?: boolean;   // type 'pill' : aucun glyphe (ni flèche ni icône)
 };

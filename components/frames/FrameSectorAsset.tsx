@@ -159,7 +159,31 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
         );
       case "brand": {
         const brand = layer.brandSlug ? BRAND_MAP[layer.brandSlug] : null;
-        return brand ? (
+        if (!brand) return null;
+        // Logo seul → pastille carrée (comme l'icône).
+        if (layer.hideLabel) {
+          return (
+            <div
+              style={{
+                width: iconBox,
+                height: iconBox,
+                borderRadius: Math.round(iconBox * 0.28),
+                background: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: chipShadow,
+                border: chipBorder,
+              }}
+            >
+              <svg width={iconBox * 0.56} height={iconBox * 0.56} viewBox="0 0 24 24" fill={`#${brand.hex}`} style={{ display: "block" }}>
+                <path d={brand.path} />
+              </svg>
+            </div>
+          );
+        }
+        // Logo + nom → pilule.
+        return (
           <div
             style={{
               display: "flex",
@@ -184,7 +208,7 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
             </svg>
             <span style={{ fontWeight: 700, fontSize: `${chipFont}px`, color: "#111", lineHeight: 1 }}>{brand.title}</span>
           </div>
-        ) : null;
+        );
       }
     }
   };

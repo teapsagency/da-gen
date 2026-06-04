@@ -332,17 +332,32 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
                     </button>
                   )}
                   {layer.type === "brand" && (
-                    <button
-                      onClick={() => setBrandTarget({ mode: "edit", id: layer.id })}
-                      className="text-[11px] font-semibold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
-                    >
-                      {brand ? (
-                        <svg width={14} height={14} viewBox="0 0 24 24" fill={`#${brand.hex}`} className="shrink-0">
-                          <path d={brand.path} />
-                        </svg>
-                      ) : null}
-                      {brand ? brand.title : "Choisir"}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => setBrandTarget({ mode: "edit", id: layer.id })}
+                        className="text-[11px] font-semibold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
+                      >
+                        {brand ? (
+                          <svg width={14} height={14} viewBox="0 0 24 24" fill={`#${brand.hex}`} className="shrink-0">
+                            <path d={brand.path} />
+                          </svg>
+                        ) : null}
+                        {brand ? brand.title : "Choisir"}
+                      </button>
+                      {brand && (
+                        <button
+                          title={layer.hideLabel ? "Afficher le nom" : "Logo seul"}
+                          onClick={() => updateLayer(layer.id, { hideLabel: !layer.hideLabel })}
+                          className={`text-[10px] font-bold px-2 py-1 rounded-md border cursor-pointer transition-all ${
+                            !layer.hideLabel
+                              ? "border-foreground bg-foreground text-background"
+                              : "border-border text-foreground/40 hover:text-foreground/70"
+                          }`}
+                        >
+                          Nom
+                        </button>
+                      )}
+                    </>
                   )}
                   {layer.type === "pill" && (
                     <>
