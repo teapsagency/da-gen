@@ -1,6 +1,10 @@
 import { toBlob } from 'html-to-image';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
+import type { SectorAsset } from '@/types';
+import { ASSET_DIMS } from './sectorThemes';
+
+const sanitizeName = (name: string) => name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
 export async function captureFrame(
   frameId: string,
@@ -76,10 +80,46 @@ async function addFramesToZip(target: JSZip, frames: FrameDef[], prefix: string,
   }
 }
 
+// ─── Assets secteur ───
+// Id DOM de l'instance offscreen d'un asset (capturée à l'export).
+export function sectorAssetExportId(id: string) {
+  return `sector-asset-${id}`;
+}
+
+// Export PNG unitaire d'un asset secteur.
+export async function exportSectorAsset(asset: SectorAsset, clientName: string, scale = 1) {
+  const { w, h } = ASSET_DIMS[asset.ratio];
+  await exportFrame(
+    sectorAssetExportId(asset.id),
+    `${sanitizeName(clientName)}_asset_${asset.role}`,
+    w,
+    h,
+    scale,
+  );
+}
+
+// Pack ZIP de tous les assets secteur (dossier assets_secteur/).
+export async function exportSectorAssetsPack(clientName: string, assets: SectorAsset[], scale = 1) {
+  const name = sanitizeName(clientName);
+  const zip = new JSZip();
+  const folder = zip.folder('assets_secteur');
+  if (folder) {
+    let i = 1;
+    for (const a of assets) {
+      const { w, h } = ASSET_DIMS[a.ratio];
+      const blob = await captureFrame(sectorAssetExportId(a.id), w, h, scale);
+      if (blob) folder.file(`${name}_${String(i).padStart(2, '0')}_${a.role}.png`, blob);
+      i++;
+    }
+  }
+  const content = await zip.generateAsync({ type: 'blob' });
+  saveAs(content, `${name}_assets_secteur.zip`);
+}
+
 // Pack complet : charte graphique + visuels desktop + réseaux sociaux,
 // rangés dans trois sous-dossiers.
 export async function exportFullPack(clientName: string, scale = 1) {
-  const sanitizedClientName = clientName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const sanitizedClientName = sanitizeName(clientName);
   const zip = new JSZip();
 
   const charteFolder = zip.folder('charte_graphique');

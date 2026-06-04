@@ -96,6 +96,33 @@ export type SocialIdentity = {
   followers: string;       // défaut "528 abonnés"
 };
 
+// ─── Assets secteur (illustrations thématiques par page SEO) ───
+// Ratio de la card d'asset (long-edge fixe, voir ASSET_DIMS dans sectorThemes).
+export type AssetRatio = '3:2' | '4:3' | '16:9' | '1:1';
+
+// La photo de fond d'un asset : photo Pexels OU upload — toutes deux stockées en
+// dataURL (comme cardImage/customScreenshots) pour persister et exporter sans CORS.
+// 'none' = pas encore de photo (le panel déclenche une recherche auto au montage).
+export type SectorAssetPhoto =
+  | { kind: 'stock'; dataUrl: string; alt?: string; photographer?: string }
+  | { kind: 'upload'; dataUrl: string }
+  | { kind: 'none' };
+
+// Un visuel d'illustration thématique (hero ou contenu) d'une page SEO TEAPS.
+export type SectorAsset = {
+  id: string;
+  role: 'hero' | 'content';
+  ratio: AssetRatio;
+  photo: SectorAssetPhoto;
+  query: string;        // requête Pexels (éditable), pré-remplie depuis le thème
+  iconName: string;     // clé dans ICON_CHOICES (sectorThemes)
+  pill: string;         // libellé de la pilule (coin bas-gauche)
+  badge: string;        // libellé du badge (coin bas-droite)
+  veil: number;         // 0..1 — intensité du voile bleu TEAPS
+  regionY: number;      // 0..1 — object-position vertical de la photo
+  slots: { icon: boolean; logo: boolean; pill: boolean; badge: boolean };
+};
+
 export type SitemapStatus = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
 
 // The slice of state that belongs to a single project (persisted in IndexedDB).
@@ -138,6 +165,8 @@ export type ProjectSnapshot = {
   customScreenshots: Record<string, string>;
   // User-uploaded logos, persisted with the project.
   customLogos: string[];
+  // Assets secteur — illustrations thématiques par page SEO (par projet).
+  sectorAssets: SectorAsset[];
 };
 
 // A persisted project with its identity & timestamp.
@@ -256,6 +285,13 @@ export type DAStore = {
   customLogos: string[];
   addCustomLogo: (dataUrl: string) => void;
   removeCustomLogo: (dataUrl: string) => void;
+
+  // Assets secteur — illustrations thématiques par page SEO (par projet).
+  // Seedées au scrape depuis le thème déduit de l'URL ; éditables ensuite.
+  sectorAssets: SectorAsset[];
+  addSectorAsset: (role: 'hero' | 'content') => void;
+  removeSectorAsset: (id: string) => void;
+  updateSectorAsset: (id: string, patch: Partial<SectorAsset>) => void;
 
   screenshotDelay: number;
   setScreenshotDelay: (delay: number) => void;

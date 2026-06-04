@@ -46,6 +46,7 @@ const pickSnapshot = (s: DAStore): ProjectSnapshot => ({
   previewFormat: s.previewFormat,
   customScreenshots: s.customScreenshots,
   customLogos: s.customLogos,
+  sectorAssets: s.sectorAssets,
 });
 
 // Shallow per-field comparison — Zustand replaces references on mutation, so

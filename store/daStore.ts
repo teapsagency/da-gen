@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DAStore, GeminiApiKey, GeneratedContent, PreviewFormat, PreviewImageRef, ScrapeResult, SocialIdentity } from '@/types';
 import { DEFAULT_CONTENT_PROMPT, DEFAULT_GEMINI_MODEL } from '@/lib/defaultPrompt';
+import { makeSectorAsset, seedSectorAssets } from '@/lib/sectorThemes';
 
 type LegacyPersistedState = Partial<{
   geminiApiKey: string;
@@ -54,6 +55,8 @@ export const useDAStore = create<DAStore>()(
         previewFormat: p.previewFormat ?? 'original',
         customScreenshots: p.customScreenshots ?? {},
         customLogos: p.customLogos ?? [],
+        // Anciens projets sans assets secteur → on seed depuis l'URL scrapée.
+        sectorAssets: p.sectorAssets ?? seedSectorAssets(p.scrapeResult?.siteUrl),
         activeProjectId: p.id,
       }),
 
@@ -86,6 +89,8 @@ export const useDAStore = create<DAStore>()(
         previewCaption: '',
         previewImages: [],
         previewFormat: 'original',
+        // Assets secteur re-seedés depuis le thème déduit de la nouvelle URL.
+        sectorAssets: seedSectorAssets(result.siteUrl),
       }),
 
       selectedLogo: '',
@@ -194,6 +199,18 @@ export const useDAStore = create<DAStore>()(
           : state.selectedLogo,
       })),
 
+      // Assets secteur — illustrations thématiques par page SEO.
+      sectorAssets: [],
+      addSectorAsset: (role) => set((state) => ({
+        sectorAssets: [...state.sectorAssets, makeSectorAsset(role, state.scrapeResult?.siteUrl)],
+      })),
+      removeSectorAsset: (id) => set((state) => ({
+        sectorAssets: state.sectorAssets.filter((a) => a.id !== id),
+      })),
+      updateSectorAsset: (id, patch) => set((state) => ({
+        sectorAssets: state.sectorAssets.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+      })),
+
       screenshotDelay: 2000,
       setScreenshotDelay: (delay: number) => set({ screenshotDelay: delay }),
 
@@ -271,6 +288,7 @@ export const useDAStore = create<DAStore>()(
           previewFormat: 'original',
           customScreenshots: {},
           customLogos: [],
+          sectorAssets: [],
         });
       },
 

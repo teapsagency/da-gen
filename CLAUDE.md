@@ -36,6 +36,8 @@ URL saisie (`components/ui/UrlInput.tsx`) → `POST /api/scrape` → `ScrapeResu
 - `POST /api/generate-content` (`maxDuration: 120`) — Gemini Flash en streaming : étude de cas + post social. Prompt par défaut dans `lib/defaultPrompt.ts`.
 - `POST /api/sitemap` (`maxDuration: 60`) — récupère le sitemap pour nourrir la génération de contenu.
 - `GET /api/font-css` — proxy des CSS de polices (contourne le CORS à l'export).
+- `POST /api/stock-search` — proxy Pexels (banque d'images de l'onglet « Assets secteur ») ; clé `PEXELS_API_KEY` côté serveur, jamais exposée. Pas de clé → 503 (l'UI bascule sur l'import manuel).
+- `GET /api/stock-image` — proxy d'**une** image Pexels (hôte verrouillé sur pexels.com) → convertie en dataURL côté client, pour que l'export html-to-image ne touche jamais une image cross-origin.
 
 ### Streaming (deux protocoles différents)
 - `POST /api/scrape` → flux **SSE** (`event: log | result-chunk | done | error`). Le `ScrapeResult` étant volumineux, il est découpé en morceaux de 64 Ko (`result-chunk`) réassemblés côté client. Helper de lecture partagé : `streamScrape` dans `PageScreenshots.tsx` (parsing inline équivalent dans `UrlInput.tsx`). Toute modif de l'endpoint doit conserver ce protocole.
@@ -64,6 +66,14 @@ Onglet « Réseaux sociaux » : maquette de post Instagram/LinkedIn (`PreviewSta
 - **Ajouter une frame au carrousel = 4 points** (les `Record<SocialFrameId,…>` sont exhaustifs → le type-check casse si on en oublie un) : le type `SocialFrameId` (`types/index.ts`), `FRAME_RENDER` (rendu live, `PreviewImage.tsx`), `CAROUSEL_FRAME_EXPORT` (mont offscreen + export, `carouselExport.tsx`), `FRAME_SOURCES` (picker, `imageSources.ts`).
 - `AssetPickerModal` (palette d'ajout), `PreviewSidebar` (ordre + export ZIP du carrousel), `PreviewCarouselBar` (réordonnancement).
 
+### Assets secteur (`components/assets/`)
+Onglet « Assets secteur » (rail de nav, **après « Aperçu »**, précédé d'un séparateur ; `sidebarTab === "assets"`) : génère des illustrations thématiques (hero + contenu) pour les **pages SEO TEAPS** (par secteur/techno). Photo de banque d'images en fond + habillage DA TEAPS (icône de coin, logo, pilule, badge), exportées en PNG **plat** pour Elementor.
+- **Thème déterministe, zéro IA** : `lib/sectorThemes.ts` → `deriveTheme(url)` parse le slug de l'URL scrapée (`agence-web-avocat` → `avocat`) et matche `SECTOR_THEMES` (extensible : une ligne par secteur). Slug inconnu → repli sur le slug comme requête. Fournit la requête Pexels, l'icône Lucide (`ICON_CHOICES`/`ICON_MAP`) et les libellés — tous éditables ensuite.
+- **Banque d'images Pexels** (pas de génération IA) : `lib/stock.ts` (`searchStock`, `stockToDataUrl`) via les routes `stock-search`/`stock-image`. La photo choisie est convertie en **dataURL** et stockée dans l'asset (comme un upload) → persiste et s'exporte sans CORS. Import/remplacement manuel possible (cap 8 Mo).
+- **DA TEAPS fixe** : le template lit `agencyLogo` (logo TEAPS, forcé blanc) + `selectedColors[0]` (accent, repli bleu) ; seules la photo + les libellés changent par page.
+- **État par projet** : `sectorAssets: SectorAsset[]` dans le store (seedé au scrape depuis le thème, persisté en IndexedDB via `pickSnapshot`). Actions `add/remove/updateSectorAsset`.
+- **Template** `components/frames/FrameSectorAsset.tsx` : convention `id` (offscreen export) / sans `id` (aperçu). Dimensions par ratio = `ASSET_DIMS` (`lib/sectorThemes.ts`). Export : `exportSectorAsset` / `exportSectorAssetsPack` (dossier `assets_secteur/`) dans `lib/exportFrames.ts` ; les instances offscreen sont montées en permanence par `SectorAssetsPanel`.
+
 ### Customisation & édition des frames
 - Réglages visuels **par projet** (persistés en IndexedDB) : couleurs, logo + échelle, police (+ casse majuscule détectée), marge desktop (`desktopPadding`, défaut sans marge), flou de fond (04), opacité/échelle de la card (08), et **zone de capture globale** (`regionY`).
 - `components/ui/EditableImage.tsx` enveloppe le screenshot de chaque slot (`slotKey`) : au survol on peut **remplacer/coller** une image (stockée dans `customScreenshots[slotKey]`) ou ouvrir le **sélecteur de zone** (`RegionPicker`, rendu en **portal** pour échapper au `transform: scale` du preview) qui règle `regionY` (0..1) — appliqué en `object-position` sur les visuels desktop/mobile. `regionY` est remis à 0 à chaque nouveau scrape (spécifique à une page).
@@ -82,6 +92,6 @@ Onglet « Réseaux sociaux » : maquette de post Instagram/LinkedIn (`PreviewSta
 
 ## Environnement & déploiement
 
-- Variable requise : `GEMINI_API_KEY`.
+- Variables : `GEMINI_API_KEY` (requise) ; `PEXELS_API_KEY` (optionnelle — banque d'images de l'onglet « Assets secteur » ; sans elle l'onglet bascule sur l'import manuel).
 - **Self-hosted (Coolify)**, pas de contrainte serverless — d'où `maxDuration: 300` au scrape et le Chromium bundlé. (Le scraper n'est pas conçu pour un hébergement serverless type Vercel.)
 - Le push sur `main` déclenche `.github/workflows/sync-teaps.yml` qui fast-forward le fork `teapsagency/da-gen` (cible du déploiement).

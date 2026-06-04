@@ -31,6 +31,7 @@ import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_Bo
 import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
 import { PreviewStage } from "@/components/preview/PreviewStage";
 import { PreviewSidebar } from "@/components/preview/PreviewSidebar";
+import { SectorAssetsPanel } from "@/components/assets/SectorAssetsPanel";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ContentChat } from "@/components/ContentChat";
 import { FileUpload } from "@/components/ui/FileUpload";
@@ -69,6 +70,7 @@ import {
   MonitorSmartphone,
   Monitor,
   Smartphone,
+  Images,
 } from "lucide-react";
 
 /** Wait until all frame IDs exist in the DOM, with a safety timeout */
@@ -118,7 +120,7 @@ export default function Home() {
   const [isExportingPack, setIsExportingPack] = React.useState(false);
   const [showOffscreenFrames, setShowOffscreenFrames] = React.useState(false);
   const [showOffscreenSocialFrames, setShowOffscreenSocialFrames] = React.useState(false);
-  const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu" | "preview" | "settings" | "historique">("visuels");
+  const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu" | "preview" | "assets" | "settings" | "historique">("visuels");
 
   // Saved projects — drives the recent-projects shortlist on the home screen.
   // Refreshed every time the home screen comes back into view.
@@ -378,6 +380,25 @@ export default function Home() {
               </button>
               <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
                 Aperçu
+              </span>
+            </div>
+            {/* Séparateur : assets secteur (illustrations des pages SEO) */}
+            <div className="w-6 h-px bg-foreground/10 my-1" />
+            <div className="relative group">
+              <button
+                onClick={() => setSidebarTab("assets")}
+                aria-label="Assets secteur"
+                aria-current={sidebarTab === "assets"}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                  sidebarTab === "assets"
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5"
+                }`}
+              >
+                <Images className="w-[18px] h-[18px]" />
+              </button>
+              <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                Assets secteur
               </span>
             </div>
             <div className="relative group">
@@ -992,6 +1013,7 @@ export default function Home() {
             )}
 
             {sidebarTab === "preview" && <PreviewStage />}
+            {sidebarTab === "assets" && <SectorAssetsPanel />}
           </main>
         </div>
       )}
