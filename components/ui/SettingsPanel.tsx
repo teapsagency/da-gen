@@ -18,6 +18,7 @@ import {
   Plus,
   X,
   AtSign,
+  Images,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { GeminiApiKey } from "@/types";
@@ -571,6 +572,8 @@ export function SettingsPanel() {
   const setActiveApiKeyId = useDAStore((s) => s.setActiveApiKeyId);
   const setGeminiModel = useDAStore((s) => s.setGeminiModel);
   const setContentPrompt = useDAStore((s) => s.setContentPrompt);
+  const pexelsApiKey = useDAStore((s) => s.pexelsApiKey);
+  const setPexelsApiKey = useDAStore((s) => s.setPexelsApiKey);
 
   const [model, setModel] = React.useState(storedModel);
   const [prompt, setPrompt] = React.useState(storedPrompt);
@@ -616,6 +619,30 @@ export function SettingsPanel() {
             </span>
             <code className="text-[10px] px-1.5 py-0.5 bg-foreground/5 text-foreground/60 rounded font-mono">
               GEMINI_API_KEY
+            </code>
+          </div>
+        </div>
+
+        {/* Banque d'images Pexels (Assets secteur) */}
+        <div className="rounded-xl border border-border bg-background/40 p-5">
+          <SectionHeader
+            icon={Images}
+            title="Banque d'images (Pexels)"
+            description="Clé Pexels pour la recherche de photos de l'onglet « Assets secteur ». Stockage local uniquement."
+          />
+          <input
+            type="text"
+            value={pexelsApiKey}
+            onChange={(e) => setPexelsApiKey(e.target.value)}
+            placeholder="Colle ta clé Pexels…"
+            spellCheck={false}
+            autoComplete="off"
+            className="w-full px-3.5 py-2.5 bg-card border border-border rounded-lg text-[11.5px] font-mono focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-foreground/30 transition-all"
+          />
+          <div className="flex items-center gap-1.5 mt-3">
+            <span className="text-[10px] text-foreground/40">Fallback si vide :</span>
+            <code className="text-[10px] px-1.5 py-0.5 bg-foreground/5 text-foreground/60 rounded font-mono">
+              PEXELS_API_KEY
             </code>
           </div>
         </div>

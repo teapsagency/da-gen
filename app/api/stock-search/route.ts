@@ -9,7 +9,7 @@ export const runtime = "nodejs";
  * clé configurée → 503 explicite : l'UI bascule alors sur l'upload manuel.
  */
 export async function POST(req: NextRequest) {
-  let body: { query?: unknown; page?: unknown };
+  let body: { query?: unknown; page?: unknown; apiKey?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -22,7 +22,9 @@ export async function POST(req: NextRequest) {
   }
   const page = Math.max(1, Math.min(50, Number(body.page) || 1));
 
-  const key = process.env.PEXELS_API_KEY;
+  // Clé custom (paramètres) prioritaire ; repli sur la variable d'env serveur.
+  const customKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+  const key = customKey || process.env.PEXELS_API_KEY;
   if (!key) {
     return Response.json(
       { error: "PEXELS_API_KEY non configurée sur le serveur." },

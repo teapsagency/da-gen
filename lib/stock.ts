@@ -1,4 +1,5 @@
 // Client de la banque d'images (Pexels), via les routes /api/stock-*.
+import { useDAStore } from "@/store/daStore";
 
 export type StockPhoto = {
   id: number;
@@ -13,10 +14,12 @@ export type StockPhoto = {
 export class StockUnavailableError extends Error {}
 
 export async function searchStock(query: string, page = 1): Promise<StockPhoto[]> {
+  // Clé custom saisie dans les paramètres ; la route retombe sur PEXELS_API_KEY.
+  const apiKey = useDAStore.getState().pexelsApiKey?.trim() || undefined;
   const res = await fetch("/api/stock-search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, page }),
+    body: JSON.stringify({ query, page, apiKey }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

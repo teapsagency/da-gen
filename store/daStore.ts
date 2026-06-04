@@ -324,6 +324,9 @@ export const useDAStore = create<DAStore>()(
       setGeminiApiKeys: (keys: GeminiApiKey[]) => set({ geminiApiKeys: keys }),
       setActiveApiKeyId: (id: string | null) => set({ activeApiKeyId: id }),
 
+      pexelsApiKey: '',
+      setPexelsApiKey: (key: string) => set({ pexelsApiKey: key }),
+
       geminiModel: DEFAULT_GEMINI_MODEL,
       setGeminiModel: (model: string) => set({ geminiModel: model }),
       resetGeminiModel: () => set({ geminiModel: DEFAULT_GEMINI_MODEL }),
@@ -361,6 +364,7 @@ export const useDAStore = create<DAStore>()(
         dropShadow: state.dropShadow,
         geminiApiKeys: state.geminiApiKeys,
         activeApiKeyId: state.activeApiKeyId,
+        pexelsApiKey: state.pexelsApiKey,
         geminiModel: state.geminiModel,
         contentPrompt: state.contentPrompt,
         includeSitemapInContent: state.includeSitemapInContent,

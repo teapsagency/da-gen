@@ -357,6 +357,11 @@ export type DAStore = {
   setGeminiApiKeys: (keys: GeminiApiKey[]) => void;
   setActiveApiKeyId: (id: string | null) => void;
 
+  // Clé Pexels personnalisée (banque d'images « Assets secteur »), stockée en
+  // localStorage. Repli sur PEXELS_API_KEY côté serveur si vide.
+  pexelsApiKey: string;
+  setPexelsApiKey: (key: string) => void;
+
   geminiModel: string;
   setGeminiModel: (model: string) => void;
   resetGeminiModel: () => void;
