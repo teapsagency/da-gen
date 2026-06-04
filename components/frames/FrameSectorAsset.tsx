@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { icons, Briefcase, X, type LucideIcon } from "lucide-react";
+import { icons, Briefcase, X, GripVertical, type LucideIcon } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
 import { ASSET_DIMS, TEAPS_ACCENT } from "@/lib/sectorThemes";
 import { BRAND_MAP } from "@/lib/brandLogos";
@@ -18,9 +18,9 @@ type Props = {
 };
 
 /**
- * Template d'asset secteur : une image flottante (plus petite que la card) sur
- * fond clair, entourée d'éléments (icône, logo TEAPS, pilule, badge, logo techno)
- * positionnés librement et **déplaçables à la souris** en aperçu. Conteneur PLAT.
+ * Template d'asset secteur : une image flottante (plus petite que la card) +
+ * overlay bleu TEAPS, entourée d'éléments déplaçables (via une poignée). Fond de
+ * card TRANSPARENT (export PNG transparent) ; l'éditeur pose un fond clair derrière.
  */
 export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, onImageClick }: Props) => {
   const agencyLogo = useDAStore((s) => s.agencyLogo);
@@ -35,8 +35,9 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
   const rootRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ key: AssetElementKey; offX: number; offY: number; rect: DOMRect } | null>(null);
   const [draggingKey, setDraggingKey] = useState<AssetElementKey | null>(null);
+  const [hoveredKey, setHoveredKey] = useState<AssetElementKey | null>(null);
 
-  const onPointerDown = (e: React.PointerEvent, key: AssetElementKey) => {
+  const onHandleDown = (e: React.PointerEvent, key: AssetElementKey) => {
     if (!onMoveElement || !rootRef.current) return;
     e.stopPropagation();
     const rect = rootRef.current.getBoundingClientRect();
@@ -47,14 +48,14 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     setDraggingKey(key);
   };
-  const onPointerMove = (e: React.PointerEvent) => {
+  const onHandleMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d) return;
     const nx = clamp01((e.clientX - d.offX - d.rect.left) / d.rect.width);
     const ny = clamp01((e.clientY - d.offY - d.rect.top) / d.rect.height);
     onMoveElement?.(d.key, nx, ny);
   };
-  const onPointerUp = (e: React.PointerEvent) => {
+  const onHandleUp = (e: React.PointerEvent) => {
     if (!dragRef.current) return;
     dragRef.current = null;
     setDraggingKey(null);
@@ -182,6 +183,7 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
 
   const imgW = Math.round(w * asset.imageScale);
   const imgH = Math.round(h * asset.imageScale);
+  const ctrl = Math.round(w * 0.032); // taille poignée / bouton retirer
 
   return (
     <div
@@ -193,11 +195,11 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
         height: `${h}px`,
         overflow: "hidden",
         borderRadius: 0,
-        background: "linear-gradient(135deg, #FFFFFF 0%, #EEF0FF 100%)",
+        background: "transparent",
         fontFamily: "Satoshi, sans-serif",
       }}
     >
-      {/* Image flottante centrée */}
+      {/* Image flottante centrée + overlay bleu TEAPS */}
       <div
         onClick={interactive ? onImageClick : undefined}
         style={{
@@ -237,29 +239,65 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
             Aucune image
           </div>
         )}
+        {/* Overlay bleu TEAPS */}
+        <div style={{ position: "absolute", inset: 0, background: accent, opacity: asset.veil }} />
       </div>
 
       {/* Éléments flottants */}
       {(Object.keys(asset.elements) as AssetElementKey[]).map((key) => {
         const pos = asset.elements[key];
         if (!pos) return null;
+        const showControls = interactive && (hoveredKey === key || draggingKey === key);
         return (
           <div
             key={key}
-            onPointerDown={interactive ? (e) => onPointerDown(e, key) : undefined}
-            onPointerMove={interactive ? onPointerMove : undefined}
-            onPointerUp={interactive ? onPointerUp : undefined}
+            onMouseEnter={interactive ? () => setHoveredKey(key) : undefined}
+            onMouseLeave={interactive ? () => setHoveredKey((k) => (k === key ? null : k)) : undefined}
             style={{
               position: "absolute",
               left: `${pos.x * 100}%`,
               top: `${pos.y * 100}%`,
               transform: "translate(-50%, -50%)",
-              cursor: interactive ? (draggingKey === key ? "grabbing" : "grab") : "default",
-              touchAction: "none",
               zIndex: draggingKey === key ? 30 : 20,
             }}
           >
             {renderContent(key)}
+
+            {/* Poignée de déplacement (rester appuyé pour glisser) */}
+            {interactive && onMoveElement && (
+              <button
+                type="button"
+                data-editor-only=""
+                onPointerDown={(e) => onHandleDown(e, key)}
+                onPointerMove={onHandleMove}
+                onPointerUp={onHandleUp}
+                title="Glisser pour déplacer"
+                style={{
+                  position: "absolute",
+                  top: `-${Math.round(w * 0.016)}px`,
+                  left: `-${Math.round(w * 0.016)}px`,
+                  width: ctrl,
+                  height: ctrl,
+                  borderRadius: "50%",
+                  background: accent,
+                  color: "#fff",
+                  border: "none",
+                  cursor: draggingKey === key ? "grabbing" : "grab",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                  touchAction: "none",
+                  opacity: showControls ? 1 : 0,
+                  transition: "opacity 120ms ease",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+                }}
+              >
+                <GripVertical style={{ width: Math.round(w * 0.02), height: Math.round(w * 0.02) }} strokeWidth={2.5} />
+              </button>
+            )}
+
+            {/* Retirer */}
             {interactive && onRemoveElement && (
               <button
                 type="button"
@@ -272,10 +310,10 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
                 title="Retirer"
                 style={{
                   position: "absolute",
-                  top: `-${Math.round(w * 0.018)}px`,
-                  right: `-${Math.round(w * 0.018)}px`,
-                  width: Math.round(w * 0.032),
-                  height: Math.round(w * 0.032),
+                  top: `-${Math.round(w * 0.016)}px`,
+                  right: `-${Math.round(w * 0.016)}px`,
+                  width: ctrl,
+                  height: ctrl,
                   borderRadius: "50%",
                   background: "rgba(17,17,17,0.85)",
                   color: "#fff",
@@ -285,6 +323,8 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
                   alignItems: "center",
                   justifyContent: "center",
                   padding: 0,
+                  opacity: showControls ? 1 : 0,
+                  transition: "opacity 120ms ease",
                 }}
               >
                 <X style={{ width: Math.round(w * 0.018), height: Math.round(w * 0.018) }} strokeWidth={2.5} />

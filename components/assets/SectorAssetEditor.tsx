@@ -201,11 +201,13 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
         </div>
       </div>
 
-      {/* Aperçu (image cliquable + éléments déplaçables) */}
-      <div className="p-4 bg-foreground/[0.03]">
+      {/* Corps : aperçu (gauche) + panneau type Figma (droite) */}
+      <div className="flex flex-col md:flex-row">
+        {/* Aperçu */}
+        <div className="flex-1 p-4" style={{ background: "linear-gradient(135deg,#FFFFFF,#EEF0FF)" }}>
         <div
           ref={previewRef}
-          className="relative w-full overflow-hidden shadow-xl shadow-black/[0.06]"
+          className="relative w-full overflow-hidden rounded-md shadow-xl shadow-black/[0.06]"
           style={{ aspectRatio: `${w} / ${h}` }}
         >
           <div
@@ -232,49 +234,53 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
             </div>
           )}
         </div>
-        <p className="text-[10px] text-foreground/35 mt-2 text-center">
-          Clique l&apos;image pour la changer · glisse les éléments pour les placer
+        <p className="text-[10px] text-foreground/40 mt-2 text-center">
+          Clique l&apos;image pour la changer · poignée bleue pour déplacer un élément
         </p>
-      </div>
-
-      {/* Contrôles */}
-      <div className="px-4 py-3 flex flex-col gap-3 border-t border-border">
-        {/* Image : changer + taille */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setPickerOpen(true)}
-            className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
-          >
-            <ImageIcon className="w-3.5 h-3.5" /> Image de fond
-          </button>
-          <div className="flex items-center gap-2 flex-1 min-w-[180px] text-[10px] font-bold text-foreground/40">
-            <span className="whitespace-nowrap">Taille</span>
-            <input
-              type="range"
-              min={0.4}
-              max={0.9}
-              step={0.02}
-              value={asset.imageScale}
-              onChange={(e) => updateAsset(asset.id, { imageScale: Number(e.target.value) })}
-              className="flex-1 accent-foreground cursor-pointer"
-            />
-            <EditableValue
-              value={asset.imageScale}
-              min={0.4}
-              max={0.9}
-              step={0.02}
-              onChange={(v) => updateAsset(asset.id, { imageScale: v })}
-              format={percentFormat}
-              parse={percentParse}
-              inputWidth={42}
-            />
-          </div>
         </div>
 
-        {/* Éléments : liste + ajouter */}
-        <div className="flex flex-col gap-1.5">
+        {/* Panneau type Figma */}
+        <div className="w-full md:w-[260px] shrink-0 border-t md:border-t-0 md:border-l border-border p-4 flex flex-col gap-4">
+          {/* Image */}
+          <div className="flex flex-col gap-2.5">
+            <button
+              onClick={() => setPickerOpen(true)}
+              className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center justify-center gap-1.5"
+            >
+              <ImageIcon className="w-3.5 h-3.5" /> Image de fond
+            </button>
+            <div className="flex items-center gap-2 text-[10px] font-bold text-foreground/40">
+              <span className="w-9 shrink-0">Taille</span>
+              <input
+                type="range"
+                min={0.4}
+                max={0.9}
+                step={0.02}
+                value={asset.imageScale}
+                onChange={(e) => updateAsset(asset.id, { imageScale: Number(e.target.value) })}
+                className="flex-1 accent-foreground cursor-pointer"
+              />
+              <EditableValue value={asset.imageScale} min={0.4} max={0.9} step={0.02} onChange={(v) => updateAsset(asset.id, { imageScale: v })} format={percentFormat} parse={percentParse} inputWidth={38} />
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-bold text-foreground/40">
+              <span className="w-9 shrink-0">Voile</span>
+              <input
+                type="range"
+                min={0}
+                max={0.6}
+                step={0.02}
+                value={asset.veil}
+                onChange={(e) => updateAsset(asset.id, { veil: Number(e.target.value) })}
+                className="flex-1 accent-foreground cursor-pointer"
+              />
+              <EditableValue value={asset.veil} min={0} max={0.6} step={0.02} onChange={(v) => updateAsset(asset.id, { veil: v })} format={percentFormat} parse={percentParse} inputWidth={38} />
+            </div>
+          </div>
+
+          {/* Calques : liste + ajouter */}
+          <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">Éléments</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">Calques</span>
             <div className="relative">
               <button
                 onClick={() => setAddOpen((v) => !v)}
@@ -360,6 +366,7 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
               </div>
             ))
           )}
+          </div>
         </div>
       </div>
 

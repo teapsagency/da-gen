@@ -12,6 +12,18 @@ export const DEFAULT_ELEMENT_POS: Record<AssetElementKey, AssetElement> = {
   badge: { x: 0.85, y: 0.87 },
 };
 
+// Agencements proposés en rotation à chaque nouvelle illustration (idées de mise
+// en page : taille d'image + positions/sélection d'éléments qui varient).
+export const LAYOUT_PRESETS: { imageScale: number; elements: Partial<Record<AssetElementKey, AssetElement>> }[] = [
+  { imageScale: 0.66, elements: { icon: { x: 0.12, y: 0.15 }, logo: { x: 0.14, y: 0.86 }, pill: { x: 0.83, y: 0.42 } } },
+  { imageScale: 0.60, elements: { icon: { x: 0.5, y: 0.1 }, pill: { x: 0.17, y: 0.85 }, badge: { x: 0.84, y: 0.85 } } },
+  { imageScale: 0.62, elements: { icon: { x: 0.1, y: 0.22 }, logo: { x: 0.12, y: 0.78 }, pill: { x: 0.84, y: 0.6 }, badge: { x: 0.86, y: 0.16 } } },
+  { imageScale: 0.64, elements: { logo: { x: 0.14, y: 0.13 }, pill: { x: 0.83, y: 0.28 }, badge: { x: 0.83, y: 0.74 }, icon: { x: 0.14, y: 0.86 } } },
+  { imageScale: 0.58, elements: { icon: { x: 0.14, y: 0.16 }, pill: { x: 0.83, y: 0.5 }, logo: { x: 0.5, y: 0.9 } } },
+];
+
+let layoutSeq = 0;
+
 // Un thème = une graine pour un asset : requête Pexels, icône, libellés. La table
 // n'est qu'un point de départ — chaque champ reste éditable par asset dans l'UI.
 export type ThemePreset = {
@@ -102,6 +114,9 @@ export function makeSectorAsset(
   ratio: AssetRatio = role === 'hero' ? '16:9' : '4:3',
 ): SectorAsset {
   const t = deriveTheme(url);
+  // Agencement différent à chaque appel (rotation des presets).
+  const preset = LAYOUT_PRESETS[layoutSeq % LAYOUT_PRESETS.length];
+  layoutSeq += 1;
   return {
     id: newAssetId(),
     role,
@@ -111,13 +126,9 @@ export function makeSectorAsset(
     iconName: t.iconName,
     pill: t.pill,
     badge: t.badge || t.label,
-    imageScale: 0.7,
-    // Par défaut : icône + logo TEAPS + pilule autour de l'image.
-    elements: {
-      icon: DEFAULT_ELEMENT_POS.icon,
-      logo: DEFAULT_ELEMENT_POS.logo,
-      pill: DEFAULT_ELEMENT_POS.pill,
-    },
+    veil: 0.25,
+    imageScale: preset.imageScale,
+    elements: { ...preset.elements },
   };
 }
 
@@ -135,5 +146,5 @@ export function migrateAssetShape(raw: unknown): SectorAsset {
   if (slots.pill) elements.pill = DEFAULT_ELEMENT_POS.pill;
   if (slots.badge) elements.badge = DEFAULT_ELEMENT_POS.badge;
   if (a.brandSlug) elements.brand = DEFAULT_ELEMENT_POS.brand;
-  return { ...a, imageScale: a.imageScale ?? 0.7, elements };
+  return { ...a, veil: a.veil ?? 0.25, imageScale: a.imageScale ?? 0.7, elements };
 }

@@ -126,6 +126,7 @@ export type SectorAsset = {
   brandSlug?: string;   // logo de marque (simple-icons)
   pill: string;         // libellé de la pilule
   badge: string;        // libellé du badge
+  veil: number;         // 0..1 — intensité de l'overlay bleu TEAPS sur l'image
   imageScale: number;   // 0..1 — taille de l'image flottante (fraction de la card)
   // Éléments présents (une clé existe = affiché) + leur position. Déplaçables.
   elements: Partial<Record<AssetElementKey, AssetElement>>;
