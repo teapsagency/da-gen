@@ -1,8 +1,10 @@
 import React from "react";
-import { Briefcase } from "lucide-react";
+import { icons, Briefcase, type LucideIcon } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
-import { ASSET_DIMS, ICON_MAP } from "@/lib/sectorThemes";
+import { ASSET_DIMS } from "@/lib/sectorThemes";
 import type { SectorAsset } from "@/types";
+
+const ICON_RECORD = icons as unknown as Record<string, LucideIcon>;
 
 /**
  * Template d'asset secteur : photo de banque d'images plein cadre + voile bleu
@@ -20,7 +22,7 @@ export const FrameSectorAsset = ({ asset, id }: { asset: SectorAsset; id?: strin
   const accent = selectedColors[0] || "#2D2DFF";
 
   const { w, h } = ASSET_DIMS[asset.ratio];
-  const Icon = ICON_MAP[asset.iconName] ?? Briefcase;
+  const Icon = ICON_RECORD[asset.iconName] ?? Briefcase;
   const photo = asset.photo.kind !== "none" ? asset.photo.dataUrl : null;
 
   // Tailles proportionnelles à la largeur → rendu constant quel que soit le ratio.
@@ -105,7 +107,11 @@ export const FrameSectorAsset = ({ asset, id }: { asset: SectorAsset; id?: strin
             boxShadow: "0 10px 28px rgba(0,0,0,0.20)",
           }}
         >
-          <Icon style={{ width: iconBox * 0.54, height: iconBox * 0.54, color: accent }} strokeWidth={2} />
+          {asset.iconEmoji ? (
+            <span style={{ fontSize: iconBox * 0.6, lineHeight: 1 }}>{asset.iconEmoji}</span>
+          ) : (
+            <Icon style={{ width: iconBox * 0.54, height: iconBox * 0.54, color: accent }} strokeWidth={2} />
+          )}
         </div>
       )}
 

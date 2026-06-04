@@ -1,9 +1,3 @@
-import {
-  Anchor, Briefcase, Building2, Camera, Dumbbell, Gavel, GraduationCap, Grape,
-  HardHat, Heart, Home, Leaf, Plane, Rocket, Scale, Scissors, ShoppingBag,
-  ShoppingCart, Sparkles, Stethoscope, Store, TrendingUp, UtensilsCrossed, Wine,
-  Globe, type LucideIcon,
-} from 'lucide-react';
 import type { AssetRatio, SectorAsset } from '@/types';
 
 // Un thème = une graine pour un asset : requête Pexels, icône, libellés. La table
@@ -45,27 +39,6 @@ export const DEFAULT_THEME: ThemePreset = {
   pill: 'Faites briller votre activité',
   badge: '',
 };
-
-// Icônes proposées au picker (sous-ensemble Lucide, bundle maîtrisé).
-export const ICON_CHOICES: { name: string; Icon: LucideIcon }[] = [
-  { name: 'Scale', Icon: Scale }, { name: 'Gavel', Icon: Gavel },
-  { name: 'Anchor', Icon: Anchor }, { name: 'Wine', Icon: Wine },
-  { name: 'Grape', Icon: Grape }, { name: 'Rocket', Icon: Rocket },
-  { name: 'ShoppingBag', Icon: ShoppingBag }, { name: 'ShoppingCart', Icon: ShoppingCart },
-  { name: 'Store', Icon: Store }, { name: 'Globe', Icon: Globe },
-  { name: 'UtensilsCrossed', Icon: UtensilsCrossed }, { name: 'Building2', Icon: Building2 },
-  { name: 'Home', Icon: Home }, { name: 'Stethoscope', Icon: Stethoscope },
-  { name: 'HardHat', Icon: HardHat }, { name: 'Scissors', Icon: Scissors },
-  { name: 'Sparkles', Icon: Sparkles }, { name: 'Plane', Icon: Plane },
-  { name: 'Dumbbell', Icon: Dumbbell }, { name: 'GraduationCap', Icon: GraduationCap },
-  { name: 'Camera', Icon: Camera }, { name: 'Leaf', Icon: Leaf },
-  { name: 'Heart', Icon: Heart }, { name: 'TrendingUp', Icon: TrendingUp },
-  { name: 'Briefcase', Icon: Briefcase },
-];
-
-export const ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(
-  ICON_CHOICES.map((c) => [c.name, c.Icon]),
-);
 
 // Dimensions de sortie par ratio (long-edge fixe ~1600px ; ×2 à l'export).
 export const ASSET_DIMS: Record<AssetRatio, { w: number; h: number }> = {

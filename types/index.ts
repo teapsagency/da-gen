@@ -115,7 +115,8 @@ export type SectorAsset = {
   ratio: AssetRatio;
   photo: SectorAssetPhoto;
   query: string;        // requête Pexels (éditable), pré-remplie depuis le thème
-  iconName: string;     // clé dans ICON_CHOICES (sectorThemes)
+  iconName: string;     // nom d'icône Lucide (record `icons` de lucide-react)
+  iconEmoji?: string;   // si défini, un emoji est affiché à la place de l'icône Lucide
   pill: string;         // libellé de la pilule (coin bas-gauche)
   badge: string;        // libellé du badge (coin bas-droite)
   veil: number;         // 0..1 — intensité du voile bleu TEAPS

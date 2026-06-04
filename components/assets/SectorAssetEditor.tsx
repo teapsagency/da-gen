@@ -6,9 +6,10 @@ import { Download, ImagePlus, Loader2, Search, Trash2, Shapes } from "lucide-rea
 import { useDAStore } from "@/store/daStore";
 import { FrameSectorAsset } from "@/components/frames/FrameSectorAsset";
 import { StockPickerModal } from "./StockPickerModal";
+import { IconPickerModal } from "./IconPickerModal";
 import { searchStock, stockToDataUrl, StockUnavailableError, type StockPhoto } from "@/lib/stock";
 import { exportSectorAsset } from "@/lib/exportFrames";
-import { ASSET_DIMS, ASSET_RATIOS, ICON_CHOICES } from "@/lib/sectorThemes";
+import { ASSET_DIMS, ASSET_RATIOS } from "@/lib/sectorThemes";
 import type { AssetRatio, SectorAsset } from "@/types";
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -252,34 +253,17 @@ export function SectorAssetEditor({ asset }: { asset: SectorAsset }) {
             </select>
           </div>
           <button
-            onClick={() => setIconOpen((v) => !v)}
+            onClick={() => setIconOpen(true)}
             className="text-[11px] font-semibold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
           >
-            <Shapes className="w-3.5 h-3.5" /> Icône
+            {asset.iconEmoji ? (
+              <span className="text-[15px] leading-none">{asset.iconEmoji}</span>
+            ) : (
+              <Shapes className="w-3.5 h-3.5" />
+            )}
+            Icône
           </button>
         </div>
-
-        {iconOpen && (
-          <div className="flex flex-wrap gap-1.5 p-2 border border-border rounded-md bg-background">
-            {ICON_CHOICES.map(({ name, Icon }) => (
-              <button
-                key={name}
-                onClick={() => {
-                  updateSectorAsset(asset.id, { iconName: name });
-                  setIconOpen(false);
-                }}
-                className={`w-8 h-8 rounded-md flex items-center justify-center cursor-pointer transition-all ${
-                  asset.iconName === name
-                    ? "bg-foreground text-background"
-                    : "text-foreground/50 hover:bg-foreground/10"
-                }`}
-                title={name}
-              >
-                <Icon className="w-4 h-4" />
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Libellés */}
         <div className="grid grid-cols-2 gap-2">
@@ -325,6 +309,19 @@ export function SectorAssetEditor({ asset }: { asset: SectorAsset }) {
         onPick={(p) => {
           setPickerOpen(false);
           applyStockPhoto(p);
+        }}
+      />
+
+      <IconPickerModal
+        key={iconOpen ? "icon-open" : "icon-closed"}
+        open={iconOpen}
+        value={{ iconName: asset.iconName, iconEmoji: asset.iconEmoji }}
+        onClose={() => setIconOpen(false)}
+        onPick={(sel) => {
+          // Lucide → on efface l'emoji ; emoji → on garde l'iconName en repli.
+          if (sel.iconName) updateSectorAsset(asset.id, { iconName: sel.iconName, iconEmoji: undefined });
+          else if (sel.iconEmoji) updateSectorAsset(asset.id, { iconEmoji: sel.iconEmoji });
+          setIconOpen(false);
         }}
       />
     </div>
