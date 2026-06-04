@@ -1,11 +1,13 @@
-import type { ProjectSnapshot, ProjectMeta, StoredProject } from '@/types';
+import type { ProjectSnapshot, ProjectMeta, StoredProject, SectorAsset } from '@/types';
 
 export type { ProjectSnapshot, ProjectMeta, StoredProject };
 
 const DB_NAME = 'da-gen';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const PROJECTS = 'projects'; // id -> StoredProject (heavy)
 const META = 'meta';         // id -> ProjectMeta (light, for the history list)
+const AGENCY = 'agency';     // single record -> SectorAsset[] (bibliothèque site agence)
+const AGENCY_KEY = 'library';
 const LEGACY_STORE = 'project';
 const LEGACY_KEY = 'current';
 
@@ -42,6 +44,7 @@ function getDb(): Promise<IDBDatabase> {
       const tx = req.transaction;
       if (!db.objectStoreNames.contains(PROJECTS)) db.createObjectStore(PROJECTS);
       if (!db.objectStoreNames.contains(META)) db.createObjectStore(META);
+      if (!db.objectStoreNames.contains(AGENCY)) db.createObjectStore(AGENCY);
 
       // Migrate the legacy single project (v1) into the multi-project model.
       if (tx && db.objectStoreNames.contains(LEGACY_STORE)) {
@@ -200,5 +203,40 @@ export async function clearAllProjects(): Promise<void> {
     });
   } catch (e) {
     console.warn('[projectStorage] clear all failed:', e);
+  }
+}
+
+/* ---------- Bibliothèque « site agence » (record unique, hors projets) ---------- */
+
+/** Charge la bibliothèque d'illustrations du site agence. */
+export async function loadAgencyAssets(): Promise<SectorAsset[]> {
+  try {
+    const db = await getDb();
+    return await new Promise<SectorAsset[]>((resolve, reject) => {
+      const tx = db.transaction(AGENCY, 'readonly');
+      const req = tx.objectStore(AGENCY).get(AGENCY_KEY);
+      req.onsuccess = () => resolve((req.result as SectorAsset[]) ?? []);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    console.warn('[projectStorage] load agency assets failed:', e);
+    return [];
+  }
+}
+
+/** Sauvegarde la bibliothèque d'illustrations du site agence. Renvoie false sur échec (quota). */
+export async function saveAgencyAssets(assets: SectorAsset[]): Promise<boolean> {
+  try {
+    const db = await getDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(AGENCY, 'readwrite');
+      tx.objectStore(AGENCY).put(assets, AGENCY_KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    return true;
+  } catch (e) {
+    console.warn('[projectStorage] save agency assets failed:', e);
+    return false;
   }
 }

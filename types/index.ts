@@ -115,7 +115,7 @@ export type SectorAsset = {
   ratio: AssetRatio;
   photo: SectorAssetPhoto;
   query: string;        // requête Pexels (éditable), pré-remplie depuis le thème
-  iconName: string;     // nom d'icône Lucide (record `icons` de lucide-react)
+  iconName: string;     // nom d'icône Lucide (record `icons` de lucide-react) ; repli si iconEmoji absent
   iconEmoji?: string;   // si défini, un emoji est affiché à la place de l'icône Lucide
   pill: string;         // libellé de la pilule (coin bas-gauche)
   badge: string;        // libellé du badge (coin bas-droite)
@@ -166,8 +166,6 @@ export type ProjectSnapshot = {
   customScreenshots: Record<string, string>;
   // User-uploaded logos, persisted with the project.
   customLogos: string[];
-  // Assets secteur — illustrations thématiques par page SEO (par projet).
-  sectorAssets: SectorAsset[];
 };
 
 // A persisted project with its identity & timestamp.
@@ -287,12 +285,19 @@ export type DAStore = {
   addCustomLogo: (dataUrl: string) => void;
   removeCustomLogo: (dataUrl: string) => void;
 
-  // Assets secteur — illustrations thématiques par page SEO (par projet).
-  // Seedées au scrape depuis le thème déduit de l'URL ; éditables ensuite.
-  sectorAssets: SectorAsset[];
-  addSectorAsset: (role: 'hero' | 'content') => void;
-  removeSectorAsset: (id: string) => void;
-  updateSectorAsset: (id: string, patch: Partial<SectorAsset>) => void;
+  // Module actif (persisté) : 'client' = cas client (scrape + visuels/contenu/
+  // aperçu) ; 'agence' = bibliothèque d'illustrations du site agence.
+  appModule: 'client' | 'agence';
+  setAppModule: (m: 'client' | 'agence') => void;
+
+  // Bibliothèque GLOBALE d'illustrations « site agence » (DA TEAPS figée),
+  // persistée en IndexedDB (hors projet client, jamais en localStorage car
+  // les photos sont des dataURL lourds).
+  agencyAssets: SectorAsset[];
+  setAgencyAssets: (list: SectorAsset[]) => void;
+  addAgencyAsset: (role: 'hero' | 'content') => void;
+  removeAgencyAsset: (id: string) => void;
+  updateAgencyAsset: (id: string, patch: Partial<SectorAsset>) => void;
 
   screenshotDelay: number;
   setScreenshotDelay: (delay: number) => void;

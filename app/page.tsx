@@ -31,7 +31,8 @@ import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_Bo
 import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
 import { PreviewStage } from "@/components/preview/PreviewStage";
 import { PreviewSidebar } from "@/components/preview/PreviewSidebar";
-import { SectorAssetsPanel } from "@/components/assets/SectorAssetsPanel";
+import { AgencyAssetsPage } from "@/components/assets/AgencyAssetsPage";
+import { useAgencyAssetsPersistence } from "@/lib/useAgencyAssetsPersistence";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import { ContentChat } from "@/components/ContentChat";
 import { FileUpload } from "@/components/ui/FileUpload";
@@ -71,6 +72,7 @@ import {
   Monitor,
   Smartphone,
   Images,
+  Briefcase,
 } from "lucide-react";
 
 /** Wait until all frame IDs exist in the DOM, with a safety timeout */
@@ -107,6 +109,8 @@ export default function Home() {
     setScrapeResult,
     setError,
     resetProject,
+    appModule,
+    setAppModule,
   } = useDAStore();
 
   const [mounted, setMounted] = React.useState(false);
@@ -115,12 +119,14 @@ export default function Home() {
   // Persist project (scrapeResult, screenshots, customizations) to IndexedDB
   // so it survives page reloads. Light state stays in localStorage via Zustand persist.
   useProjectPersistence();
+  // Bibliothèque d'illustrations « site agence » (globale, IndexedDB).
+  useAgencyAssetsPersistence();
   // Charge les @font-face dès la fin de l'analyse (sans attendre l'onglet Typographie).
   useFontLoader();
   const [isExportingPack, setIsExportingPack] = React.useState(false);
   const [showOffscreenFrames, setShowOffscreenFrames] = React.useState(false);
   const [showOffscreenSocialFrames, setShowOffscreenSocialFrames] = React.useState(false);
-  const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu" | "preview" | "assets" | "settings" | "historique">("visuels");
+  const [sidebarTab, setSidebarTab] = React.useState<"visuels" | "contenu" | "preview" | "settings" | "historique">("visuels");
 
   // Saved projects — drives the recent-projects shortlist on the home screen.
   // Refreshed every time the home screen comes back into view.
@@ -328,8 +334,47 @@ export default function Home() {
           <span className="text-[11px] font-black tracking-tighter text-foreground">DA</span>
         </div>
 
-        {/* Nav icons */}
-        {scrapeResult && (
+        {/* Sélecteur de module (toujours visible) */}
+        <div className="flex flex-col items-center gap-1 mb-2">
+          <div className="relative group">
+            <button
+              onClick={() => { setAppModule("client"); setSidebarTab("visuels"); }}
+              aria-label="Cas client"
+              aria-current={appModule === "client"}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                appModule === "client"
+                  ? "bg-foreground/10 text-foreground"
+                  : "text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5"
+              }`}
+            >
+              <Briefcase className="w-[18px] h-[18px]" />
+            </button>
+            <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+              Cas client
+            </span>
+          </div>
+          <div className="relative group">
+            <button
+              onClick={() => setAppModule("agence")}
+              aria-label="Assets site agence"
+              aria-current={appModule === "agence"}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                appModule === "agence"
+                  ? "bg-foreground/10 text-foreground"
+                  : "text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5"
+              }`}
+            >
+              <Images className="w-[18px] h-[18px]" />
+            </button>
+            <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+              Assets site agence
+            </span>
+          </div>
+        </div>
+        <div className="w-6 h-px bg-foreground/10 mb-2" />
+
+        {/* Nav icons — module Cas client */}
+        {appModule === "client" && scrapeResult && (
           <div className="flex flex-col items-center gap-1">
             <div className="relative group">
               <button
@@ -382,25 +427,6 @@ export default function Home() {
                 Aperçu
               </span>
             </div>
-            {/* Séparateur : assets secteur (illustrations des pages SEO) */}
-            <div className="w-6 h-px bg-foreground/10 my-1" />
-            <div className="relative group">
-              <button
-                onClick={() => setSidebarTab("assets")}
-                aria-label="Assets secteur"
-                aria-current={sidebarTab === "assets"}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-                  sidebarTab === "assets"
-                    ? "bg-foreground/10 text-foreground"
-                    : "text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5"
-                }`}
-              >
-                <Images className="w-[18px] h-[18px]" />
-              </button>
-              <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-                Assets secteur
-              </span>
-            </div>
             <div className="relative group">
               <button
                 onClick={handleResetProject}
@@ -418,23 +444,25 @@ export default function Home() {
 
         {/* Bottom actions */}
         <div className="mt-auto flex flex-col items-center gap-1">
-          <div className="relative group">
-            <button
-              onClick={() => setSidebarTab("historique")}
-              aria-label="Historique des projets"
-              aria-current={sidebarTab === "historique"}
-              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-                sidebarTab === "historique"
-                  ? "bg-foreground/10 text-foreground"
-                  : "text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5"
-              }`}
-            >
-              <History className="w-[18px] h-[18px]" />
-            </button>
-            <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
-              Historique
-            </span>
-          </div>
+          {appModule === "client" && (
+            <div className="relative group">
+              <button
+                onClick={() => setSidebarTab("historique")}
+                aria-label="Historique des projets"
+                aria-current={sidebarTab === "historique"}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                  sidebarTab === "historique"
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5"
+                }`}
+              >
+                <History className="w-[18px] h-[18px]" />
+              </button>
+              <span className="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-semibold bg-foreground text-background rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                Historique
+              </span>
+            </div>
+          )}
           <div className="relative group">
             <button
               onClick={() => setSidebarTab("settings")}
@@ -538,8 +566,11 @@ export default function Home() {
         </section>
       )}
 
+      {/* MODULE — ASSETS SITE AGENCE (page autonome, hors flux client) */}
+      {appModule === "agence" && sidebarTab !== "settings" && <AgencyAssetsPage />}
+
       {/* HISTORY (accessible anytime) */}
-      {sidebarTab === "historique" && (
+      {appModule === "client" && sidebarTab === "historique" && (
         <section className="min-h-screen pl-20 py-12 px-8 bg-background">
           <div className="max-w-6xl mx-auto">
             <div className="flex items-center justify-between mb-8">
@@ -565,7 +596,7 @@ export default function Home() {
       )}
 
       {/* HERO SECTION */}
-      {!scrapeResult && sidebarTab !== "settings" && sidebarTab !== "historique" && (
+      {appModule === "client" && !scrapeResult && sidebarTab !== "settings" && sidebarTab !== "historique" && (
         <section className="min-h-screen flex flex-col items-center justify-center px-6 pl-20 relative overflow-hidden bg-background">
           {/* Line grid background */}
           <div
@@ -664,7 +695,7 @@ export default function Home() {
       {showLoadingOverlay && <LoadingOverlay isExiting={isOverlayExiting} />}
 
       {/* APP VIEW */}
-      {scrapeResult && !isLoading && sidebarTab !== "settings" && sidebarTab !== "historique" && (
+      {appModule === "client" && scrapeResult && !isLoading && sidebarTab !== "settings" && sidebarTab !== "historique" && (
         <div className="flex min-h-screen">
           {/* SIDEBAR PANEL */}
           <aside className="fixed left-16 top-0 bottom-0 w-[280px] bg-card border-r border-border overflow-hidden z-50 flex flex-col">
@@ -1013,7 +1044,6 @@ export default function Home() {
             )}
 
             {sidebarTab === "preview" && <PreviewStage />}
-            {sidebarTab === "assets" && <SectorAssetsPanel />}
           </main>
         </div>
       )}

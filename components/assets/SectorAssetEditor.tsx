@@ -22,10 +22,9 @@ const SLOT_LABELS: { key: SlotKey; label: string }[] = [
   { key: "badge", label: "Badge" },
 ];
 
-export function SectorAssetEditor({ asset }: { asset: SectorAsset }) {
-  const updateSectorAsset = useDAStore((s) => s.updateSectorAsset);
-  const removeSectorAsset = useDAStore((s) => s.removeSectorAsset);
-  const scrapeResult = useDAStore((s) => s.scrapeResult);
+export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: SectorAsset; clientName?: string }) {
+  const updateSectorAsset = useDAStore((s) => s.updateAgencyAsset);
+  const removeSectorAsset = useDAStore((s) => s.removeAgencyAsset);
   const exportScale = useDAStore((s) => s.exportScale);
 
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -111,10 +110,9 @@ export function SectorAssetEditor({ asset }: { asset: SectorAsset }) {
   };
 
   const handleExport = async () => {
-    if (!scrapeResult) return;
     setExporting(true);
     try {
-      await exportSectorAsset(asset, scrapeResult.domain, exportScale);
+      await exportSectorAsset(asset, clientName, exportScale);
       toast.success("Asset exporté !");
     } catch {
       toast.error("Erreur lors de l'export");

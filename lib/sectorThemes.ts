@@ -1,11 +1,14 @@
 import type { AssetRatio, SectorAsset } from '@/types';
 
+// Accent de marque TEAPS (bleu royal) — DA figée des assets « site agence ».
+export const TEAPS_ACCENT = '#2D2DFF';
+
 // Un thème = une graine pour un asset : requête Pexels, icône, libellés. La table
 // n'est qu'un point de départ — chaque champ reste éditable par asset dans l'UI.
 export type ThemePreset = {
   label: string;     // libellé humain ("Avocats")
   query: string;     // requête de recherche Pexels
-  iconName: string;  // clé dans ICON_MAP
+  iconName: string;  // nom d'icône Lucide
   pill: string;      // libellé de la pilule (coin bas-gauche)
   badge: string;     // libellé du badge (coin bas-droite)
 };
@@ -103,9 +106,4 @@ export function makeSectorAsset(
     regionY: 0.5,
     slots: { icon: true, logo: true, pill: true, badge: false },
   };
-}
-
-// Jeu d'assets par défaut au nouveau scrape : un hero + une illustration de contenu.
-export function seedSectorAssets(url: string | undefined): SectorAsset[] {
-  return [makeSectorAsset('hero', url), makeSectorAsset('content', url)];
 }

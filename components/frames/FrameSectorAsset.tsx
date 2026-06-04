@@ -1,7 +1,7 @@
 import React from "react";
 import { icons, Briefcase, type LucideIcon } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
-import { ASSET_DIMS } from "@/lib/sectorThemes";
+import { ASSET_DIMS, TEAPS_ACCENT } from "@/lib/sectorThemes";
 import type { SectorAsset } from "@/types";
 
 const ICON_RECORD = icons as unknown as Record<string, LucideIcon>;
@@ -17,9 +17,8 @@ const ICON_RECORD = icons as unknown as Record<string, LucideIcon>;
  */
 export const FrameSectorAsset = ({ asset, id }: { asset: SectorAsset; id?: string }) => {
   const agencyLogo = useDAStore((s) => s.agencyLogo);
-  const selectedColors = useDAStore((s) => s.selectedColors);
-  // Accent = 1ère couleur de la DA scrapée, repli bleu TEAPS.
-  const accent = selectedColors[0] || "#2D2DFF";
+  // DA TEAPS figée : logo agence (réglable dans les Paramètres) + accent de marque.
+  const accent = TEAPS_ACCENT;
 
   const { w, h } = ASSET_DIMS[asset.ratio];
   const Icon = ICON_RECORD[asset.iconName] ?? Briefcase;

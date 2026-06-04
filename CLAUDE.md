@@ -47,10 +47,11 @@ URL saisie (`components/ui/UrlInput.tsx`) → `POST /api/scrape` → `ScrapeResu
 `/api/scrape` et `/api/sitemap` valident l'URL via `lib/security.ts` (`validateExternalUrl` / `isBlockedHost`) : http(s) uniquement, hôtes internes/privés bloqués ; les pages additionnelles doivent rester sur le même host. À préserver lors de toute modif de ces routes.
 
 ### Persistance (deux niveaux distincts)
-- **localStorage** — Zustand `persist` + `partialize` (`store/daStore.ts`) : uniquement les réglages globaux (clés Gemini, modèle, prompt, délai + zoom de capture, thème, logo agence, inclusion sitemap). **Jamais** les screenshots base64 (trop lourd).
-- **IndexedDB** (`lib/projectStorage.ts`, câblé par `lib/useProjectPersistence.ts`) — deux object stores :
-  - `projects` : la donnée complète par projet (`ScrapeResult` + customisations : couleurs, logo, fonts, images custom, flou de fond, zone de capture, casse, marge…). `loadProjectData` recharge un projet dans le store.
-  - `meta` : descripteurs légers pour la liste d'historique (domaine, titre, dates) + une **vignette JPEG downscalée** de la hero (`lib/thumbnail.ts`, générée à la demande) → l'historique (`HistoryPanel` / `ProjectCard`) s'affiche sans charger les lourds base64.
+- **localStorage** — Zustand `persist` + `partialize` (`store/daStore.ts`) : uniquement les réglages globaux (module actif `appModule`, clés Gemini + Pexels, modèle, prompt, délai + zoom de capture, thème, logo agence, inclusion sitemap). **Jamais** les screenshots base64 (trop lourd).
+- **IndexedDB** (`lib/projectStorage.ts`, DB `da-gen` v3) — trois object stores :
+  - `projects` : la donnée complète par projet client (`ScrapeResult` + customisations…). `loadProjectData` recharge un projet ; câblé par `lib/useProjectPersistence.ts`.
+  - `meta` : descripteurs légers pour la liste d'historique (domaine, titre, dates) + une **vignette JPEG downscalée** de la hero (`lib/thumbnail.ts`, générée à la demande) → l'historique s'affiche sans charger les lourds base64.
+  - `agency` : record unique = la bibliothèque `agencyAssets` du module « Assets site agence » (globale, hors projets) ; câblé par `lib/useAgencyAssetsPersistence.ts`.
 
 ### Frames (`components/frames/`)
 Convention : une frame reçoit un prop `id` **uniquement** montée offscreen pour l'export (`<Frame id="…" />`) ; sans `id` = instance d'aperçu éditable (`const editable = !id`). L'export PNG capture le nœud DOM de cet `id` (`captureFrame`).
@@ -66,14 +67,21 @@ Onglet « Réseaux sociaux » : maquette de post Instagram/LinkedIn (`PreviewSta
 - **Ajouter une frame au carrousel = 4 points** (les `Record<SocialFrameId,…>` sont exhaustifs → le type-check casse si on en oublie un) : le type `SocialFrameId` (`types/index.ts`), `FRAME_RENDER` (rendu live, `PreviewImage.tsx`), `CAROUSEL_FRAME_EXPORT` (mont offscreen + export, `carouselExport.tsx`), `FRAME_SOURCES` (picker, `imageSources.ts`).
 - `AssetPickerModal` (palette d'ajout), `PreviewSidebar` (ordre + export ZIP du carrousel), `PreviewCarouselBar` (réordonnancement).
 
-### Assets secteur (`components/assets/`)
-Onglet « Assets secteur » (rail de nav, **après « Aperçu »**, précédé d'un séparateur ; `sidebarTab === "assets"`) : génère des illustrations thématiques (hero + contenu) pour les **pages SEO TEAPS** (par secteur/techno). Photo de banque d'images en fond + habillage DA TEAPS (icône de coin, logo, pilule, badge), exportées en PNG **plat** pour Elementor.
-- **Thème déterministe, zéro IA** : `lib/sectorThemes.ts` → `deriveTheme(url)` parse le slug de l'URL scrapée (`agence-web-avocat` → `avocat`) et matche `SECTOR_THEMES` (extensible : une ligne par secteur). Slug inconnu → repli sur le slug comme requête. Fournit la requête Pexels, le nom d'icône Lucide et les libellés — tous éditables ensuite.
-- **Picker d'icône** (`IconPickerModal`) à deux onglets avec recherche : tout le set **Lucide** (record `icons`, 1600+, rendu par nom) **ou** un **emoji** (`lib/emojiData.ts`, recherche par mots-clés). Choix stocké dans `SectorAsset` : `iconName` (Lucide) ou `iconEmoji` (prioritaire si défini).
-- **Banque d'images Pexels** (pas de génération IA) : `lib/stock.ts` (`searchStock`, `stockToDataUrl`) via les routes `stock-search`/`stock-image`. La photo choisie est convertie en **dataURL** et stockée dans l'asset (comme un upload) → persiste et s'exporte sans CORS. Import/remplacement manuel possible (cap 8 Mo).
-- **DA TEAPS fixe** : le template lit `agencyLogo` (logo TEAPS, forcé blanc) + `selectedColors[0]` (accent, repli bleu) ; seules la photo + les libellés changent par page.
-- **État par projet** : `sectorAssets: SectorAsset[]` dans le store (seedé au scrape depuis le thème, persisté en IndexedDB via `pickSnapshot`). Actions `add/remove/updateSectorAsset`.
-- **Template** `components/frames/FrameSectorAsset.tsx` : convention `id` (offscreen export) / sans `id` (aperçu). Dimensions par ratio = `ASSET_DIMS` (`lib/sectorThemes.ts`). Export : `exportSectorAsset` / `exportSectorAssetsPack` (dossier `assets_secteur/`) dans `lib/exportFrames.ts` ; les instances offscreen sont montées en permanence par `SectorAssetsPanel`.
+### Deux modules : Cas client / Assets site agence
+Le rail de gauche a en haut un **sélecteur de module** (`appModule: 'client' | 'agence'`, persisté en localStorage) visible dès l'accueil :
+- **Cas client** (`appModule === 'client'`) — le flux historique : champ URL → scrape → onglets Visuels / Contenu / Aperçu + historique des projets. Tout le reste de cette doc concerne ce module.
+- **Assets site agence** (`appModule === 'agence'`) — page **autonome** (pas de scrape), voir ci-dessous.
+
+Le module pilote ce qui s'affiche : nav client + hero + historique sont gatés `appModule === 'client'` ; la page agence est gatée `appModule === 'agence'`. Paramètres/Console/Thème sont communs.
+
+### Module « Assets site agence » (`components/assets/`)
+Bibliothèque **autonome** d'illustrations thématiques (hero/contenu) pour les **pages du site TEAPS**. Photo de banque d'images en fond + habillage **DA TEAPS figée** (icône de coin, logo, pilule, badge), exportées en PNG **plat** pour Elementor. Pas d'URL/scrape : on ajoute des illustrations et on règle tout à la main.
+- **Page** `AgencyAssetsPage` (section pleine page) → liste de `SectorAssetEditor`. Bibliothèque **globale** `agencyAssets: SectorAsset[]` dans le store, persistée en **IndexedDB** (store `agency`, DB v3) via `lib/useAgencyAssetsPersistence.ts` (`loadAgencyAssets`/`saveAgencyAssets`) — **pas** dans un projet client, **pas** en localStorage (photos = dataURL lourds). Actions `add/remove/updateAgencyAsset`.
+- **DA TEAPS figée** : `FrameSectorAsset` lit `agencyLogo` (logo TEAPS, forcé blanc) + `TEAPS_ACCENT` (`lib/sectorThemes.ts`) ; aucune dépendance au scrape.
+- **Picker d'icône** (`IconPickerModal`) à deux onglets avec recherche : tout le set **Lucide** (record `icons`, 1600+, rendu par nom) **ou** un **emoji** (`lib/emojiData.ts`, recherche par mots-clés). Stocké dans `SectorAsset` : `iconName` (Lucide) ou `iconEmoji` (prioritaire si défini).
+- **Banque d'images Pexels** (pas de génération IA) : `lib/stock.ts` (`searchStock`, `stockToDataUrl`) via les routes `stock-search`/`stock-image`. La photo choisie est convertie en **dataURL** et stockée dans l'asset → persiste et s'exporte sans CORS. Import/remplacement manuel (cap 8 Mo).
+- **Thème de départ** : `makeSectorAsset` seede via `deriveTheme(undefined)` → `DEFAULT_THEME` (`lib/sectorThemes.ts`) ; `SECTOR_THEMES`/`deriveTheme(url)` restent dispo si on rebranche un jour un flux par URL.
+- **Template** `components/frames/FrameSectorAsset.tsx` : convention `id` (offscreen export) / sans `id` (aperçu). Dimensions par ratio = `ASSET_DIMS`. Export : `exportSectorAsset` / `exportSectorAssetsPack` (dossier `assets_secteur/`) dans `lib/exportFrames.ts` ; instances offscreen montées en permanence par `AgencyAssetsPage`.
 
 ### Customisation & édition des frames
 - Réglages visuels **par projet** (persistés en IndexedDB) : couleurs, logo + échelle, police (+ casse majuscule détectée), marge desktop (`desktopPadding`, défaut sans marge), flou de fond (04), opacité/échelle de la card (08), et **zone de capture globale** (`regionY`).

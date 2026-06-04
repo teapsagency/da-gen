@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DAStore, GeminiApiKey, GeneratedContent, PreviewFormat, PreviewImageRef, ScrapeResult, SocialIdentity } from '@/types';
 import { DEFAULT_CONTENT_PROMPT, DEFAULT_GEMINI_MODEL } from '@/lib/defaultPrompt';
-import { makeSectorAsset, seedSectorAssets } from '@/lib/sectorThemes';
+import { makeSectorAsset } from '@/lib/sectorThemes';
 
 type LegacyPersistedState = Partial<{
   geminiApiKey: string;
@@ -55,8 +55,6 @@ export const useDAStore = create<DAStore>()(
         previewFormat: p.previewFormat ?? 'original',
         customScreenshots: p.customScreenshots ?? {},
         customLogos: p.customLogos ?? [],
-        // Anciens projets sans assets secteur → on seed depuis l'URL scrapée.
-        sectorAssets: p.sectorAssets ?? seedSectorAssets(p.scrapeResult?.siteUrl),
         activeProjectId: p.id,
       }),
 
@@ -89,8 +87,6 @@ export const useDAStore = create<DAStore>()(
         previewCaption: '',
         previewImages: [],
         previewFormat: 'original',
-        // Assets secteur re-seedés depuis le thème déduit de la nouvelle URL.
-        sectorAssets: seedSectorAssets(result.siteUrl),
       }),
 
       selectedLogo: '',
@@ -199,16 +195,22 @@ export const useDAStore = create<DAStore>()(
           : state.selectedLogo,
       })),
 
-      // Assets secteur — illustrations thématiques par page SEO.
-      sectorAssets: [],
-      addSectorAsset: (role) => set((state) => ({
-        sectorAssets: [...state.sectorAssets, makeSectorAsset(role, state.scrapeResult?.siteUrl)],
+      // Module actif (cas client / assets site agence).
+      appModule: 'client',
+      setAppModule: (m) => set({ appModule: m }),
+
+      // Bibliothèque globale d'illustrations « site agence » (DA TEAPS figée).
+      // Hydratée + sauvegardée en IndexedDB via useAgencyAssetsPersistence.
+      agencyAssets: [],
+      setAgencyAssets: (list) => set({ agencyAssets: list }),
+      addAgencyAsset: (role) => set((state) => ({
+        agencyAssets: [...state.agencyAssets, makeSectorAsset(role, undefined)],
       })),
-      removeSectorAsset: (id) => set((state) => ({
-        sectorAssets: state.sectorAssets.filter((a) => a.id !== id),
+      removeAgencyAsset: (id) => set((state) => ({
+        agencyAssets: state.agencyAssets.filter((a) => a.id !== id),
       })),
-      updateSectorAsset: (id, patch) => set((state) => ({
-        sectorAssets: state.sectorAssets.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+      updateAgencyAsset: (id, patch) => set((state) => ({
+        agencyAssets: state.agencyAssets.map((a) => (a.id === id ? { ...a, ...patch } : a)),
       })),
 
       screenshotDelay: 2000,
@@ -288,7 +290,6 @@ export const useDAStore = create<DAStore>()(
           previewFormat: 'original',
           customScreenshots: {},
           customLogos: [],
-          sectorAssets: [],
         });
       },
 
@@ -355,6 +356,7 @@ export const useDAStore = create<DAStore>()(
         // selectedColors / bgColor / font / borderRadius / logoScale are now
         // per-project (stored in IndexedDB with each project), not global.
         activeProjectId: state.activeProjectId,
+        appModule: state.appModule,
         theme: state.theme,
         agencyLogo: state.agencyLogo === '/logo-teaps.svg' ? state.agencyLogo : undefined,
         screenshotDelay: state.screenshotDelay,
