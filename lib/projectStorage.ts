@@ -1,4 +1,5 @@
 import type { ProjectSnapshot, ProjectMeta, StoredProject, SectorAsset } from '@/types';
+import { migrateAssetShape } from './sectorThemes';
 
 export type { ProjectSnapshot, ProjectMeta, StoredProject };
 
@@ -215,7 +216,10 @@ export async function loadAgencyAssets(): Promise<SectorAsset[]> {
     return await new Promise<SectorAsset[]>((resolve, reject) => {
       const tx = db.transaction(AGENCY, 'readonly');
       const req = tx.objectStore(AGENCY).get(AGENCY_KEY);
-      req.onsuccess = () => resolve((req.result as SectorAsset[]) ?? []);
+      req.onsuccess = () => {
+        const raw = (req.result as unknown[]) ?? [];
+        resolve(raw.map(migrateAssetShape));
+      };
       req.onerror = () => reject(req.error);
     });
   } catch (e) {

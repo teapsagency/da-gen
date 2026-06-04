@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Search, Loader2, X, ImageOff } from "lucide-react";
+import { Search, Loader2, X, ImageOff, ImagePlus } from "lucide-react";
 import { searchStock, StockUnavailableError, type StockPhoto } from "@/lib/stock";
 
 type Props = {
@@ -9,14 +9,19 @@ type Props = {
   initialQuery: string;
   onPick: (photo: StockPhoto) => void;
   onClose: () => void;
+  /** Remonte la requête tapée pour la garder sur l'asset. */
+  onQueryChange?: (q: string) => void;
+  /** Import manuel d'un fichier image. */
+  onUpload?: (file: File) => void;
 };
 
 /**
- * Grille de résultats Pexels. Choisir une photo renvoie le StockPhoto au parent
- * (qui la convertit en dataURL et l'applique à l'asset).
+ * Banque d'images : recherche Pexels (grille) + import manuel. Choisir une photo
+ * renvoie le StockPhoto au parent (qui la convertit en dataURL et l'applique).
  */
-export function StockPickerModal({ open, initialQuery, onPick, onClose }: Props) {
+export function StockPickerModal({ open, initialQuery, onPick, onClose, onQueryChange, onUpload }: Props) {
   const [query, setQuery] = useState(initialQuery);
+  const uploadRef = useRef<HTMLInputElement>(null);
   const [photos, setPhotos] = useState<StockPhoto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +102,10 @@ export function StockPickerModal({ open, initialQuery, onPick, onClose }: Props)
             <input
               ref={inputRef}
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                onQueryChange?.(e.target.value);
+              }}
               placeholder="avocat, voilier, e-commerce…"
               className="flex-1 bg-transparent text-[12px] outline-none placeholder:text-foreground/30"
             />
@@ -110,6 +118,29 @@ export function StockPickerModal({ open, initialQuery, onPick, onClose }: Props)
             {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
             Rechercher
           </button>
+          {onUpload && (
+            <>
+              <button
+                type="button"
+                onClick={() => uploadRef.current?.click()}
+                className="text-[11px] font-bold border border-border bg-card px-3 py-2 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5 whitespace-nowrap"
+                title="Importer une image"
+              >
+                <ImagePlus className="w-3.5 h-3.5" /> Importer
+              </button>
+              <input
+                ref={uploadRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) onUpload(f);
+                }}
+              />
+            </>
+          )}
         </form>
 
         <div className="flex-1 overflow-y-auto p-4">

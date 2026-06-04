@@ -108,7 +108,13 @@ export type SectorAssetPhoto =
   | { kind: 'upload'; dataUrl: string }
   | { kind: 'none' };
 
-// Un visuel d'illustration thématique (hero ou contenu) d'une page SEO TEAPS.
+// Éléments flottants qui habillent la card, déplaçables à la souris.
+export type AssetElementKey = 'icon' | 'logo' | 'pill' | 'badge' | 'brand';
+// Position = centre de l'élément, en fraction (0..1) de la card.
+export type AssetElement = { x: number; y: number };
+
+// Un visuel d'illustration thématique (hero ou contenu) d'une page SEO TEAPS :
+// une image flottante (plus petite que la card) entourée d'éléments déplaçables.
 export type SectorAsset = {
   id: string;
   role: 'hero' | 'content';
@@ -117,12 +123,12 @@ export type SectorAsset = {
   query: string;        // requête Pexels (éditable), pré-remplie depuis le thème
   iconName: string;     // nom d'icône Lucide (record `icons` de lucide-react) ; repli si iconEmoji absent
   iconEmoji?: string;   // si défini, un emoji est affiché à la place de l'icône Lucide
-  brandSlug?: string;   // logo de marque (simple-icons) affiché en chip dédié sur la card
-  pill: string;         // libellé de la pilule (coin bas-gauche)
-  badge: string;        // libellé du badge (coin bas-droite)
-  veil: number;         // 0..1 — intensité du voile bleu TEAPS
-  regionY: number;      // 0..1 — object-position vertical de la photo
-  slots: { icon: boolean; logo: boolean; pill: boolean; badge: boolean };
+  brandSlug?: string;   // logo de marque (simple-icons)
+  pill: string;         // libellé de la pilule
+  badge: string;        // libellé du badge
+  imageScale: number;   // 0..1 — taille de l'image flottante (fraction de la card)
+  // Éléments présents (une clé existe = affiché) + leur position. Déplaçables.
+  elements: Partial<Record<AssetElementKey, AssetElement>>;
 };
 
 export type SitemapStatus = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';

@@ -1,7 +1,16 @@
-import type { AssetRatio, SectorAsset } from '@/types';
+import type { AssetRatio, AssetElement, AssetElementKey, SectorAsset } from '@/types';
 
 // Accent de marque TEAPS (bleu royal) — DA figée des assets « site agence ».
 export const TEAPS_ACCENT = '#2D2DFF';
+
+// Position par défaut (centre, 0..1) de chaque type d'élément autour de l'image.
+export const DEFAULT_ELEMENT_POS: Record<AssetElementKey, AssetElement> = {
+  icon: { x: 0.12, y: 0.14 },
+  brand: { x: 0.5, y: 0.1 },
+  logo: { x: 0.15, y: 0.88 },
+  pill: { x: 0.8, y: 0.4 },
+  badge: { x: 0.85, y: 0.87 },
+};
 
 // Un thème = une graine pour un asset : requête Pexels, icône, libellés. La table
 // n'est qu'un point de départ — chaque champ reste éditable par asset dans l'UI.
@@ -102,8 +111,29 @@ export function makeSectorAsset(
     iconName: t.iconName,
     pill: t.pill,
     badge: t.badge || t.label,
-    veil: 0.28,
-    regionY: 0.5,
-    slots: { icon: true, logo: true, pill: true, badge: false },
+    imageScale: 0.7,
+    // Par défaut : icône + logo TEAPS + pilule autour de l'image.
+    elements: {
+      icon: DEFAULT_ELEMENT_POS.icon,
+      logo: DEFAULT_ELEMENT_POS.logo,
+      pill: DEFAULT_ELEMENT_POS.pill,
+    },
   };
+}
+
+// Migration des assets persistés à l'ancien format (slots/veil) vers elements.
+export function migrateAssetShape(raw: unknown): SectorAsset {
+  const a = raw as SectorAsset & {
+    slots?: { icon?: boolean; logo?: boolean; pill?: boolean; badge?: boolean };
+    veil?: number;
+  };
+  if (a.elements) return a; // déjà au nouveau format
+  const slots = a.slots ?? { icon: true, logo: true, pill: true, badge: false };
+  const elements: Partial<Record<AssetElementKey, AssetElement>> = {};
+  if (slots.icon) elements.icon = DEFAULT_ELEMENT_POS.icon;
+  if (slots.logo) elements.logo = DEFAULT_ELEMENT_POS.logo;
+  if (slots.pill) elements.pill = DEFAULT_ELEMENT_POS.pill;
+  if (slots.badge) elements.badge = DEFAULT_ELEMENT_POS.badge;
+  if (a.brandSlug) elements.brand = DEFAULT_ELEMENT_POS.brand;
+  return { ...a, imageScale: a.imageScale ?? 0.7, elements };
 }
