@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, Loader2, Trash2, Shapes, Plus, ImageIcon } from "lucide-react";
+import { Download, Loader2, Trash2, Shapes, Plus, ImageIcon, Tag, Award, Boxes, Building2, Ban, type LucideIcon } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
 import { FrameSectorAsset } from "@/components/frames/FrameSectorAsset";
 import { StockPickerModal } from "./StockPickerModal";
@@ -25,6 +25,17 @@ const LAYER_LABEL: Record<AssetLayerType, string> = {
   brand: "Logo techno",
   logo: "Logo TEAPS",
 };
+const LAYER_ICON: Record<AssetLayerType, LucideIcon> = {
+  icon: Shapes,
+  pill: Tag,
+  badge: Award,
+  brand: Boxes,
+  logo: Building2,
+};
+const segCls = (active: boolean) =>
+  `px-1.5 py-1 cursor-pointer transition-colors flex items-center justify-center ${
+    active ? "bg-foreground text-background" : "text-foreground/50 hover:bg-foreground/10"
+  }`;
 
 type BrandTarget = { mode: "new" } | { mode: "edit"; id: string };
 
@@ -278,16 +289,19 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
                 <Plus className="w-3.5 h-3.5" /> Ajouter
               </button>
               {addOpen && (
-                <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-lg shadow-xl py-1 min-w-[150px]">
-                  {LAYER_TYPES.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => addLayer(t)}
-                      className="w-full text-left text-[12px] px-3 py-1.5 hover:bg-foreground/[0.06] cursor-pointer"
-                    >
-                      {LAYER_LABEL[t]}
-                    </button>
-                  ))}
+                <div className="absolute right-0 bottom-full mb-1 z-20 bg-card border border-border rounded-lg shadow-xl py-1 min-w-[160px] max-h-[240px] overflow-y-auto">
+                  {LAYER_TYPES.map((t) => {
+                    const I = LAYER_ICON[t];
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => addLayer(t)}
+                        className="w-full text-left text-[12px] px-3 py-1.5 hover:bg-foreground/[0.06] cursor-pointer flex items-center gap-2"
+                      >
+                        <I className="w-3.5 h-3.5 text-foreground/50" /> {LAYER_LABEL[t]}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -298,10 +312,11 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
           ) : (
             asset.layers.map((layer) => {
               const brand = layer.brandSlug ? BRAND_MAP[layer.brandSlug] : null;
+              const LayerIcon = LAYER_ICON[layer.type];
               return (
                 <div key={layer.id} className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-foreground/40 w-[78px] shrink-0">
-                    {LAYER_LABEL[layer.type]}
+                  <span className="text-[10px] font-bold text-foreground/40 w-[92px] shrink-0 flex items-center gap-1.5">
+                    <LayerIcon className="w-3.5 h-3.5 text-foreground/45" /> {LAYER_LABEL[layer.type]}
                   </span>
                   {layer.type === "icon" && (
                     <button
@@ -330,12 +345,37 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
                     </button>
                   )}
                   {layer.type === "pill" && (
-                    <input
-                      value={layer.text ?? ""}
-                      onChange={(e) => updateLayer(layer.id, { text: e.target.value })}
-                      placeholder="Texte de la pilule"
-                      className="flex-1 text-[12px] border border-border bg-background rounded-md px-3 py-1.5 outline-none placeholder:text-foreground/30"
-                    />
+                    <>
+                      <input
+                        value={layer.text ?? ""}
+                        onChange={(e) => updateLayer(layer.id, { text: e.target.value })}
+                        placeholder="Texte de la pilule"
+                        className="flex-1 min-w-0 text-[12px] border border-border bg-background rounded-md px-3 py-1.5 outline-none placeholder:text-foreground/30"
+                      />
+                      <div className="flex items-center border border-border rounded-md overflow-hidden shrink-0" title="Glyphe de la pilule">
+                        <button
+                          title="Flèche (défaut)"
+                          onClick={() => updateLayer(layer.id, { iconName: undefined, iconEmoji: undefined, noGlyph: false })}
+                          className={segCls(!layer.iconName && !layer.iconEmoji && !layer.noGlyph)}
+                        >
+                          <span className="text-[11px] leading-none">▶</span>
+                        </button>
+                        <button
+                          title="Icône custom"
+                          onClick={() => setIconEditId(layer.id)}
+                          className={segCls(!!(layer.iconName || layer.iconEmoji))}
+                        >
+                          {layer.iconEmoji ? <span className="text-[13px] leading-none">{layer.iconEmoji}</span> : <Shapes className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          title="Aucun glyphe"
+                          onClick={() => updateLayer(layer.id, { iconName: undefined, iconEmoji: undefined, noGlyph: true })}
+                          className={segCls(!!layer.noGlyph && !layer.iconName && !layer.iconEmoji)}
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </>
                   )}
                   {layer.type === "badge" && (
                     <input
@@ -382,8 +422,8 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
         onClose={() => setIconEditId(null)}
         onPick={(sel) => {
           if (iconEditId) {
-            if (sel.iconName) updateLayer(iconEditId, { iconName: sel.iconName, iconEmoji: undefined });
-            else if (sel.iconEmoji) updateLayer(iconEditId, { iconEmoji: sel.iconEmoji });
+            if (sel.iconName) updateLayer(iconEditId, { iconName: sel.iconName, iconEmoji: undefined, noGlyph: false });
+            else if (sel.iconEmoji) updateLayer(iconEditId, { iconName: undefined, iconEmoji: sel.iconEmoji, noGlyph: false });
           }
           setIconEditId(null);
         }}

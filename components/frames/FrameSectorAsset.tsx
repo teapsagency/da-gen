@@ -102,13 +102,31 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
             style={{ height: Math.round(w * 0.05), maxWidth: w * 0.3, objectFit: "contain", filter: "brightness(0)" }}
           />
         ) : null;
-      case "pill":
+      case "pill": {
+        const PillIcon = layer.iconName ? ICON_RECORD[layer.iconName] ?? Briefcase : null;
+        // Glyphe : emoji custom → icône Lucide custom → rien (noGlyph) → flèche.
+        const glyph = layer.iconEmoji ? (
+          <span style={{ fontSize: chipFont * 1.1, lineHeight: 1, flexShrink: 0 }}>{layer.iconEmoji}</span>
+        ) : PillIcon ? (
+          <PillIcon style={{ width: chipFont * 1.15, height: chipFont * 1.15, color: accent, flexShrink: 0 }} strokeWidth={2.4} />
+        ) : layer.noGlyph ? null : (
+          <span
+            style={{
+              width: 0,
+              height: 0,
+              borderTop: `${Math.round(w * 0.008)}px solid transparent`,
+              borderBottom: `${Math.round(w * 0.008)}px solid transparent`,
+              borderLeft: `${Math.round(w * 0.012)}px solid ${accent}`,
+              flexShrink: 0,
+            }}
+          />
+        );
         return (
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: Math.round(w * 0.013),
+              gap: glyph ? Math.round(w * 0.013) : 0,
               background: "#fff",
               borderRadius: 9999,
               padding: `${chipPadY}px ${chipPadX}px`,
@@ -117,19 +135,11 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
               whiteSpace: "nowrap",
             }}
           >
-            <span
-              style={{
-                width: 0,
-                height: 0,
-                borderTop: `${Math.round(w * 0.008)}px solid transparent`,
-                borderBottom: `${Math.round(w * 0.008)}px solid transparent`,
-                borderLeft: `${Math.round(w * 0.012)}px solid ${accent}`,
-                flexShrink: 0,
-              }}
-            />
+            {glyph}
             <span style={{ fontWeight: 700, fontSize: `${chipFont}px`, color: "#111", lineHeight: 1.1 }}>{layer.text}</span>
           </div>
         );
+      }
       case "badge":
         return (
           <div

@@ -33,10 +33,12 @@ export function BrandPickerModal({ open, value, onPick, onClose }: Props) {
 
   if (!open) return null;
 
+  const MAX_RESULTS = 180;
   const term = q.trim().toLowerCase();
-  const results = term
+  const matches = term
     ? BRAND_LOGOS.filter((b) => b.title.toLowerCase().includes(term) || b.slug.includes(term))
     : BRAND_LOGOS;
+  const results = matches.slice(0, MAX_RESULTS);
 
   return (
     <div
@@ -98,6 +100,11 @@ export function BrandPickerModal({ open, value, onPick, onClose }: Props) {
               <p className="col-span-3 text-[11px] text-foreground/35 text-center py-10">Aucune marque.</p>
             )}
           </div>
+          {matches.length > results.length && (
+            <p className="text-[10px] text-foreground/35 text-center mt-3">
+              {results.length} sur {matches.length} — affine la recherche.
+            </p>
+          )}
         </div>
 
         <div className="px-4 py-2 border-t border-border text-[10px] text-foreground/35 shrink-0">

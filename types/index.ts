@@ -120,10 +120,11 @@ export type AssetLayer = {
   type: AssetLayerType;
   x: number;
   y: number;
-  iconName?: string;   // type 'icon' (nom Lucide, repli si iconEmoji absent)
-  iconEmoji?: string;  // type 'icon'
+  iconName?: string;   // type 'icon' ou glyphe custom d'une 'pill' (nom Lucide)
+  iconEmoji?: string;  // type 'icon' ou glyphe custom d'une 'pill' (emoji)
   brandSlug?: string;  // type 'brand' (simple-icons)
   text?: string;       // type 'pill' | 'badge'
+  noGlyph?: boolean;   // type 'pill' : aucun glyphe (ni flèche ni icône)
 };
 
 // Un visuel d'illustration thématique (hero ou contenu) d'une page SEO TEAPS :
