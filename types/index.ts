@@ -117,6 +117,7 @@ export type SectorAsset = {
   query: string;        // requête Pexels (éditable), pré-remplie depuis le thème
   iconName: string;     // nom d'icône Lucide (record `icons` de lucide-react) ; repli si iconEmoji absent
   iconEmoji?: string;   // si défini, un emoji est affiché à la place de l'icône Lucide
+  brandSlug?: string;   // logo de marque (simple-icons) affiché en chip dédié sur la card
   pill: string;         // libellé de la pilule (coin bas-gauche)
   badge: string;        // libellé du badge (coin bas-droite)
   veil: number;         // 0..1 — intensité du voile bleu TEAPS

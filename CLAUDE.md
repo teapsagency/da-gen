@@ -25,6 +25,7 @@ Pas de suite de tests : la vérification se fait via `npm run build` (type-check
 - **node-vibrant** (palette), **html-to-image** + **JSZip** + **file-saver** (export PNG/ZIP côté client)
 - **Gemini API** (`@google/generative-ai`) — génération de contenu en streaming
 - **Zustand** (store global + persistance partielle) ; **Radix UI**, **Lucide React**, **Sonner**
+- **simple-icons** (logos de marque des « Assets site agence » ; imports nommés tree-shakés)
 
 ## Architecture
 
@@ -79,6 +80,7 @@ Bibliothèque **autonome** d'illustrations thématiques (hero/contenu) pour les 
 - **Page** `AgencyAssetsPage` (section pleine page) → liste de `SectorAssetEditor`. Bibliothèque **globale** `agencyAssets: SectorAsset[]` dans le store, persistée en **IndexedDB** (store `agency`, DB v3) via `lib/useAgencyAssetsPersistence.ts` (`loadAgencyAssets`/`saveAgencyAssets`) — **pas** dans un projet client, **pas** en localStorage (photos = dataURL lourds). Actions `add/remove/updateAgencyAsset`.
 - **DA TEAPS figée** : `FrameSectorAsset` lit `agencyLogo` (logo TEAPS, forcé blanc) + `TEAPS_ACCENT` (`lib/sectorThemes.ts`) ; aucune dépendance au scrape.
 - **Picker d'icône** (`IconPickerModal`) à deux onglets avec recherche : tout le set **Lucide** (record `icons`, 1600+, rendu par nom) **ou** un **emoji** (`lib/emojiData.ts`, recherche par mots-clés). Stocké dans `SectorAsset` : `iconName` (Lucide) ou `iconEmoji` (prioritaire si défini).
+- **Logo de marque** (`BrandPickerModal`, élément dédié = chip en haut-centre de la card) : set curé `simple-icons` (`lib/brandLogos.ts` → `BRAND_LOGOS`/`BRAND_MAP`, ~45 marques techno/CMS/e-commerce/marketing, couleur officielle de chaque marque). Stocké dans `SectorAsset.brandSlug`. Extensible : ajouter l'import `si…` + l'entrée dans `RAW`.
 - **Banque d'images Pexels** (pas de génération IA) : `lib/stock.ts` (`searchStock`, `stockToDataUrl`) via les routes `stock-search`/`stock-image`. La photo choisie est convertie en **dataURL** et stockée dans l'asset → persiste et s'exporte sans CORS. Import/remplacement manuel (cap 8 Mo).
 - **Thème de départ** : `makeSectorAsset` seede via `deriveTheme(undefined)` → `DEFAULT_THEME` (`lib/sectorThemes.ts`) ; `SECTOR_THEMES`/`deriveTheme(url)` restent dispo si on rebranche un jour un flux par URL.
 - **Template** `components/frames/FrameSectorAsset.tsx` : convention `id` (offscreen export) / sans `id` (aperçu). Dimensions par ratio = `ASSET_DIMS`. Export : `exportSectorAsset` / `exportSectorAssetsPack` (dossier `assets_secteur/`) dans `lib/exportFrames.ts` ; instances offscreen montées en permanence par `AgencyAssetsPage`.

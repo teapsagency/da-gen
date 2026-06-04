@@ -2,11 +2,13 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, ImagePlus, Loader2, Search, Trash2, Shapes } from "lucide-react";
+import { Download, ImagePlus, Loader2, Search, Trash2, Shapes, BadgePlus } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
 import { FrameSectorAsset } from "@/components/frames/FrameSectorAsset";
 import { StockPickerModal } from "./StockPickerModal";
 import { IconPickerModal } from "./IconPickerModal";
+import { BrandPickerModal } from "./BrandPickerModal";
+import { BRAND_MAP } from "@/lib/brandLogos";
 import { EditableValue, percentFormat, percentParse } from "@/components/ui/EditableValue";
 import { searchStock, stockToDataUrl, StockUnavailableError, type StockPhoto } from "@/lib/stock";
 import { exportSectorAsset } from "@/lib/exportFrames";
@@ -32,7 +34,10 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [iconOpen, setIconOpen] = useState(false);
+  const [brandOpen, setBrandOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const brand = asset.brandSlug ? BRAND_MAP[asset.brandSlug] : null;
 
   const { w, h } = ASSET_DIMS[asset.ratio];
 
@@ -257,6 +262,19 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
             )}
             Icône
           </button>
+          <button
+            onClick={() => setBrandOpen(true)}
+            className="text-[11px] font-semibold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
+          >
+            {brand ? (
+              <svg width={14} height={14} viewBox="0 0 24 24" fill={`#${brand.hex}`} className="shrink-0">
+                <path d={brand.path} />
+              </svg>
+            ) : (
+              <BadgePlus className="w-3.5 h-3.5" />
+            )}
+            {brand ? brand.title : "Logo techno"}
+          </button>
         </div>
 
         {/* Libellés */}
@@ -316,6 +334,17 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
           if (sel.iconName) updateSectorAsset(asset.id, { iconName: sel.iconName, iconEmoji: undefined });
           else if (sel.iconEmoji) updateSectorAsset(asset.id, { iconEmoji: sel.iconEmoji });
           setIconOpen(false);
+        }}
+      />
+
+      <BrandPickerModal
+        key={brandOpen ? "brand-open" : "brand-closed"}
+        open={brandOpen}
+        value={asset.brandSlug}
+        onClose={() => setBrandOpen(false)}
+        onPick={(slug) => {
+          updateSectorAsset(asset.id, { brandSlug: slug ?? undefined });
+          setBrandOpen(false);
         }}
       />
     </div>

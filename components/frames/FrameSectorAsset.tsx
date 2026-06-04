@@ -2,6 +2,7 @@ import React from "react";
 import { icons, Briefcase, type LucideIcon } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
 import { ASSET_DIMS, TEAPS_ACCENT } from "@/lib/sectorThemes";
+import { BRAND_MAP } from "@/lib/brandLogos";
 import type { SectorAsset } from "@/types";
 
 const ICON_RECORD = icons as unknown as Record<string, LucideIcon>;
@@ -22,6 +23,7 @@ export const FrameSectorAsset = ({ asset, id }: { asset: SectorAsset; id?: strin
 
   const { w, h } = ASSET_DIMS[asset.ratio];
   const Icon = ICON_RECORD[asset.iconName] ?? Briefcase;
+  const brand = asset.brandSlug ? BRAND_MAP[asset.brandSlug] : null;
   const photo = asset.photo.kind !== "none" ? asset.photo.dataUrl : null;
 
   // Tailles proportionnelles à la largeur → rendu constant quel que soit le ratio.
@@ -129,6 +131,38 @@ export const FrameSectorAsset = ({ asset, id }: { asset: SectorAsset; id?: strin
             filter: "brightness(0) invert(1)",
           }}
         />
+      )}
+
+      {/* Haut-centre — chip logo de marque (techno) */}
+      {brand && (
+        <div
+          style={{
+            position: "absolute",
+            top: pad,
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            alignItems: "center",
+            gap: Math.round(w * 0.012),
+            background: "rgba(255,255,255,0.96)",
+            borderRadius: 9999,
+            padding: `${Math.round(w * 0.011)}px ${Math.round(w * 0.02)}px`,
+            boxShadow: "0 10px 28px rgba(0,0,0,0.20)",
+          }}
+        >
+          <svg
+            width={Math.round(w * 0.028)}
+            height={Math.round(w * 0.028)}
+            viewBox="0 0 24 24"
+            fill={`#${brand.hex}`}
+            style={{ display: "block", flexShrink: 0 }}
+          >
+            <path d={brand.path} />
+          </svg>
+          <span style={{ fontWeight: 700, fontSize: `${Math.round(w * 0.02)}px`, color: "#111", lineHeight: 1 }}>
+            {brand.title}
+          </span>
+        </div>
       )}
 
       {/* BG — pilule libellé (flèche d'accent) */}
