@@ -1,9 +1,9 @@
 import React, { useRef, useState } from "react";
-import { icons, Briefcase, X, GripVertical, type LucideIcon } from "lucide-react";
+import { icons, Briefcase, X, GripVertical, ImagePlus, type LucideIcon } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
 import { ASSET_DIMS, TEAPS_ACCENT } from "@/lib/sectorThemes";
 import { BRAND_MAP } from "@/lib/brandLogos";
-import type { AssetElementKey, SectorAsset } from "@/types";
+import type { AssetLayer, SectorAsset } from "@/types";
 
 const ICON_RECORD = icons as unknown as Record<string, LucideIcon>;
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -12,57 +12,55 @@ type Props = {
   asset: SectorAsset;
   id?: string;
   // Handlers d'édition (aperçu uniquement ; absents sur l'instance d'export).
-  onMoveElement?: (key: AssetElementKey, x: number, y: number) => void;
-  onRemoveElement?: (key: AssetElementKey) => void;
+  onMoveLayer?: (id: string, x: number, y: number) => void;
+  onRemoveLayer?: (id: string) => void;
   onImageClick?: () => void;
 };
 
 /**
  * Template d'asset secteur : une image flottante (plus petite que la card) +
- * overlay bleu TEAPS, entourée d'éléments déplaçables (via une poignée). Fond de
- * card TRANSPARENT (export PNG transparent) ; l'éditeur pose un fond clair derrière.
+ * overlay bleu TEAPS, entourée de calques (`asset.layers`) déplaçables via une
+ * poignée. Fond de card TRANSPARENT → export PNG transparent.
  */
-export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, onImageClick }: Props) => {
+export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImageClick }: Props) => {
   const agencyLogo = useDAStore((s) => s.agencyLogo);
   const accent = TEAPS_ACCENT;
   const interactive = !id;
 
   const { w, h } = ASSET_DIMS[asset.ratio];
-  const Icon = ICON_RECORD[asset.iconName] ?? Briefcase;
-  const brand = asset.brandSlug ? BRAND_MAP[asset.brandSlug] : null;
   const photo = asset.photo.kind !== "none" ? asset.photo.dataUrl : null;
 
   const rootRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ key: AssetElementKey; offX: number; offY: number; rect: DOMRect } | null>(null);
-  const [draggingKey, setDraggingKey] = useState<AssetElementKey | null>(null);
-  const [hoveredKey, setHoveredKey] = useState<AssetElementKey | null>(null);
+  const dragRef = useRef<{ id: string; offX: number; offY: number; rect: DOMRect } | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [imgHover, setImgHover] = useState(false);
 
-  const onHandleDown = (e: React.PointerEvent, key: AssetElementKey) => {
-    if (!onMoveElement || !rootRef.current) return;
+  const onHandleDown = (e: React.PointerEvent, layer: AssetLayer) => {
+    if (!onMoveLayer || !rootRef.current) return;
     e.stopPropagation();
     const rect = rootRef.current.getBoundingClientRect();
-    const pos = asset.elements[key]!;
-    const cx = rect.left + pos.x * rect.width;
-    const cy = rect.top + pos.y * rect.height;
-    dragRef.current = { key, offX: e.clientX - cx, offY: e.clientY - cy, rect };
+    const cx = rect.left + layer.x * rect.width;
+    const cy = rect.top + layer.y * rect.height;
+    dragRef.current = { id: layer.id, offX: e.clientX - cx, offY: e.clientY - cy, rect };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    setDraggingKey(key);
+    setDraggingId(layer.id);
   };
   const onHandleMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d) return;
     const nx = clamp01((e.clientX - d.offX - d.rect.left) / d.rect.width);
     const ny = clamp01((e.clientY - d.offY - d.rect.top) / d.rect.height);
-    onMoveElement?.(d.key, nx, ny);
+    onMoveLayer?.(d.id, nx, ny);
   };
   const onHandleUp = (e: React.PointerEvent) => {
     if (!dragRef.current) return;
     dragRef.current = null;
-    setDraggingKey(null);
+    setDraggingId(null);
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
   };
 
-  // ─── Visuels par élément ───
+  // ─── Visuels par calque ───
   const iconBox = Math.round(w * 0.085);
   const chipPadY = Math.round(w * 0.012);
   const chipPadX = Math.round(w * 0.022);
@@ -70,9 +68,10 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
   const chipShadow = "0 10px 28px rgba(0,0,0,0.14)";
   const chipBorder = "1px solid rgba(0,0,0,0.06)";
 
-  const renderContent = (key: AssetElementKey) => {
-    switch (key) {
-      case "icon":
+  const renderLayer = (layer: AssetLayer) => {
+    switch (layer.type) {
+      case "icon": {
+        const Icon = ICON_RECORD[layer.iconName ?? "Briefcase"] ?? Briefcase;
         return (
           <div
             style={{
@@ -87,13 +86,14 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
               border: chipBorder,
             }}
           >
-            {asset.iconEmoji ? (
-              <span style={{ fontSize: iconBox * 0.58, lineHeight: 1 }}>{asset.iconEmoji}</span>
+            {layer.iconEmoji ? (
+              <span style={{ fontSize: iconBox * 0.58, lineHeight: 1 }}>{layer.iconEmoji}</span>
             ) : (
               <Icon style={{ width: iconBox * 0.54, height: iconBox * 0.54, color: accent }} strokeWidth={2} />
             )}
           </div>
         );
+      }
       case "logo":
         return agencyLogo ? (
           <img
@@ -127,9 +127,7 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
                 flexShrink: 0,
               }}
             />
-            <span style={{ fontWeight: 700, fontSize: `${chipFont}px`, color: "#111", lineHeight: 1.1 }}>
-              {asset.pill}
-            </span>
+            <span style={{ fontWeight: 700, fontSize: `${chipFont}px`, color: "#111", lineHeight: 1.1 }}>{layer.text}</span>
           </div>
         );
       case "badge":
@@ -146,10 +144,11 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
               whiteSpace: "nowrap",
             }}
           >
-            {asset.badge}
+            {layer.text}
           </div>
         );
-      case "brand":
+      case "brand": {
+        const brand = layer.brandSlug ? BRAND_MAP[layer.brandSlug] : null;
         return brand ? (
           <div
             style={{
@@ -173,17 +172,16 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
             >
               <path d={brand.path} />
             </svg>
-            <span style={{ fontWeight: 700, fontSize: `${chipFont}px`, color: "#111", lineHeight: 1 }}>
-              {brand.title}
-            </span>
+            <span style={{ fontWeight: 700, fontSize: `${chipFont}px`, color: "#111", lineHeight: 1 }}>{brand.title}</span>
           </div>
         ) : null;
+      }
     }
   };
 
   const imgW = Math.round(w * asset.imageScale);
   const imgH = Math.round(h * asset.imageScale);
-  const ctrl = Math.round(w * 0.032); // taille poignée / bouton retirer
+  const ctrl = Math.round(w * 0.032);
 
   return (
     <div
@@ -202,6 +200,8 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
       {/* Image flottante centrée + overlay bleu TEAPS */}
       <div
         onClick={interactive ? onImageClick : undefined}
+        onMouseEnter={interactive ? () => setImgHover(true) : undefined}
+        onMouseLeave={interactive ? () => setImgHover(false) : undefined}
         style={{
           position: "absolute",
           left: "50%",
@@ -241,34 +241,58 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
         )}
         {/* Overlay bleu TEAPS */}
         <div style={{ position: "absolute", inset: 0, background: accent, opacity: asset.veil }} />
-      </div>
 
-      {/* Éléments flottants */}
-      {(Object.keys(asset.elements) as AssetElementKey[]).map((key) => {
-        const pos = asset.elements[key];
-        if (!pos) return null;
-        const showControls = interactive && (hoveredKey === key || draggingKey === key);
-        return (
+        {/* Survol : changer l'image (comme les cas clients) */}
+        {interactive && (
           <div
-            key={key}
-            onMouseEnter={interactive ? () => setHoveredKey(key) : undefined}
-            onMouseLeave={interactive ? () => setHoveredKey((k) => (k === key ? null : k)) : undefined}
+            data-editor-only=""
             style={{
               position: "absolute",
-              left: `${pos.x * 100}%`,
-              top: `${pos.y * 100}%`,
-              transform: "translate(-50%, -50%)",
-              zIndex: draggingKey === key ? 30 : 20,
+              inset: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: `${Math.round(w * 0.01)}px`,
+              background: "rgba(0,0,0,0.55)",
+              color: "#fff",
+              opacity: imgHover ? 1 : 0,
+              transition: "opacity 160ms ease",
+              pointerEvents: "none",
             }}
           >
-            {renderContent(key)}
+            <ImagePlus style={{ width: Math.round(w * 0.05), height: Math.round(w * 0.05) }} strokeWidth={1.5} />
+            <span style={{ fontWeight: 600, fontSize: `${Math.round(w * 0.02)}px`, letterSpacing: "0.02em" }}>
+              {photo ? "Changer l'image" : "Ajouter une image"}
+            </span>
+          </div>
+        )}
+      </div>
 
-            {/* Poignée de déplacement (rester appuyé pour glisser) */}
-            {interactive && onMoveElement && (
+      {/* Calques flottants */}
+      {asset.layers.map((layer) => {
+        const showControls = interactive && (hoveredId === layer.id || draggingId === layer.id);
+        return (
+          <div
+            key={layer.id}
+            onMouseEnter={interactive ? () => setHoveredId(layer.id) : undefined}
+            onMouseLeave={interactive ? () => setHoveredId((k) => (k === layer.id ? null : k)) : undefined}
+            style={{
+              position: "absolute",
+              left: `${layer.x * 100}%`,
+              top: `${layer.y * 100}%`,
+              transform: "translate(-50%, -50%)",
+              zIndex: draggingId === layer.id ? 30 : 20,
+            }}
+          >
+            {renderLayer(layer)}
+
+            {/* Poignée de déplacement */}
+            {interactive && onMoveLayer && (
               <button
                 type="button"
                 data-editor-only=""
-                onPointerDown={(e) => onHandleDown(e, key)}
+                onPointerDown={(e) => onHandleDown(e, layer)}
                 onPointerMove={onHandleMove}
                 onPointerUp={onHandleUp}
                 title="Glisser pour déplacer"
@@ -282,7 +306,7 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
                   background: accent,
                   color: "#fff",
                   border: "none",
-                  cursor: draggingKey === key ? "grabbing" : "grab",
+                  cursor: draggingId === layer.id ? "grabbing" : "grab",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -298,14 +322,14 @@ export const FrameSectorAsset = ({ asset, id, onMoveElement, onRemoveElement, on
             )}
 
             {/* Retirer */}
-            {interactive && onRemoveElement && (
+            {interactive && onRemoveLayer && (
               <button
                 type="button"
                 data-editor-only=""
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onRemoveElement(key);
+                  onRemoveLayer(layer.id);
                 }}
                 title="Retirer"
                 style={{

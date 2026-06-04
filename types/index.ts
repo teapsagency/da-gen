@@ -108,28 +108,35 @@ export type SectorAssetPhoto =
   | { kind: 'upload'; dataUrl: string }
   | { kind: 'none' };
 
-// Éléments flottants qui habillent la card, déplaçables à la souris.
-export type AssetElementKey = 'icon' | 'logo' | 'pill' | 'badge' | 'brand';
-// Position = centre de l'élément, en fraction (0..1) de la card.
+// Type d'un calque flottant qui habille la card.
+export type AssetLayerType = 'icon' | 'logo' | 'pill' | 'badge' | 'brand';
+// Position = centre, en fraction (0..1) de la card.
 export type AssetElement = { x: number; y: number };
 
+// Un calque : type + position + contenu propre (→ on peut en empiler autant
+// qu'on veut, y compris plusieurs du même type). `x/y` = centre 0..1.
+export type AssetLayer = {
+  id: string;
+  type: AssetLayerType;
+  x: number;
+  y: number;
+  iconName?: string;   // type 'icon' (nom Lucide, repli si iconEmoji absent)
+  iconEmoji?: string;  // type 'icon'
+  brandSlug?: string;  // type 'brand' (simple-icons)
+  text?: string;       // type 'pill' | 'badge'
+};
+
 // Un visuel d'illustration thématique (hero ou contenu) d'une page SEO TEAPS :
-// une image flottante (plus petite que la card) entourée d'éléments déplaçables.
+// une image flottante (plus petite que la card) entourée de calques déplaçables.
 export type SectorAsset = {
   id: string;
   role: 'hero' | 'content';
   ratio: AssetRatio;
   photo: SectorAssetPhoto;
   query: string;        // requête Pexels (éditable), pré-remplie depuis le thème
-  iconName: string;     // nom d'icône Lucide (record `icons` de lucide-react) ; repli si iconEmoji absent
-  iconEmoji?: string;   // si défini, un emoji est affiché à la place de l'icône Lucide
-  brandSlug?: string;   // logo de marque (simple-icons)
-  pill: string;         // libellé de la pilule
-  badge: string;        // libellé du badge
   veil: number;         // 0..1 — intensité de l'overlay bleu TEAPS sur l'image
   imageScale: number;   // 0..1 — taille de l'image flottante (fraction de la card)
-  // Éléments présents (une clé existe = affiché) + leur position. Déplaçables.
-  elements: Partial<Record<AssetElementKey, AssetElement>>;
+  layers: AssetLayer[]; // calques flottants (ordre = ordre d'ajout)
 };
 
 export type SitemapStatus = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';

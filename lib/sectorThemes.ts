@@ -1,10 +1,10 @@
-import type { AssetRatio, AssetElement, AssetElementKey, SectorAsset } from '@/types';
+import type { AssetRatio, AssetElement, AssetLayer, AssetLayerType, SectorAsset } from '@/types';
 
 // Accent de marque TEAPS (bleu royal) — DA figée des assets « site agence ».
 export const TEAPS_ACCENT = '#2D2DFF';
 
-// Position par défaut (centre, 0..1) de chaque type d'élément autour de l'image.
-export const DEFAULT_ELEMENT_POS: Record<AssetElementKey, AssetElement> = {
+// Position par défaut (centre, 0..1) d'un nouveau calque selon son type.
+export const DEFAULT_ELEMENT_POS: Record<AssetLayerType, AssetElement> = {
   icon: { x: 0.12, y: 0.14 },
   brand: { x: 0.5, y: 0.1 },
   logo: { x: 0.15, y: 0.88 },
@@ -13,13 +13,13 @@ export const DEFAULT_ELEMENT_POS: Record<AssetElementKey, AssetElement> = {
 };
 
 // Agencements proposés en rotation à chaque nouvelle illustration (idées de mise
-// en page : taille d'image + positions/sélection d'éléments qui varient).
-export const LAYOUT_PRESETS: { imageScale: number; elements: Partial<Record<AssetElementKey, AssetElement>> }[] = [
-  { imageScale: 0.66, elements: { icon: { x: 0.12, y: 0.15 }, logo: { x: 0.14, y: 0.86 }, pill: { x: 0.83, y: 0.42 } } },
-  { imageScale: 0.60, elements: { icon: { x: 0.5, y: 0.1 }, pill: { x: 0.17, y: 0.85 }, badge: { x: 0.84, y: 0.85 } } },
-  { imageScale: 0.62, elements: { icon: { x: 0.1, y: 0.22 }, logo: { x: 0.12, y: 0.78 }, pill: { x: 0.84, y: 0.6 }, badge: { x: 0.86, y: 0.16 } } },
-  { imageScale: 0.64, elements: { logo: { x: 0.14, y: 0.13 }, pill: { x: 0.83, y: 0.28 }, badge: { x: 0.83, y: 0.74 }, icon: { x: 0.14, y: 0.86 } } },
-  { imageScale: 0.58, elements: { icon: { x: 0.14, y: 0.16 }, pill: { x: 0.83, y: 0.5 }, logo: { x: 0.5, y: 0.9 } } },
+// en page : taille d'image + jeu/positions de calques qui varient).
+export const LAYOUT_PRESETS: { imageScale: number; layers: { type: AssetLayerType; x: number; y: number }[] }[] = [
+  { imageScale: 0.66, layers: [{ type: 'icon', x: 0.12, y: 0.15 }, { type: 'logo', x: 0.14, y: 0.86 }, { type: 'pill', x: 0.83, y: 0.42 }] },
+  { imageScale: 0.60, layers: [{ type: 'icon', x: 0.5, y: 0.1 }, { type: 'pill', x: 0.17, y: 0.85 }, { type: 'badge', x: 0.84, y: 0.85 }] },
+  { imageScale: 0.62, layers: [{ type: 'icon', x: 0.1, y: 0.22 }, { type: 'logo', x: 0.12, y: 0.78 }, { type: 'pill', x: 0.84, y: 0.6 }, { type: 'badge', x: 0.86, y: 0.16 }] },
+  { imageScale: 0.64, layers: [{ type: 'logo', x: 0.14, y: 0.13 }, { type: 'pill', x: 0.83, y: 0.28 }, { type: 'badge', x: 0.83, y: 0.74 }, { type: 'icon', x: 0.14, y: 0.86 }] },
+  { imageScale: 0.58, layers: [{ type: 'icon', x: 0.14, y: 0.16 }, { type: 'pill', x: 0.83, y: 0.5 }, { type: 'logo', x: 0.5, y: 0.9 }] },
 ];
 
 let layoutSeq = 0;
@@ -107,6 +107,23 @@ function newAssetId(): string {
   return `sa_${Date.now().toString(36)}_${assetSeq.toString(36)}`;
 }
 
+let layerSeq = 0;
+export function newLayerId(): string {
+  layerSeq += 1;
+  return `ly_${Date.now().toString(36)}_${layerSeq.toString(36)}`;
+}
+
+// Fabrique un calque d'un type donné, avec un contenu par défaut issu du thème.
+export function makeLayer(type: AssetLayerType, url?: string): AssetLayer {
+  const t = deriveTheme(url);
+  const pos = DEFAULT_ELEMENT_POS[type];
+  const layer: AssetLayer = { id: newLayerId(), type, x: pos.x, y: pos.y };
+  if (type === 'icon') layer.iconName = t.iconName;
+  if (type === 'pill') layer.text = t.pill;
+  if (type === 'badge') layer.text = t.badge || t.label;
+  return layer;
+}
+
 // Fabrique un asset seedé depuis le thème de l'URL.
 export function makeSectorAsset(
   role: 'hero' | 'content',
@@ -117,34 +134,77 @@ export function makeSectorAsset(
   // Agencement différent à chaque appel (rotation des presets).
   const preset = LAYOUT_PRESETS[layoutSeq % LAYOUT_PRESETS.length];
   layoutSeq += 1;
+  const layers: AssetLayer[] = preset.layers.map((l) => {
+    const layer = makeLayer(l.type, url);
+    layer.x = l.x;
+    layer.y = l.y;
+    return layer;
+  });
   return {
     id: newAssetId(),
     role,
     ratio,
     photo: { kind: 'none' },
     query: t.query,
-    iconName: t.iconName,
-    pill: t.pill,
-    badge: t.badge || t.label,
-    veil: 0.25,
+    veil: 0,
     imageScale: preset.imageScale,
-    elements: { ...preset.elements },
+    layers,
   };
 }
 
-// Migration des assets persistés à l'ancien format (slots/veil) vers elements.
+// Migration des assets persistés à l'ancien format (slots/elements) vers layers.
 export function migrateAssetShape(raw: unknown): SectorAsset {
   const a = raw as SectorAsset & {
+    layers?: AssetLayer[];
+    elements?: Partial<Record<AssetLayerType, AssetElement>>;
     slots?: { icon?: boolean; logo?: boolean; pill?: boolean; badge?: boolean };
     veil?: number;
+    iconName?: string;
+    iconEmoji?: string;
+    brandSlug?: string;
+    pill?: string;
+    badge?: string;
   };
-  if (a.elements) return a; // déjà au nouveau format
-  const slots = a.slots ?? { icon: true, logo: true, pill: true, badge: false };
-  const elements: Partial<Record<AssetElementKey, AssetElement>> = {};
-  if (slots.icon) elements.icon = DEFAULT_ELEMENT_POS.icon;
-  if (slots.logo) elements.logo = DEFAULT_ELEMENT_POS.logo;
-  if (slots.pill) elements.pill = DEFAULT_ELEMENT_POS.pill;
-  if (slots.badge) elements.badge = DEFAULT_ELEMENT_POS.badge;
-  if (a.brandSlug) elements.brand = DEFAULT_ELEMENT_POS.brand;
-  return { ...a, veil: a.veil ?? 0.25, imageScale: a.imageScale ?? 0.7, elements };
+  if (a.layers) return a; // déjà au nouveau format
+
+  // Positions par type : depuis `elements`, sinon dérivées des `slots`.
+  let els: Partial<Record<AssetLayerType, AssetElement>>;
+  if (a.elements) {
+    els = a.elements;
+  } else {
+    const s = a.slots ?? { icon: true, logo: true, pill: true, badge: false };
+    els = {};
+    if (s.icon) els.icon = DEFAULT_ELEMENT_POS.icon;
+    if (s.logo) els.logo = DEFAULT_ELEMENT_POS.logo;
+    if (s.pill) els.pill = DEFAULT_ELEMENT_POS.pill;
+    if (s.badge) els.badge = DEFAULT_ELEMENT_POS.badge;
+  }
+  if (a.brandSlug && !els.brand) els.brand = DEFAULT_ELEMENT_POS.brand;
+
+  const order: AssetLayerType[] = ['icon', 'brand', 'pill', 'badge', 'logo'];
+  const layers: AssetLayer[] = [];
+  for (const type of order) {
+    const pos = els[type];
+    if (!pos) continue;
+    if (type === 'brand' && !a.brandSlug) continue;
+    const layer: AssetLayer = { id: newLayerId(), type, x: pos.x, y: pos.y };
+    if (type === 'icon') {
+      layer.iconName = a.iconName ?? 'Briefcase';
+      layer.iconEmoji = a.iconEmoji;
+    }
+    if (type === 'brand') layer.brandSlug = a.brandSlug;
+    if (type === 'pill') layer.text = a.pill ?? '';
+    if (type === 'badge') layer.text = a.badge ?? '';
+    layers.push(layer);
+  }
+  return {
+    id: a.id,
+    role: a.role,
+    ratio: a.ratio,
+    photo: a.photo,
+    query: a.query,
+    veil: a.veil ?? 0,
+    imageScale: a.imageScale ?? 0.7,
+    layers,
+  };
 }

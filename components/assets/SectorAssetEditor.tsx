@@ -12,19 +12,21 @@ import { BRAND_MAP } from "@/lib/brandLogos";
 import { EditableValue, percentFormat, percentParse } from "@/components/ui/EditableValue";
 import { searchStock, stockToDataUrl, StockUnavailableError, type StockPhoto } from "@/lib/stock";
 import { exportSectorAsset } from "@/lib/exportFrames";
-import { ASSET_DIMS, ASSET_RATIOS, DEFAULT_ELEMENT_POS } from "@/lib/sectorThemes";
-import type { AssetElementKey, AssetRatio, SectorAsset } from "@/types";
+import { ASSET_DIMS, ASSET_RATIOS, makeLayer } from "@/lib/sectorThemes";
+import type { AssetLayer, AssetLayerType, AssetRatio, SectorAsset } from "@/types";
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
-const ELEMENT_ORDER: AssetElementKey[] = ["icon", "brand", "pill", "badge", "logo"];
-const ELEMENT_LABEL: Record<AssetElementKey, string> = {
+const LAYER_TYPES: AssetLayerType[] = ["icon", "pill", "badge", "brand", "logo"];
+const LAYER_LABEL: Record<AssetLayerType, string> = {
   icon: "Icône",
-  brand: "Logo techno",
   pill: "Pilule",
   badge: "Badge",
+  brand: "Logo techno",
   logo: "Logo TEAPS",
 };
+
+type BrandTarget = { mode: "new" } | { mode: "edit"; id: string };
 
 export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: SectorAsset; clientName?: string }) {
   const updateAsset = useDAStore((s) => s.updateAgencyAsset);
@@ -32,14 +34,13 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
   const exportScale = useDAStore((s) => s.exportScale);
 
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [iconOpen, setIconOpen] = useState(false);
-  const [brandOpen, setBrandOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [iconEditId, setIconEditId] = useState<string | null>(null);
+  const [brandTarget, setBrandTarget] = useState<BrandTarget | null>(null);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   const { w, h } = ASSET_DIMS[asset.ratio];
-  const brand = asset.brandSlug ? BRAND_MAP[asset.brandSlug] : null;
   const hasPhoto = asset.photo.kind !== "none";
 
   // Aperçu : on scale la frame fixe (w×h) à la largeur du conteneur.
@@ -54,42 +55,35 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
     return () => window.removeEventListener("resize", update);
   }, [w]);
 
-  // ─── Éléments ───
-  const present = ELEMENT_ORDER.filter((k) => asset.elements[k]);
-  const addable = ELEMENT_ORDER.filter((k) => !asset.elements[k]);
-
-  const moveElement = useCallback(
-    (key: AssetElementKey, x: number, y: number) =>
-      updateAsset(asset.id, { elements: { ...asset.elements, [key]: { x, y } } }),
-    [asset.id, asset.elements, updateAsset],
+  // ─── Calques ───
+  const moveLayer = useCallback(
+    (lid: string, x: number, y: number) =>
+      updateAsset(asset.id, { layers: asset.layers.map((l) => (l.id === lid ? { ...l, x, y } : l)) }),
+    [asset.id, asset.layers, updateAsset],
   );
-  const removeElement = useCallback(
-    (key: AssetElementKey) => {
-      const next = { ...asset.elements };
-      delete next[key];
-      const patch: Partial<SectorAsset> = { elements: next };
-      if (key === "brand") patch.brandSlug = undefined;
-      updateAsset(asset.id, patch);
-    },
-    [asset.id, asset.elements, updateAsset],
+  const removeLayer = useCallback(
+    (lid: string) => updateAsset(asset.id, { layers: asset.layers.filter((l) => l.id !== lid) }),
+    [asset.id, asset.layers, updateAsset],
   );
-  const addElement = (key: AssetElementKey) => {
+  const updateLayer = (lid: string, patch: Partial<AssetLayer>) =>
+    updateAsset(asset.id, { layers: asset.layers.map((l) => (l.id === lid ? { ...l, ...patch } : l)) });
+  const addLayer = (type: AssetLayerType) => {
     setAddOpen(false);
-    if (key === "brand") {
-      setBrandOpen(true);
+    if (type === "brand") {
+      setBrandTarget({ mode: "new" });
       return;
     }
-    updateAsset(asset.id, { elements: { ...asset.elements, [key]: DEFAULT_ELEMENT_POS[key] } });
+    updateAsset(asset.id, { layers: [...asset.layers, makeLayer(type)] });
   };
-  const pickBrand = (slug: string | null) => {
-    setBrandOpen(false);
-    if (slug) {
-      updateAsset(asset.id, {
-        brandSlug: slug,
-        elements: { ...asset.elements, brand: asset.elements.brand ?? DEFAULT_ELEMENT_POS.brand },
-      });
+  const onBrandPick = (slug: string | null) => {
+    const target = brandTarget;
+    setBrandTarget(null);
+    if (!target) return;
+    if (target.mode === "new") {
+      if (slug) updateAsset(asset.id, { layers: [...asset.layers, { ...makeLayer("brand"), brandSlug: slug }] });
     } else {
-      removeElement("brand");
+      if (slug) updateLayer(target.id, { brandSlug: slug });
+      else removeLayer(target.id);
     }
   };
 
@@ -165,6 +159,10 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
     }
   };
 
+  const iconLayer = iconEditId ? asset.layers.find((l) => l.id === iconEditId) : null;
+  const brandEditSlug =
+    brandTarget?.mode === "edit" ? asset.layers.find((l) => l.id === brandTarget.id)?.brandSlug : undefined;
+
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
       {/* En-tête : rôle · format · export · supprimer */}
@@ -201,15 +199,9 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
         </div>
       </div>
 
-      {/* Corps : aperçu (gauche) + panneau type Figma (droite) */}
-      <div className="flex flex-col md:flex-row">
-        {/* Aperçu */}
-        <div className="flex-1 p-4" style={{ background: "linear-gradient(135deg,#FFFFFF,#EEF0FF)" }}>
-        <div
-          ref={previewRef}
-          className="relative w-full overflow-hidden rounded-md shadow-xl shadow-black/[0.06]"
-          style={{ aspectRatio: `${w} / ${h}` }}
-        >
+      {/* Aperçu (fond blanc en éditeur ; export transparent) */}
+      <div className="p-4" style={{ background: "#fff" }}>
+        <div ref={previewRef} className="relative w-full overflow-hidden" style={{ aspectRatio: `${w} / ${h}` }}>
           <div
             style={{
               position: "absolute",
@@ -223,8 +215,8 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
           >
             <FrameSectorAsset
               asset={asset}
-              onMoveElement={moveElement}
-              onRemoveElement={removeElement}
+              onMoveLayer={moveLayer}
+              onRemoveLayer={removeLayer}
               onImageClick={() => setPickerOpen(true)}
             />
           </div>
@@ -234,70 +226,66 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
             </div>
           )}
         </div>
-        <p className="text-[10px] text-foreground/40 mt-2 text-center">
-          Clique l&apos;image pour la changer · poignée bleue pour déplacer un élément
-        </p>
+      </div>
+
+      {/* Paramètres (en bas) */}
+      <div className="px-4 py-3 border-t border-border flex flex-col gap-4">
+        {/* Image + Taille + Voile */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => setPickerOpen(true)}
+            className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
+          >
+            <ImageIcon className="w-3.5 h-3.5" /> Image de fond
+          </button>
+          <div className="flex items-center gap-2 flex-1 min-w-[170px] text-[10px] font-bold text-foreground/40">
+            <span className="w-9 shrink-0">Taille</span>
+            <input
+              type="range"
+              min={0.4}
+              max={0.9}
+              step={0.02}
+              value={asset.imageScale}
+              onChange={(e) => updateAsset(asset.id, { imageScale: Number(e.target.value) })}
+              className="flex-1 accent-foreground cursor-pointer"
+            />
+            <EditableValue value={asset.imageScale} min={0.4} max={0.9} step={0.02} onChange={(v) => updateAsset(asset.id, { imageScale: v })} format={percentFormat} parse={percentParse} inputWidth={38} />
+          </div>
+          <div className="flex items-center gap-2 flex-1 min-w-[170px] text-[10px] font-bold text-foreground/40">
+            <span className="w-9 shrink-0">Voile</span>
+            <input
+              type="range"
+              min={0}
+              max={0.6}
+              step={0.02}
+              value={asset.veil}
+              onChange={(e) => updateAsset(asset.id, { veil: Number(e.target.value) })}
+              className="flex-1 accent-foreground cursor-pointer"
+            />
+            <EditableValue value={asset.veil} min={0} max={0.6} step={0.02} onChange={(v) => updateAsset(asset.id, { veil: v })} format={percentFormat} parse={percentParse} inputWidth={38} />
+          </div>
         </div>
 
-        {/* Panneau type Figma */}
-        <div className="w-full md:w-[260px] shrink-0 border-t md:border-t-0 md:border-l border-border p-4 flex flex-col gap-4">
-          {/* Image */}
-          <div className="flex flex-col gap-2.5">
-            <button
-              onClick={() => setPickerOpen(true)}
-              className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center justify-center gap-1.5"
-            >
-              <ImageIcon className="w-3.5 h-3.5" /> Image de fond
-            </button>
-            <div className="flex items-center gap-2 text-[10px] font-bold text-foreground/40">
-              <span className="w-9 shrink-0">Taille</span>
-              <input
-                type="range"
-                min={0.4}
-                max={0.9}
-                step={0.02}
-                value={asset.imageScale}
-                onChange={(e) => updateAsset(asset.id, { imageScale: Number(e.target.value) })}
-                className="flex-1 accent-foreground cursor-pointer"
-              />
-              <EditableValue value={asset.imageScale} min={0.4} max={0.9} step={0.02} onChange={(v) => updateAsset(asset.id, { imageScale: v })} format={percentFormat} parse={percentParse} inputWidth={38} />
-            </div>
-            <div className="flex items-center gap-2 text-[10px] font-bold text-foreground/40">
-              <span className="w-9 shrink-0">Voile</span>
-              <input
-                type="range"
-                min={0}
-                max={0.6}
-                step={0.02}
-                value={asset.veil}
-                onChange={(e) => updateAsset(asset.id, { veil: Number(e.target.value) })}
-                className="flex-1 accent-foreground cursor-pointer"
-              />
-              <EditableValue value={asset.veil} min={0} max={0.6} step={0.02} onChange={(v) => updateAsset(asset.id, { veil: v })} format={percentFormat} parse={percentParse} inputWidth={38} />
-            </div>
-          </div>
-
-          {/* Calques : liste + ajouter */}
-          <div className="flex flex-col gap-1.5">
+        {/* Calques : liste + ajouter (autant qu'on veut) */}
+        <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">Calques</span>
             <div className="relative">
               <button
                 onClick={() => setAddOpen((v) => !v)}
-                disabled={addable.length === 0}
-                className="text-[11px] font-bold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 disabled:opacity-30 transition-all flex items-center gap-1.5"
+                className="text-[11px] font-bold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" /> Ajouter
               </button>
-              {addOpen && addable.length > 0 && (
+              {addOpen && (
                 <div className="absolute right-0 top-full mt-1 z-20 bg-card border border-border rounded-lg shadow-xl py-1 min-w-[150px]">
-                  {addable.map((k) => (
+                  {LAYER_TYPES.map((t) => (
                     <button
-                      key={k}
-                      onClick={() => addElement(k)}
+                      key={t}
+                      onClick={() => addLayer(t)}
                       className="w-full text-left text-[12px] px-3 py-1.5 hover:bg-foreground/[0.06] cursor-pointer"
                     >
-                      {ELEMENT_LABEL[k]}
+                      {LAYER_LABEL[t]}
                     </button>
                   ))}
                 </div>
@@ -305,68 +293,70 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
             </div>
           </div>
 
-          {present.length === 0 ? (
-            <p className="text-[11px] text-foreground/35 py-1">Aucun élément — ajoute-en un.</p>
+          {asset.layers.length === 0 ? (
+            <p className="text-[11px] text-foreground/35 py-1">Aucun calque — ajoute-en un.</p>
           ) : (
-            present.map((key) => (
-              <div key={key} className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-foreground/40 w-[78px] shrink-0">
-                  {ELEMENT_LABEL[key]}
-                </span>
-                {key === "icon" && (
+            asset.layers.map((layer) => {
+              const brand = layer.brandSlug ? BRAND_MAP[layer.brandSlug] : null;
+              return (
+                <div key={layer.id} className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-foreground/40 w-[78px] shrink-0">
+                    {LAYER_LABEL[layer.type]}
+                  </span>
+                  {layer.type === "icon" && (
+                    <button
+                      onClick={() => setIconEditId(layer.id)}
+                      className="text-[11px] font-semibold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
+                    >
+                      {layer.iconEmoji ? (
+                        <span className="text-[15px] leading-none">{layer.iconEmoji}</span>
+                      ) : (
+                        <Shapes className="w-3.5 h-3.5" />
+                      )}
+                      Choisir
+                    </button>
+                  )}
+                  {layer.type === "brand" && (
+                    <button
+                      onClick={() => setBrandTarget({ mode: "edit", id: layer.id })}
+                      className="text-[11px] font-semibold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
+                    >
+                      {brand ? (
+                        <svg width={14} height={14} viewBox="0 0 24 24" fill={`#${brand.hex}`} className="shrink-0">
+                          <path d={brand.path} />
+                        </svg>
+                      ) : null}
+                      {brand ? brand.title : "Choisir"}
+                    </button>
+                  )}
+                  {layer.type === "pill" && (
+                    <input
+                      value={layer.text ?? ""}
+                      onChange={(e) => updateLayer(layer.id, { text: e.target.value })}
+                      placeholder="Texte de la pilule"
+                      className="flex-1 text-[12px] border border-border bg-background rounded-md px-3 py-1.5 outline-none placeholder:text-foreground/30"
+                    />
+                  )}
+                  {layer.type === "badge" && (
+                    <input
+                      value={layer.text ?? ""}
+                      onChange={(e) => updateLayer(layer.id, { text: e.target.value })}
+                      placeholder="Texte du badge"
+                      className="flex-1 text-[12px] border border-border bg-background rounded-md px-3 py-1.5 outline-none placeholder:text-foreground/30"
+                    />
+                  )}
+                  {layer.type === "logo" && <span className="flex-1 text-[11px] text-foreground/30">Logo de l&apos;agence</span>}
                   <button
-                    onClick={() => setIconOpen(true)}
-                    className="text-[11px] font-semibold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
+                    onClick={() => removeLayer(layer.id)}
+                    className="ml-auto text-foreground/30 hover:text-red-500 cursor-pointer transition-colors shrink-0"
+                    title="Retirer"
                   >
-                    {asset.iconEmoji ? (
-                      <span className="text-[15px] leading-none">{asset.iconEmoji}</span>
-                    ) : (
-                      <Shapes className="w-3.5 h-3.5" />
-                    )}
-                    Choisir
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
-                )}
-                {key === "brand" && (
-                  <button
-                    onClick={() => setBrandOpen(true)}
-                    className="text-[11px] font-semibold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
-                  >
-                    {brand ? (
-                      <svg width={14} height={14} viewBox="0 0 24 24" fill={`#${brand.hex}`} className="shrink-0">
-                        <path d={brand.path} />
-                      </svg>
-                    ) : null}
-                    {brand ? brand.title : "Choisir"}
-                  </button>
-                )}
-                {key === "pill" && (
-                  <input
-                    value={asset.pill}
-                    onChange={(e) => updateAsset(asset.id, { pill: e.target.value })}
-                    placeholder="Texte de la pilule"
-                    className="flex-1 text-[12px] border border-border bg-background rounded-md px-3 py-1.5 outline-none placeholder:text-foreground/30"
-                  />
-                )}
-                {key === "badge" && (
-                  <input
-                    value={asset.badge}
-                    onChange={(e) => updateAsset(asset.id, { badge: e.target.value })}
-                    placeholder="Texte du badge"
-                    className="flex-1 text-[12px] border border-border bg-background rounded-md px-3 py-1.5 outline-none placeholder:text-foreground/30"
-                  />
-                )}
-                {key === "logo" && <span className="flex-1 text-[11px] text-foreground/30">Logo de l&apos;agence</span>}
-                <button
-                  onClick={() => removeElement(key)}
-                  className="ml-auto text-foreground/30 hover:text-red-500 cursor-pointer transition-colors shrink-0"
-                  title="Retirer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))
+                </div>
+              );
+            })
           )}
-          </div>
         </div>
       </div>
 
@@ -386,23 +376,25 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
       />
 
       <IconPickerModal
-        key={iconOpen ? "icon-open" : "icon-closed"}
-        open={iconOpen}
-        value={{ iconName: asset.iconName, iconEmoji: asset.iconEmoji }}
-        onClose={() => setIconOpen(false)}
+        key={`icon-${iconEditId ?? "closed"}`}
+        open={!!iconEditId}
+        value={{ iconName: iconLayer?.iconName ?? "Briefcase", iconEmoji: iconLayer?.iconEmoji }}
+        onClose={() => setIconEditId(null)}
         onPick={(sel) => {
-          if (sel.iconName) updateAsset(asset.id, { iconName: sel.iconName, iconEmoji: undefined });
-          else if (sel.iconEmoji) updateAsset(asset.id, { iconEmoji: sel.iconEmoji });
-          setIconOpen(false);
+          if (iconEditId) {
+            if (sel.iconName) updateLayer(iconEditId, { iconName: sel.iconName, iconEmoji: undefined });
+            else if (sel.iconEmoji) updateLayer(iconEditId, { iconEmoji: sel.iconEmoji });
+          }
+          setIconEditId(null);
         }}
       />
 
       <BrandPickerModal
-        key={brandOpen ? "brand-open" : "brand-closed"}
-        open={brandOpen}
-        value={asset.brandSlug}
-        onClose={() => setBrandOpen(false)}
-        onPick={pickBrand}
+        key={`brand-${brandTarget ? (brandTarget.mode === "edit" ? brandTarget.id : "new") : "closed"}`}
+        open={!!brandTarget}
+        value={brandEditSlug}
+        onClose={() => setBrandTarget(null)}
+        onPick={onBrandPick}
       />
     </div>
   );
