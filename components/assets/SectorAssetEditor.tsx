@@ -36,6 +36,9 @@ const segCls = (active: boolean) =>
   `px-1.5 py-1 cursor-pointer transition-colors flex items-center justify-center ${
     active ? "bg-foreground text-background" : "text-foreground/50 hover:bg-foreground/10"
   }`;
+// Arrondi par défaut : pastille carrée (icône / logo techno seul) = 0.56, sinon pilule pleine = 1.
+const defaultRadius = (l: AssetLayer) =>
+  l.type === "icon" || (l.type === "brand" && l.hideLabel) ? 0.56 : 1;
 
 type BrandTarget = { mode: "new" } | { mode: "edit"; id: string };
 
@@ -314,7 +317,8 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
               const brand = layer.brandSlug ? BRAND_MAP[layer.brandSlug] : null;
               const LayerIcon = LAYER_ICON[layer.type];
               return (
-                <div key={layer.id} className="flex items-center gap-2">
+                <div key={layer.id} className="flex flex-col gap-1.5 py-0.5">
+                  <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-foreground/40 w-[92px] shrink-0 flex items-center gap-1.5">
                     <LayerIcon className="w-3.5 h-3.5 text-foreground/45" /> {LAYER_LABEL[layer.type]}
                   </span>
@@ -398,6 +402,30 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
+                  </div>
+                  {layer.type !== "logo" && (
+                    <div className="flex items-center gap-2 pl-[100px] pr-1">
+                      <span className="text-[10px] font-bold text-foreground/40 shrink-0">Arrondi</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={layer.radius ?? defaultRadius(layer)}
+                        onChange={(e) => updateLayer(layer.id, { radius: Number(e.target.value) })}
+                        className="flex-1 max-w-[150px] accent-foreground cursor-pointer"
+                      />
+                      {layer.type === "pill" && (layer.iconName || layer.iconEmoji) && (
+                        <button
+                          onClick={() => updateLayer(layer.id, { iconRight: !layer.iconRight })}
+                          className="text-[10px] font-bold border border-border bg-card px-2 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all whitespace-nowrap"
+                          title="Côté de l'icône"
+                        >
+                          {layer.iconRight ? "Icône →" : "← Icône"}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })

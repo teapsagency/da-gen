@@ -67,6 +67,10 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
   const chipFont = Math.round(w * 0.019);
   const chipShadow = "0 10px 28px rgba(0,0,0,0.14)";
   const chipBorder = "1px solid rgba(0,0,0,0.06)";
+  const pillH = chipFont * 1.1 + chipPadY * 2;
+  // Arrondi : `radius` 0..1 (défaut 0.56 pour les pastilles carrées, 1 = pilule pleine).
+  const boxR = (r?: number) => Math.round((r ?? 0.56) * (iconBox / 2));
+  const pillR = (r?: number) => Math.round((r ?? 1) * (pillH / 2));
 
   const renderLayer = (layer: AssetLayer) => {
     switch (layer.type) {
@@ -77,7 +81,7 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
             style={{
               width: iconBox,
               height: iconBox,
-              borderRadius: Math.round(iconBox * 0.28),
+              borderRadius: boxR(layer.radius),
               background: "#fff",
               display: "flex",
               alignItems: "center",
@@ -114,10 +118,11 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
           <div
             style={{
               display: "flex",
+              flexDirection: layer.iconRight ? "row-reverse" : "row",
               alignItems: "center",
               gap: glyph ? Math.round(w * 0.013) : 0,
               background: "#fff",
-              borderRadius: 9999,
+              borderRadius: pillR(layer.radius),
               padding: `${chipPadY}px ${chipPadX}px`,
               boxShadow: chipShadow,
               border: chipBorder,
@@ -135,7 +140,7 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
             style={{
               background: accent,
               color: "#fff",
-              borderRadius: 9999,
+              borderRadius: pillR(layer.radius),
               padding: `${chipPadY}px ${chipPadX}px`,
               fontWeight: 700,
               fontSize: `${chipFont}px`,
@@ -156,7 +161,7 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
               style={{
                 width: iconBox,
                 height: iconBox,
-                borderRadius: Math.round(iconBox * 0.28),
+                borderRadius: boxR(layer.radius),
                 background: "#fff",
                 display: "flex",
                 alignItems: "center",
@@ -179,7 +184,7 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
               alignItems: "center",
               gap: Math.round(w * 0.012),
               background: "#fff",
-              borderRadius: 9999,
+              borderRadius: pillR(layer.radius),
               padding: `${chipPadY}px ${chipPadX}px`,
               boxShadow: chipShadow,
               border: chipBorder,

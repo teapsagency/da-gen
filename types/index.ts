@@ -125,6 +125,8 @@ export type AssetLayer = {
   brandSlug?: string;  // type 'brand' (simple-icons)
   hideLabel?: boolean; // type 'brand' : logo seul (sans le nom de la marque)
   text?: string;       // type 'pill' | 'badge'
+  iconRight?: boolean; // type 'pill' : glyphe à droite du texte (défaut : gauche)
+  radius?: number;     // 0..1 — arrondi des coins (défaut par type) ; icon/pill/badge/brand
   // (pilule : un glyphe = iconName/iconEmoji ; sinon rien)
 };
 
