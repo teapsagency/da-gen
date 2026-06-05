@@ -47,7 +47,8 @@ import { listProjects, loadProject, touchProject } from "@/lib/projectStorage";
 import type { ProjectMeta } from "@/types";
 import { localFontFaceCss } from "@/lib/fontName";
 import { GeneratedContent } from "@/types";
-import { exportFrame, exportFullPack } from "@/lib/exportFrames";
+import { exportFrame, exportFullPack, sanitizeName } from "@/lib/exportFrames";
+import { EditableTitle } from "@/components/ui/EditableTitle";
 import { toast } from "sonner";
 import {
   Download,
@@ -305,7 +306,7 @@ export default function Home() {
       "frame-9-board-desktop", "frame-10-board-mobile",
     ]);
     try {
-      await exportFullPack(scrapeResult.domain, exportScale);
+      await exportFullPack(scrapeResult.domain, exportScale, useDAStore.getState().frameNames);
       toast.success("Pack téléchargé !");
     } catch {
       toast.error("Erreur lors de l'export");
@@ -931,6 +932,19 @@ export default function Home() {
                   </div>
                 </div>
 
+                {/* Avertissement : typo identifiée par son nom mais sans source
+                    chargeable (ni URL ni fichier importé) → le visuel tombe sur une
+                    police de substitution. Même condition que le ⚠️ du panneau Typographie. */}
+                {fontName && !fontUrl && !localFontFile && (
+                  <div className="max-w-5xl mx-auto -mt-8 mb-12 flex items-start gap-2.5 px-4 py-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                    <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p className="text-[12px] leading-relaxed">
+                      <span className="font-semibold">Police «&nbsp;{fontName}&nbsp;» sans source chargeable.</span>{" "}
+                      Le visuel utilise une police de substitution — importe le fichier de la police dans le panneau <span className="font-semibold">Typographie</span> à gauche pour un rendu fidèle.
+                    </p>
+                  </div>
+                )}
+
                 {visualSubTab === "charte" && (
                   <div className="max-w-5xl mx-auto space-y-32">
                     {showFmt("desktop") && (
@@ -1448,6 +1462,11 @@ function PreviewContainer({
   const [isExporting, setIsExporting] = React.useState(false);
   const [showExportFrame, setShowExportFrame] = React.useState(false);
   const { scrapeResult, exportScale } = useDAStore();
+  const frameName = useDAStore((s) => s.frameNames[id]);
+  const setFrameName = useDAStore((s) => s.setFrameName);
+  // Nom COMPLET du fichier à l'export (préfixe domaine inclus), éditable en
+  // entier : override custom, sinon `domaine_libellé` slugifié.
+  const exportName = frameName ?? sanitizeName(`${scrapeResult?.domain ?? ""}_${title}`);
 
   useEffect(() => {
     const updateScale = () => {
@@ -1467,7 +1486,7 @@ function PreviewContainer({
       setShowExportFrame(true);
       await waitForFrames([id]);
       try {
-        await exportFrame(id, `${scrapeResult.domain}_${id}`, nativeWidth, nativeHeight, exportScale);
+        await exportFrame(id, sanitizeName(exportName), nativeWidth, nativeHeight, exportScale);
         toast.success("Frame exportée !");
       } catch {
         toast.error("Erreur lors de l'export");
@@ -1543,23 +1562,33 @@ function PreviewContainer({
           </div>
         )}
       </div>
-      <div
-        ref={containerRef}
-        className="overflow-hidden relative shadow-2xl shadow-black/[0.03] dark:shadow-white/[0.01] bg-card"
-        style={{
-          height: `${nativeHeight * scale}px`,
-        }}
-      >
+      <div className="flex flex-col gap-1.5">
+        {/* Nom du fichier d'export — éditable, juste au-dessus de l'asset. */}
+        <div className="px-2">
+          <EditableTitle
+            value={exportName}
+            onChange={(next) => setFrameName(id, next)}
+            className="text-[11px] font-medium text-foreground/45 tracking-wide"
+          />
+        </div>
         <div
-          className="absolute top-0 left-0"
+          ref={containerRef}
+          className="overflow-hidden relative shadow-2xl shadow-black/[0.03] dark:shadow-white/[0.01] bg-card"
           style={{
-            width: `${nativeWidth}px`,
-            height: `${nativeHeight}px`,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
+            height: `${nativeHeight * scale}px`,
           }}
         >
-          {children}
+          <div
+            className="absolute top-0 left-0"
+            style={{
+              width: `${nativeWidth}px`,
+              height: `${nativeHeight}px`,
+              transform: `scale(${scale})`,
+              transformOrigin: "top left",
+            }}
+          >
+            {children}
+          </div>
         </div>
       </div>
 

@@ -65,9 +65,14 @@ export const injectFontCss = async (url: string): Promise<boolean> => {
 };
 
 // Charge une police détectée : URL scrapée → Google Fonts → Fontshare.
-export const loadDetectedFont = async (font: { name: string; url?: string }): Promise<void> => {
+// Renvoie l'URL qui a fonctionné (pour renseigner fontUrl), ou undefined si
+// la police est introuvable sur ces sources (→ import manuel nécessaire).
+export const loadDetectedFont = async (font: { name: string; url?: string }): Promise<string | undefined> => {
   const name = cleanFontName(font.name) || font.name;
-  if (font.url && (await injectFontCss(font.url))) return;
-  if (await injectFontCss(buildGoogleFontsUrl(name))) return;
-  await injectFontCss(buildFontshareUrl(name));
+  if (font.url && (await injectFontCss(font.url))) return font.url;
+  const googleUrl = buildGoogleFontsUrl(name);
+  if (await injectFontCss(googleUrl)) return googleUrl;
+  const fontshareUrl = buildFontshareUrl(name);
+  if (await injectFontCss(fontshareUrl)) return fontshareUrl;
+  return undefined;
 };

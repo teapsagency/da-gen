@@ -122,6 +122,7 @@ export type AssetLayer = {
   y: number;
   iconName?: string;   // type 'icon' ou glyphe custom d'une 'pill' (nom Lucide)
   iconEmoji?: string;  // type 'icon' ou glyphe custom d'une 'pill' (emoji)
+  iconColor?: string;  // type 'icon' : couleur du glyphe Lucide (défaut TEAPS_ACCENT)
   brandSlug?: string;  // type 'brand' (simple-icons)
   hideLabel?: boolean; // type 'brand' : logo seul (sans le nom de la marque)
   text?: string;       // type 'pill' | 'badge'
@@ -135,6 +136,8 @@ export type AssetLayer = {
 export type SectorAsset = {
   id: string;
   role: 'hero' | 'content';
+  // Nom d'export éditable (suffixe du fichier PNG). Absent → libellé du rôle.
+  name?: string;
   ratio: AssetRatio;
   photo: SectorAssetPhoto;
   query: string;        // requête Pexels (éditable), pré-remplie depuis le thème
@@ -185,6 +188,9 @@ export type ProjectSnapshot = {
   customScreenshots: Record<string, string>;
   // User-uploaded logos, persisted with the project.
   customLogos: string[];
+  // Noms d'export éditables par frame. Clé = id DOM de la frame (ex.
+  // "frame-1-da"), valeur = libellé saisi. Absent → libellé par défaut.
+  frameNames: Record<string, string>;
 };
 
 // A persisted project with its identity & timestamp.
@@ -298,6 +304,11 @@ export type DAStore = {
   customScreenshots: Record<string, string>;
   setCustomScreenshot: (slotKey: string, dataUrl: string | null) => void;
   clearCustomScreenshots: () => void;
+
+  // Noms d'export éditables par frame (cas client). setFrameName(id, '')
+  // efface l'override → retour au libellé par défaut.
+  frameNames: Record<string, string>;
+  setFrameName: (frameId: string, name: string) => void;
 
   // User-uploaded logos that show up alongside the scraped ones.
   customLogos: string[];

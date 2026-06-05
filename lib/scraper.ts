@@ -120,6 +120,8 @@ async function dismissPopups(page: Page) {
       'a[id*="cookie" i][id*="accept" i]', 'a[class*="cookie" i][class*="accept" i]',
       '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
       '#onetrust-accept-btn-handler', '.cc-btn.cc-allow', '.cc-accept',
+      // tarteaucitron (open-source, très répandu sur les sites FR) — « Tout accepter »
+      '#tarteaucitronPersonalize2', '#tarteaucitronAllAllowed',
       '[data-testid="cookie-accept"]',
       '[aria-label*="cookie" i][aria-label*="accept" i]', '[aria-label*="cookie" i][aria-label*="agree" i]',
       'button[id*="accept" i]', 'button[class*="accept" i]', 'a[class*="accept" i]',
@@ -250,6 +252,10 @@ async function dismissPopups(page: Page) {
       // de token entier pour "cli-" (sinon "client-", "click-"…).
       '#cookie-law-info-bar', '#cookie-law-info-again', '.cli-modal-backdrop',
       '.cli-bar-container', '[class^="cli-" i][class*="bar" i]', '[class*=" cli-" i][class*="bar" i]',
+      // tarteaucitron — préfixe d'id ultra-spécifique (root, backdrop, bandeau,
+      // panneau de préférences, icône flottante de réouverture) ; aucun site
+      // n'utilise ce préfixe pour son contenu → sûr.
+      '[id^="tarteaucitron" i]',
     ];
     const style = document.createElement('style');
     style.innerHTML = overlaySelectors.map(s => `${s} { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }`).join('\n');

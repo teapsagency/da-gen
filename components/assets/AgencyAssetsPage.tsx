@@ -6,7 +6,7 @@ import { Plus, Loader2, FolderDown, Images } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
 import { FrameSectorAsset } from "@/components/frames/FrameSectorAsset";
 import { SectorAssetEditor } from "./SectorAssetEditor";
-import { exportSectorAssetsPack, sectorAssetExportId } from "@/lib/exportFrames";
+import { exportSectorAssetsPack, sectorAssetExportId, defaultAssetName } from "@/lib/exportFrames";
 
 const CLIENT_NAME = "teaps";
 
@@ -20,6 +20,14 @@ export function AgencyAssetsPage() {
   const addAgencyAsset = useDAStore((s) => s.addAgencyAsset);
   const exportScale = useDAStore((s) => s.exportScale);
   const [exporting, setExporting] = useState(false);
+
+  // Noms par défaut numérotés par rôle (illustration-1, hero-1, …) — alignés sur
+  // la numérotation de l'export pack.
+  const roleCounts: Record<string, number> = {};
+  const defaultNames = agencyAssets.map((a) => {
+    roleCounts[a.role] = (roleCounts[a.role] ?? 0) + 1;
+    return defaultAssetName(a.role, roleCounts[a.role]);
+  });
 
   const handleExportPack = async () => {
     if (agencyAssets.length === 0) return;
@@ -83,8 +91,8 @@ export function AgencyAssetsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-8">
-            {agencyAssets.map((asset) => (
-              <SectorAssetEditor key={asset.id} asset={asset} clientName={CLIENT_NAME} />
+            {agencyAssets.map((asset, i) => (
+              <SectorAssetEditor key={asset.id} asset={asset} defaultName={defaultNames[i]} />
             ))}
           </div>
         )}

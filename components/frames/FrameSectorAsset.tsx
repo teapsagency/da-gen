@@ -93,7 +93,7 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
             {layer.iconEmoji ? (
               <span style={{ fontSize: iconBox * 0.58, lineHeight: 1 }}>{layer.iconEmoji}</span>
             ) : (
-              <Icon style={{ width: iconBox * 0.54, height: iconBox * 0.54, color: accent }} strokeWidth={2} />
+              <Icon style={{ width: iconBox * 0.54, height: iconBox * 0.54, color: layer.iconColor ?? accent }} strokeWidth={2} />
             )}
           </div>
         );

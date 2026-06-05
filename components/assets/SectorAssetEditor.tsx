@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, Loader2, Trash2, Shapes, Plus, ImageIcon, Tag, Award, Boxes, Building2, Ban, type LucideIcon } from "lucide-react";
+import { Download, Loader2, Trash2, Shapes, Plus, ImageIcon, Tag, Award, Boxes, Building2, Ban, RotateCcw, type LucideIcon } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
 import { FrameSectorAsset } from "@/components/frames/FrameSectorAsset";
 import { StockPickerModal } from "./StockPickerModal";
@@ -10,9 +10,10 @@ import { IconPickerModal } from "./IconPickerModal";
 import { BrandPickerModal } from "./BrandPickerModal";
 import { BRAND_MAP } from "@/lib/brandLogos";
 import { EditableValue, percentFormat, percentParse } from "@/components/ui/EditableValue";
+import { EditableTitle } from "@/components/ui/EditableTitle";
 import { searchStock, stockToDataUrl, StockUnavailableError, type StockPhoto } from "@/lib/stock";
 import { exportSectorAsset } from "@/lib/exportFrames";
-import { ASSET_DIMS, ASSET_RATIOS, makeLayer } from "@/lib/sectorThemes";
+import { ASSET_DIMS, ASSET_RATIOS, makeLayer, TEAPS_ACCENT } from "@/lib/sectorThemes";
 import type { AssetLayer, AssetLayerType, AssetRatio, SectorAsset } from "@/types";
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -39,7 +40,7 @@ const segCls = (active: boolean) =>
 
 type BrandTarget = { mode: "new" } | { mode: "edit"; id: string };
 
-export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: SectorAsset; clientName?: string }) {
+export function SectorAssetEditor({ asset, defaultName }: { asset: SectorAsset; defaultName: string }) {
   const updateAsset = useDAStore((s) => s.updateAgencyAsset);
   const removeAgencyAsset = useDAStore((s) => s.removeAgencyAsset);
   const exportScale = useDAStore((s) => s.exportScale);
@@ -161,7 +162,7 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
   const handleExport = async () => {
     setExporting(true);
     try {
-      await exportSectorAsset(asset, clientName, exportScale);
+      await exportSectorAsset(asset, defaultName, exportScale);
       toast.success("Asset exporté !");
     } catch {
       toast.error("Erreur lors de l'export");
@@ -176,11 +177,13 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
-      {/* En-tête : rôle · format · export · supprimer */}
+      {/* En-tête : nom d'export éditable (remplace le badge de rôle) · format · export · supprimer */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border">
-        <span className="text-[11px] font-bold tracking-widest uppercase text-foreground/30">
-          {asset.role === "hero" ? "Hero" : "Illustration"}
-        </span>
+        <EditableTitle
+          value={asset.name ?? defaultName}
+          onChange={(next) => updateAsset(asset.id, { name: next || undefined })}
+          className="text-[12px] font-semibold tracking-tight text-foreground/55"
+        />
         <div className="ml-auto flex items-center gap-2">
           <select
             value={asset.ratio}
@@ -319,17 +322,45 @@ export function SectorAssetEditor({ asset, clientName = "teaps" }: { asset: Sect
                     <LayerIcon className="w-3.5 h-3.5 text-foreground/45" /> {LAYER_LABEL[layer.type]}
                   </span>
                   {layer.type === "icon" && (
-                    <button
-                      onClick={() => setIconEditId(layer.id)}
-                      className="text-[11px] font-semibold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
-                    >
-                      {layer.iconEmoji ? (
-                        <span className="text-[15px] leading-none">{layer.iconEmoji}</span>
-                      ) : (
-                        <Shapes className="w-3.5 h-3.5" />
+                    <>
+                      <button
+                        onClick={() => setIconEditId(layer.id)}
+                        className="text-[11px] font-semibold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
+                      >
+                        {layer.iconEmoji ? (
+                          <span className="text-[15px] leading-none">{layer.iconEmoji}</span>
+                        ) : (
+                          <Shapes className="w-3.5 h-3.5" />
+                        )}
+                        Choisir
+                      </button>
+                      {/* Couleur du glyphe — sans objet pour un emoji (déjà coloré). */}
+                      {!layer.iconEmoji && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <label className="relative w-7 h-7 cursor-pointer" title="Couleur de l'icône">
+                            <span
+                              className="block w-full h-full rounded-md border border-border"
+                              style={{ background: layer.iconColor ?? TEAPS_ACCENT }}
+                            />
+                            <input
+                              type="color"
+                              value={layer.iconColor ?? TEAPS_ACCENT}
+                              onChange={(e) => updateLayer(layer.id, { iconColor: e.target.value })}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                          </label>
+                          {layer.iconColor && layer.iconColor.toLowerCase() !== TEAPS_ACCENT.toLowerCase() && (
+                            <button
+                              onClick={() => updateLayer(layer.id, { iconColor: undefined })}
+                              title="Remettre la couleur TEAPS"
+                              className="text-foreground/30 hover:text-foreground/60 cursor-pointer transition-colors"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
                       )}
-                      Choisir
-                    </button>
+                    </>
                   )}
                   {layer.type === "brand" && (
                     <>

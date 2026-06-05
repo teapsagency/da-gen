@@ -55,6 +55,7 @@ export const useDAStore = create<DAStore>()(
         previewFormat: p.previewFormat ?? 'original',
         customScreenshots: p.customScreenshots ?? {},
         customLogos: p.customLogos ?? [],
+        frameNames: p.frameNames ?? {},
         activeProjectId: p.id,
       }),
 
@@ -81,6 +82,7 @@ export const useDAStore = create<DAStore>()(
         // la conserver d'un site à l'autre afficherait la mauvaise région).
         customScreenshots: {},
         customLogos: [],
+        frameNames: {},
         regionY: 0,
         // Un nouveau scrape = nouvelle page/client → les images de preview
         // (screenshot/frame) référencent la page précédente.
@@ -168,6 +170,15 @@ export const useDAStore = create<DAStore>()(
 
       regionY: 0,
       setRegionY: (v: number) => set({ regionY: Math.min(1, Math.max(0, v)) }),
+
+      frameNames: {},
+      setFrameName: (frameId: string, name: string) => set((state) => {
+        const next = { ...state.frameNames };
+        const trimmed = name.trim();
+        if (trimmed) next[frameId] = trimmed;
+        else delete next[frameId];
+        return { frameNames: next };
+      }),
 
       customScreenshots: {},
       setCustomScreenshot: (slotKey: string, dataUrl: string | null) => set((state) => {
@@ -290,6 +301,7 @@ export const useDAStore = create<DAStore>()(
           previewFormat: 'original',
           customScreenshots: {},
           customLogos: [],
+          frameNames: {},
         });
       },
 
