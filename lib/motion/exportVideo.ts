@@ -6,6 +6,18 @@ export function canExportMotion(): boolean {
   return typeof window !== "undefined" && typeof window.VideoEncoder !== "undefined";
 }
 
+// Raison précise du blocage de l'export (null = exportable). WebCodecs exige un
+// CONTEXTE SÉCURISÉ : sur un déploiement en HTTP (hors localhost), Chrome masque
+// VideoEncoder — le vrai problème est alors le HTTPS, pas le navigateur.
+export function motionExportBlocker(): string | null {
+  if (typeof window === "undefined") return null;
+  if (!window.isSecureContext)
+    return "Export MP4 indisponible : la page n'est pas servie en HTTPS (WebCodecs exige un contexte sécurisé). Active le HTTPS sur le déploiement — l'aperçu reste disponible.";
+  if (typeof window.VideoEncoder === "undefined")
+    return "L'export MP4 nécessite un navigateur compatible WebCodecs (Chrome). L'aperçu reste disponible partout.";
+  return null;
+}
+
 // Encode la bande-son (AAC) et l'ajoute au muxer : tronquée à la durée de la
 // vidéo, avec un fondu de sortie sur les 1,2 dernières secondes.
 async function encodeAudioTrack(muxer: Muxer<ArrayBufferTarget>, buffer: AudioBuffer, duration: number) {

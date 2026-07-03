@@ -16,7 +16,7 @@ import {
   type MotionImages,
   type MotionAssets,
 } from "@/lib/motion/motion";
-import { exportMotionMp4, canExportMotion } from "@/lib/motion/exportVideo";
+import { exportMotionMp4, motionExportBlocker } from "@/lib/motion/exportVideo";
 
 const groupCls = "flex items-center gap-2 border border-border bg-card px-3 py-1.5 rounded-md";
 const labelCls = "text-[10px] font-bold text-foreground/40 whitespace-nowrap uppercase tracking-wider";
@@ -53,7 +53,11 @@ export function MotionStudio() {
   // Motion blur façon AE (échantillonnage du shutter). Aperçu 2 passes, export 4.
   const [motionBlur, setMotionBlur] = useState(true);
 
-  const exportable = canExportMotion();
+  // Raison du blocage de l'export (HTTPS manquant vs navigateur sans WebCodecs),
+  // évaluée après montage pour lire le vrai contexte du navigateur.
+  const [exportBlocker, setExportBlocker] = useState<string | null>(null);
+  useEffect(() => setExportBlocker(motionExportBlocker()), []);
+  const exportable = !exportBlocker;
 
   // ─── Images (préchargées quand le projet change) ───
   const imageSources = useMemo(() => {
@@ -237,7 +241,7 @@ export function MotionStudio() {
           onClick={handleExport}
           disabled={!assets || exporting || !exportable}
           className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer disabled:opacity-30 transition-all hover:opacity-70 active:scale-[0.97]"
-          title={exportable ? "Exporter en MP4" : "Export vidéo indisponible (utilise Chrome)"}
+          title={exportBlocker ?? "Exporter en MP4"}
         >
           {exporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
           <span>{exporting ? `Export ${Math.round(progress * 100)}%` : "Exporter MP4"}</span>
@@ -393,10 +397,8 @@ export function MotionStudio() {
         </span>
       </div>
 
-      {!exportable && (
-        <p className="mt-3 text-[11px] text-amber-600 dark:text-amber-400">
-          L&apos;export MP4 nécessite un navigateur compatible WebCodecs (Chrome). L&apos;aperçu reste disponible partout.
-        </p>
+      {exportBlocker && (
+        <p className="mt-3 text-[11px] text-amber-600 dark:text-amber-400">{exportBlocker}</p>
       )}
     </div>
   );
