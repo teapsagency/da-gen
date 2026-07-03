@@ -243,9 +243,9 @@ export const FontSelector = () => {
               Fontshare. Importez le fichier .ttf/.otf pour préserver le rendu à
               l&apos;export.
             </p>
-            <label className="flex items-center justify-center gap-2 h-9 border border-amber-500/30 bg-amber-500/10 rounded-lg hover:bg-amber-500/20 transition-all cursor-pointer">
-              <Upload className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+            <label className="flex items-center justify-center gap-2 h-9 bg-amber-500 hover:bg-amber-600 rounded-lg transition-all cursor-pointer">
+              <Upload className="w-3.5 h-3.5 text-white" />
+              <span className="text-[11px] font-bold text-white">
                 Importer la police « {fontName} »
               </span>
               <input

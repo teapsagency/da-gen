@@ -29,6 +29,8 @@ import { Frame7_Social_ThreeImg } from "@/components/frames/Frame7_Social_ThreeI
 import { Frame8_Social_CardSite } from "@/components/frames/Frame8_Social_CardSite";
 import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_BoardDesktop";
 import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
+import { ShowcaseSection } from "@/components/showcase/ShowcaseSection";
+import { SlidingTabs } from "@/components/ui/SlidingTabs";
 import { PreviewStage } from "@/components/preview/PreviewStage";
 import { PreviewSidebar } from "@/components/preview/PreviewSidebar";
 import { AgencyAssetsPage } from "@/components/assets/AgencyAssetsPage";
@@ -152,14 +154,10 @@ export default function Home() {
     },
     [loadProjectData],
   );
-  const [visualSubTab, setVisualSubTab] = React.useState<"charte" | "desktop" | "social">("charte");
+  const [visualSubTab, setVisualSubTab] = React.useState<"charte" | "desktop" | "social" | "showcase">("charte");
   // Filtre de format des assets (à droite de la ligne des sous-onglets).
   const [assetFormat, setAssetFormat] = React.useState<"all" | "desktop" | "mobile">("all");
   const showFmt = (fmt: "desktop" | "mobile") => assetFormat === "all" || assetFormat === fmt;
-  const fmtBtn = (v: "all" | "desktop" | "mobile") =>
-    `px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
-      assetFormat === v ? "bg-card text-foreground shadow-sm" : "text-foreground/40 hover:text-foreground/60"
-    }`;
 
   // Content generation state — chips/brief/result persisted in store (and IDB).
   // Files are kept locally (File objects can't be serialised). Streaming/error/loading
@@ -888,60 +886,46 @@ export default function Home() {
               <div className="p-12 lg:p-20">
                 {/* Sub-tab switcher + filtre de format */}
                 <div className="max-w-5xl mx-auto mb-12 flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex bg-foreground/[0.04] rounded-lg p-0.5 gap-0.5 w-fit">
-                    <button
-                      onClick={() => setVisualSubTab("charte")}
-                      className={`px-4 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
-                        visualSubTab === "charte"
-                          ? "bg-card text-foreground shadow-sm"
-                          : "text-foreground/40 hover:text-foreground/60"
-                      }`}
-                    >
-                      Charte Graphique
-                    </button>
-                    <button
-                      onClick={() => setVisualSubTab("desktop")}
-                      className={`px-4 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
-                        visualSubTab === "desktop"
-                          ? "bg-card text-foreground shadow-sm"
-                          : "text-foreground/40 hover:text-foreground/60"
-                      }`}
-                    >
-                      Desktop
-                    </button>
-                    <button
-                      onClick={() => setVisualSubTab("social")}
-                      className={`px-4 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
-                        visualSubTab === "social"
-                          ? "bg-card text-foreground shadow-sm"
-                          : "text-foreground/40 hover:text-foreground/60"
-                      }`}
-                    >
-                      Réseaux sociaux
-                    </button>
-                  </div>
+                  <SlidingTabs
+                    value={visualSubTab}
+                    onChange={setVisualSubTab}
+                    tabs={[
+                      { id: "charte", label: "Charte Graphique" },
+                      { id: "desktop", label: "Desktop" },
+                      { id: "social", label: "Réseaux sociaux" },
+                      { id: "showcase", label: "Showcase" },
+                    ]}
+                  />
                   {/* Filtre de format : tous / desktop / mobile */}
-                  <div className="flex bg-foreground/[0.04] rounded-lg p-0.5 gap-0.5 w-fit">
-                    <button onClick={() => setAssetFormat("all")} className={fmtBtn("all")}>Tous</button>
-                    <button onClick={() => setAssetFormat("desktop")} className={fmtBtn("desktop")}>
-                      <Monitor className="w-3.5 h-3.5" /> Desktop
-                    </button>
-                    <button onClick={() => setAssetFormat("mobile")} className={fmtBtn("mobile")}>
-                      <Smartphone className="w-3.5 h-3.5" /> Mobile
-                    </button>
-                  </div>
+                  <SlidingTabs
+                    value={assetFormat}
+                    onChange={setAssetFormat}
+                    itemClassName="px-3"
+                    tabs={[
+                      { id: "all", label: "Tous" },
+                      { id: "desktop", label: (<><Monitor className="w-3.5 h-3.5" /> Desktop</>) },
+                      { id: "mobile", label: (<><Smartphone className="w-3.5 h-3.5" /> Mobile</>) },
+                    ]}
+                  />
                 </div>
 
                 {/* Avertissement : typo identifiée par son nom mais sans source
                     chargeable (ni URL ni fichier importé) → le visuel tombe sur une
                     police de substitution. Même condition que le ⚠️ du panneau Typographie. */}
                 {fontName && !fontUrl && !localFontFile && (
-                  <div className="max-w-5xl mx-auto -mt-8 mb-12 flex items-start gap-2.5 px-4 py-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
-                    <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5" />
-                    <p className="text-[12px] leading-relaxed">
-                      <span className="font-semibold">Police «&nbsp;{fontName}&nbsp;» sans source chargeable.</span>{" "}
-                      Le visuel utilise une police de substitution — importe le fichier de la police dans le panneau <span className="font-semibold">Typographie</span> à gauche pour un rendu fidèle.
-                    </p>
+                  <div className="max-w-5xl mx-auto -mt-8 mb-12 flex items-start gap-3 px-4 py-3.5 rounded-lg border border-amber-500/40 bg-amber-500/[0.08]">
+                    <span className="shrink-0 mt-0.5 flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white">
+                      <TriangleAlert className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    </span>
+                    <div className="text-[12.5px] leading-relaxed">
+                      <p className="font-semibold text-foreground">
+                        Police «&nbsp;{fontName}&nbsp;» sans source chargeable
+                      </p>
+                      <p className="text-foreground/60 mt-0.5">
+                        Le visuel utilise une police de substitution. Importe le fichier de la police dans le panneau{" "}
+                        <span className="font-semibold text-foreground/80">Typographie</span> (à gauche) pour un rendu fidèle.
+                      </p>
+                    </div>
                   </div>
                 )}
 
@@ -1035,6 +1019,12 @@ export default function Home() {
                     Les visuels « Réseaux sociaux » sont tous au format mobile (1080×1350) — rien en Desktop.
                   </div>
                 ))}
+
+                {visualSubTab === "showcase" && (
+                  <div className="max-w-5xl mx-auto">
+                    <ShowcaseSection />
+                  </div>
+                )}
               </div>
             )}
 

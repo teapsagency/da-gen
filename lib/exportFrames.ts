@@ -1,8 +1,12 @@
 import { toBlob, toCanvas } from 'html-to-image';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
-import type { SectorAsset } from '@/types';
+import type { SectorAsset, ShowcaseSlide } from '@/types';
 import { ASSET_DIMS } from './sectorThemes';
+
+// Dimensions natives d'une slide Showcase (16:9).
+const SHOWCASE_W = 1920;
+const SHOWCASE_H = 1080;
 
 export const sanitizeName = (name: string) =>
   name
@@ -215,6 +219,39 @@ export async function exportSectorAssetsPack(clientName: string, assets: SectorA
   }
   const content = await zip.generateAsync({ type: 'blob' });
   saveAs(content, `${name}_assets_secteur.zip`);
+}
+
+// ─── Carrousel Showcase ───
+// Id DOM de l'instance offscreen d'une slide (capturée à l'export).
+export function showcaseSlideExportId(id: string) {
+  return `showcase-slide-${id}`;
+}
+
+// Nom de fichier par défaut d'une slide : numéroté (showcase-1, showcase-2, …).
+export const defaultShowcaseName = (index: number) => `showcase-${index + 1}`;
+
+const showcaseName = (slide: ShowcaseSlide, fallback: string) =>
+  sanitizeName(slide.name?.trim() ? slide.name : fallback);
+
+// Export PNG unitaire d'une slide Showcase (rectangle plein 16:9, non recadré).
+export async function exportShowcaseSlide(slide: ShowcaseSlide, defaultName: string, scale = 1) {
+  const blob = await captureFrame(showcaseSlideExportId(slide.id), SHOWCASE_W, SHOWCASE_H, scale);
+  if (blob) saveAs(blob, `${showcaseName(slide, defaultName)}.png`);
+}
+
+// Pack ZIP de toutes les slides (dossier showcase/) — noms numérotés (édités si nommés).
+export async function exportShowcaseSlidesPack(clientName: string, slides: ShowcaseSlide[], scale = 1) {
+  const name = sanitizeName(clientName);
+  const zip = new JSZip();
+  const folder = zip.folder('showcase');
+  if (folder) {
+    for (let i = 0; i < slides.length; i++) {
+      const blob = await captureFrame(showcaseSlideExportId(slides[i].id), SHOWCASE_W, SHOWCASE_H, scale);
+      if (blob) folder.file(`${showcaseName(slides[i], defaultShowcaseName(i))}.png`, blob);
+    }
+  }
+  const content = await zip.generateAsync({ type: 'blob' });
+  saveAs(content, `${name}_showcase.zip`);
 }
 
 // Pack complet : charte graphique + visuels desktop + réseaux sociaux,

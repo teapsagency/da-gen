@@ -28,6 +28,8 @@ type Props = {
   previews: PreviewSpec[];
   /** Position verticale courante (0 = haut, 1 = bas) pour pré-positionner la bande. */
   initialY?: number;
+  /** Note de portée affichée en en-tête (défaut : « appliqué à tous les visuels »). */
+  scopeNote?: string;
   /** Reçoit la position verticale normalisée choisie (0..1). */
   onConfirm: (regionY: number) => void;
   onClose: () => void;
@@ -41,7 +43,7 @@ type Props = {
  * Comme desktop et mobile n'ont pas la même hauteur ni le même layout, la même
  * position tombe sur une section différente — d'où les deux aperçus côte à côte.
  */
-export function RegionPicker({ navSource, navAspect, previews, initialY = 0, onConfirm, onClose }: Props) {
+export function RegionPicker({ navSource, navAspect, previews, initialY = 0, scopeNote = "Glisse la bande — appliqué à tous les visuels (desktop & mobile)", onConfirm, onClose }: Props) {
   // Panneau de navigation (page entière) ajusté en hauteur.
   const [nav, setNav] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [top, setTop] = useState(0); // haut de la bande, en px d'affichage nav
@@ -117,7 +119,7 @@ export function RegionPicker({ navSource, navAspect, previews, initialY = 0, onC
       >
         <div className="flex items-center justify-between gap-6">
           <span className="text-xs font-bold uppercase tracking-widest text-foreground/50">Choisir la zone</span>
-          <span className="text-[11px] text-foreground/40">Glisse la bande — appliqué à tous les visuels (desktop &amp; mobile)</span>
+          <span className="text-[11px] text-foreground/40">{scopeNote}</span>
         </div>
 
         <div style={{ display: "flex", gap: "18px", alignItems: "flex-start" }}>

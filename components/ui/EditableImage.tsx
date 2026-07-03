@@ -29,6 +29,20 @@ type Props = {
    * zone apparaît au survol.
    */
   regionSource?: string;
+  /**
+   * Zone PAR-INSTANCE (ex. une slide Showcase) plutôt que le regionY global.
+   * Quand fournis : le sélecteur écrit dans `onRegionChange` au lieu du store
+   * global, et l'aperçu du picker ne montre qu'un seul appareil (`regionDevice`).
+   */
+  regionValue?: number;
+  onRegionChange?: (regionY: number) => void;
+  regionDevice?: "desktop" | "mobile";
+  /**
+   * Quand false, EditableImage n'applique PAS lui-même l'object-position de la
+   * zone (l'appelant s'en charge, ex. Showcase qui étale la zone sur N mockups).
+   * Le bouton « Zone » reste affiché. Défaut true.
+   */
+  applyRegion?: boolean;
 };
 
 /**
@@ -49,12 +63,19 @@ export function EditableImage({
   wrapperStyle,
   editable = true,
   regionSource,
+  regionValue,
+  onRegionChange,
+  regionDevice,
+  applyRegion = true,
 }: Props) {
   const customSrc = useDAStore((s) => s.customScreenshots[slotKey]);
   const setCustomScreenshot = useDAStore((s) => s.setCustomScreenshot);
-  const regionY = useDAStore((s) => s.regionY);
-  const setRegionY = useDAStore((s) => s.setRegionY);
+  const globalRegionY = useDAStore((s) => s.regionY);
+  const globalSetRegionY = useDAStore((s) => s.setRegionY);
   const activeScreenshots = useActiveScreenshots();
+  // Zone par-instance (Showcase) si fournie, sinon le regionY global partagé.
+  const regionY = regionValue ?? globalRegionY;
+  const applyRegionValue = (ry: number) => (onRegionChange ?? globalSetRegionY)(ry);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -62,10 +83,11 @@ export function EditableImage({
   // scale du preview). Selon que le slot cliqué est paysage ou portrait, on
   // l'utilise comme ratio de l'aperçu desktop OU mobile ; l'autre prend un ratio
   // par défaut. La popup montre TOUJOURS les deux aperçus (regionY est global).
-  const [picker, setPicker] = useState<{ open: boolean; desktopAspect: number; mobileAspect: number }>({
+  const [picker, setPicker] = useState<{ open: boolean; desktopAspect: number; mobileAspect: number; slotAspect: number }>({
     open: false,
     desktopAspect: 1.3,
     mobileAspect: 0.46,
+    slotAspect: 1.3,
   });
 
   const openPicker = (e: React.MouseEvent) => {
@@ -75,6 +97,8 @@ export function EditableImage({
     const portrait = a < 1;
     setPicker({
       open: true,
+      // Ratio brut du slot (mockup) — utilisé pour l'aperçu mono-appareil (Showcase).
+      slotAspect: a,
       // Le slot ouvrant la popup affiche toujours une capture DESKTOP : son ratio
       // pilote donc l'aperçu desktop (paysage → le ratio réel ; portrait → 1.3
       // par défaut). L'aperçu MOBILE représente toujours un téléphone → ratio
@@ -93,7 +117,7 @@ export function EditableImage({
   // Zone de capture globale : quand regionY > 0 et qu'une source pleine page est
   // fournie, on affiche cette source pan­née verticalement (object-position). Un
   // upload custom prime et n'est jamais déplacé.
-  const regionActive = !hasCustom && !!regionSource && regionY > 0;
+  const regionActive = applyRegion && !hasCustom && !!regionSource && regionY > 0;
   const effectiveSrc = customSrc || (regionActive ? (regionSource as string) : src);
   const effectiveStyle: CSSProperties = regionActive
     ? { ...style, objectFit: "cover", objectPosition: `center ${regionY * 100}%` }
@@ -334,27 +358,52 @@ export function EditableImage({
             style={{ display: "none" }}
           />
 
-          {picker.open && regionSource && desktopRegionSrc && (
-            <RegionPicker
-              navSource={desktopRegionSrc}
-              navAspect={picker.desktopAspect}
-              previews={[
-                // Desktop : mockup non rogné (montre toute l'image) → visibleRatio 1.
-                { label: "Desktop", source: desktopRegionSrc, aspect: picker.desktopAspect, visibleRatio: 1 },
-                // Mobile : le mockup « téléphone » dépasse le cadre et n'en montre
-                // que ~85 % par le haut → on rogne pareil pour coller à l'asset
-                // (et masquer la fine bande blanche tout en bas de la capture).
-                ...(mobileRegionSrc ? [{ label: "Mobile", source: mobileRegionSrc, aspect: picker.mobileAspect, visibleRatio: 0.85 }] : []),
-              ]}
-              initialY={regionY}
-              onConfirm={(ry) => {
-                setRegionY(ry);
-                setPicker((p) => ({ ...p, open: false }));
-                toast.success("Zone appliquée à tous les visuels");
-              }}
-              onClose={() => setPicker((p) => ({ ...p, open: false }))}
-            />
-          )}
+          {picker.open && regionSource && (() => {
+            // Mode par-slide (Showcase) : un seul aperçu, celui de l'appareil du
+            // mockup, au ratio réel du slot. Sinon : aperçus desktop + mobile
+            // (zone globale partagée).
+            if (regionDevice) {
+              const src = regionDevice === "mobile" ? mobileRegionSrc : desktopRegionSrc;
+              if (!src) return null;
+              return (
+                <RegionPicker
+                  navSource={src}
+                  navAspect={picker.slotAspect}
+                  previews={[{ label: regionDevice === "mobile" ? "Mobile" : "Desktop", source: src, aspect: picker.slotAspect, visibleRatio: 1 }]}
+                  initialY={regionY}
+                  scopeNote="Glisse la bande — appliqué à cette slide"
+                  onConfirm={(ry) => {
+                    applyRegionValue(ry);
+                    setPicker((p) => ({ ...p, open: false }));
+                    toast.success("Zone appliquée à la slide");
+                  }}
+                  onClose={() => setPicker((p) => ({ ...p, open: false }))}
+                />
+              );
+            }
+            if (!desktopRegionSrc) return null;
+            return (
+              <RegionPicker
+                navSource={desktopRegionSrc}
+                navAspect={picker.desktopAspect}
+                previews={[
+                  // Desktop : mockup non rogné (montre toute l'image) → visibleRatio 1.
+                  { label: "Desktop", source: desktopRegionSrc, aspect: picker.desktopAspect, visibleRatio: 1 },
+                  // Mobile : le mockup « téléphone » dépasse le cadre et n'en montre
+                  // que ~85 % par le haut → on rogne pareil pour coller à l'asset
+                  // (et masquer la fine bande blanche tout en bas de la capture).
+                  ...(mobileRegionSrc ? [{ label: "Mobile", source: mobileRegionSrc, aspect: picker.mobileAspect, visibleRatio: 0.85 }] : []),
+                ]}
+                initialY={regionY}
+                onConfirm={(ry) => {
+                  applyRegionValue(ry);
+                  setPicker((p) => ({ ...p, open: false }));
+                  toast.success("Zone appliquée à tous les visuels");
+                }}
+                onClose={() => setPicker((p) => ({ ...p, open: false }))}
+              />
+            );
+          })()}
         </>
       )}
     </div>

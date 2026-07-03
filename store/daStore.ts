@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware';
 import { DAStore, GeminiApiKey, GeneratedContent, PreviewFormat, PreviewImageRef, ScrapeResult, SocialIdentity } from '@/types';
 import { DEFAULT_CONTENT_PROMPT, DEFAULT_GEMINI_MODEL } from '@/lib/defaultPrompt';
 import { makeSectorAsset } from '@/lib/sectorThemes';
+import { makeShowcaseSlide, makeDefaultShowcaseSlides } from '@/lib/showcase';
+import { deriveMeshBase } from '@/lib/meshGradient';
 
 type LegacyPersistedState = Partial<{
   geminiApiKey: string;
@@ -33,6 +35,24 @@ export const useDAStore = create<DAStore>()(
         fontUrl: p.fontUrl,
         fontUppercase: p.fontUppercase ?? false,
         showcaseWording: p.showcaseWording ?? 'focus',
+        // Anciens projets (avant le carrousel Showcase) : seed depuis la palette.
+        // Slides existantes sans regionY/tilt (versions antérieures) : on comble
+        // avec une zone étalée par index pour ne pas montrer 2× le même endroit.
+        showcaseSlides: p.showcaseSlides?.length
+          ? p.showcaseSlides.map((s, i) => ({
+              ...s,
+              regionY: s.regionY ?? Math.min(0.7, i * 0.2),
+              tilt: s.tilt ?? 0,
+              // Défaut d'escalier déduit si absent : mobile 2 = descend, 3+ = monte.
+              stagger: s.stagger ?? (s.device === 'mobile' && s.count > 1 ? (s.count >= 3 ? -0.7 : 0.7) : 0),
+            }))
+          : makeDefaultShowcaseSlides(
+              (p.selectedColors?.length ? p.selectedColors : p.scrapeResult?.colors.map((c) => c.hex)) ?? [],
+            ),
+        // Base commune : valeur enregistrée, sinon celle d'une slide existante, sinon dérivée.
+        showcaseMeshBase: p.showcaseMeshBase
+          ?? p.showcaseSlides?.[0]?.mesh.base
+          ?? deriveMeshBase((p.selectedColors?.length ? p.selectedColors : p.scrapeResult?.colors.map((c) => c.hex)) ?? []),
         bgColor: p.bgColor ?? '#f5f5f5',
         borderRadius: p.borderRadius ?? 28,
         logoScale: p.logoScale ?? 1,
@@ -72,6 +92,9 @@ export const useDAStore = create<DAStore>()(
         fontUrl: result.font.url,
         fontUppercase: result.headingUppercase ?? false,
         bgColor: result.siteBgColor || '#FFFFFF',
+        // Nouveau site → carrousel Showcase reseedé sur sa charte (4 slides par défaut).
+        showcaseSlides: makeDefaultShowcaseSlides(result.colors.slice(0, 4).map((c) => c.hex)),
+        showcaseMeshBase: deriveMeshBase(result.colors.slice(0, 4).map((c) => c.hex)),
         activePageIndex: 0,
         sitemapUrls: [],
         sitemapSource: null,
@@ -167,6 +190,24 @@ export const useDAStore = create<DAStore>()(
 
       showcaseWording: 'focus',
       setShowcaseWording: (w) => set({ showcaseWording: w }),
+
+      // ─── Carrousel Showcase 16:9 ───
+      showcaseSlides: [],
+      setShowcaseSlides: (slides) => set({ showcaseSlides: slides }),
+      showcaseMeshBase: '#8f9399',
+      setShowcaseMeshBase: (color) => set({ showcaseMeshBase: color }),
+      addShowcaseSlide: () => set((state) => {
+        const palette = state.selectedColors.length
+          ? state.selectedColors
+          : state.scrapeResult?.colors.map((c) => c.hex) ?? [];
+        return { showcaseSlides: [...state.showcaseSlides, makeShowcaseSlide(palette, state.showcaseSlides.length)] };
+      }),
+      removeShowcaseSlide: (id) => set((state) => ({
+        showcaseSlides: state.showcaseSlides.filter((s) => s.id !== id),
+      })),
+      updateShowcaseSlide: (id, patch) => set((state) => ({
+        showcaseSlides: state.showcaseSlides.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+      })),
 
       regionY: 0,
       setRegionY: (v: number) => set({ regionY: Math.min(1, Math.max(0, v)) }),
@@ -279,6 +320,8 @@ export const useDAStore = create<DAStore>()(
           fontUrl: undefined,
           fontUppercase: false,
           showcaseWording: 'focus',
+          showcaseSlides: [],
+          showcaseMeshBase: '#8f9399',
           bgColor: '#f5f5f5',
           borderRadius: 28,
           logoScale: 1,

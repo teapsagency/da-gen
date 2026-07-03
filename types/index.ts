@@ -146,6 +146,44 @@ export type SectorAsset = {
   layers: AssetLayer[]; // calques flottants (ordre = ordre d'ajout)
 };
 
+// ─── Mesh gradient (fond des visuels « Showcase ») ───
+// Un point de couleur du dégradé multi-points : centre en fraction (0..1) de la
+// frame + rayon (0..1, demi-taille de l'ellipse en fraction de la boîte).
+export type MeshPoint = {
+  id: string;
+  color: string;
+  x: number;
+  y: number;
+  radius: number;
+};
+// Le fond mesh : couleur de base sous les points + liste de points. `accent`
+// mémorise la couleur de marque déduite (couleur par défaut d'un point ajouté).
+export type MeshGradient = {
+  base: string;
+  points: MeshPoint[];
+  accent?: string;
+};
+
+// Appareil affiché sur la planche « Showcase » (16:9).
+export type ShowcaseDevice = 'desktop' | 'mobile';
+
+// Une slide du carrousel « Showcase » : un ou plusieurs mockups (device + nombre)
+// flottant sur un fond mesh gradient propre à la slide. Nom d'export éditable.
+// `regionY` = position verticale de la capture (0 = haut, 1 = bas ; les mockups
+// multiples s'étalent autour). `tilt` = inclinaison des mockups en degrés (0 = droit).
+// `stagger` = décalage vertical en escalier des mockups (−1..1 ; >0 = descend de
+// gauche à droite, <0 = monte ; 0 = alignés). Surtout utile en mobile.
+export type ShowcaseSlide = {
+  id: string;
+  name?: string;
+  device: ShowcaseDevice;
+  count: number;
+  regionY: number;
+  tilt: number;
+  stagger: number;
+  mesh: MeshGradient;
+};
+
 export type SitemapStatus = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
 
 // The slice of state that belongs to a single project (persisted in IndexedDB).
@@ -169,6 +207,11 @@ export type ProjectSnapshot = {
   fontUppercase: boolean;
   // Wording du titre des frames showcase client (06 & 07).
   showcaseWording: 'focus' | 'nouvelle';
+  // Carrousel « Showcase » 16:9 : liste de slides (mockups + fond mesh gradient),
+  // seedée depuis la charte au scrape puis éditable.
+  showcaseSlides: ShowcaseSlide[];
+  // Couleur de fond du mesh, COMMUNE à toutes les slides (projet-global).
+  showcaseMeshBase: string;
   regionY: number;
   localFontFile: string | null;
   importedFonts: Record<string, string>;
@@ -292,6 +335,17 @@ export type DAStore = {
   // 'focus' = « Focus Client », 'nouvelle' = « Nouvelle réalisation ».
   showcaseWording: 'focus' | 'nouvelle';
   setShowcaseWording: (w: 'focus' | 'nouvelle') => void;
+
+  // Carrousel « Showcase » 16:9 (par projet) : liste de slides éditables. Les
+  // modifs de mesh passent par updateShowcaseSlide(id, { mesh }) depuis l'éditeur.
+  showcaseSlides: ShowcaseSlide[];
+  setShowcaseSlides: (slides: ShowcaseSlide[]) => void;
+  addShowcaseSlide: () => void;
+  removeShowcaseSlide: (id: string) => void;
+  updateShowcaseSlide: (id: string, patch: Partial<ShowcaseSlide>) => void;
+  // Couleur de fond commune du carrousel (projet-global).
+  showcaseMeshBase: string;
+  setShowcaseMeshBase: (color: string) => void;
 
   // Zone de capture globale : position verticale (0 = haut, 1 = bas) de la
   // région de la page affichée par les visuels desktop/mobile. 0 = comportement
