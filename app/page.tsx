@@ -30,6 +30,7 @@ import { Frame8_Social_CardSite } from "@/components/frames/Frame8_Social_CardSi
 import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_BoardDesktop";
 import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
 import { ShowcaseSection } from "@/components/showcase/ShowcaseSection";
+import { MotionStudio } from "@/components/motion/MotionStudio";
 import { SlidingTabs } from "@/components/ui/SlidingTabs";
 import { PreviewStage } from "@/components/preview/PreviewStage";
 import { PreviewSidebar } from "@/components/preview/PreviewSidebar";
@@ -154,7 +155,7 @@ export default function Home() {
     },
     [loadProjectData],
   );
-  const [visualSubTab, setVisualSubTab] = React.useState<"charte" | "desktop" | "social" | "showcase">("charte");
+  const [visualSubTab, setVisualSubTab] = React.useState<"charte" | "desktop" | "social" | "showcase" | "motion">("charte");
   // Filtre de format des assets (à droite de la ligne des sous-onglets).
   const [assetFormat, setAssetFormat] = React.useState<"all" | "desktop" | "mobile">("all");
   const showFmt = (fmt: "desktop" | "mobile") => assetFormat === "all" || assetFormat === fmt;
@@ -894,6 +895,7 @@ export default function Home() {
                       { id: "desktop", label: "Desktop" },
                       { id: "social", label: "Réseaux sociaux" },
                       { id: "showcase", label: "Showcase" },
+                      { id: "motion", label: "Motion" },
                     ]}
                   />
                   {/* Filtre de format : tous / desktop / mobile */}
@@ -1025,6 +1027,8 @@ export default function Home() {
                     <ShowcaseSection />
                   </div>
                 )}
+
+                {visualSubTab === "motion" && <MotionStudio />}
               </div>
             )}
 

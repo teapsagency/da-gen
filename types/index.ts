@@ -167,6 +167,10 @@ export type MeshGradient = {
 // Appareil affiché sur la planche « Showcase » (16:9).
 export type ShowcaseDevice = 'desktop' | 'mobile';
 
+// Réglages du fond animé du Motion (par projet). `accent` null = dérivé de la
+// palette ; `speed`/`intensity` = multiplicateurs du mouvement / de l'opacité des blobs.
+export type MotionBgSettings = { accent: string | null; speed: number; intensity: number };
+
 // Une slide du carrousel « Showcase » : un ou plusieurs mockups (device + nombre)
 // flottant sur un fond mesh gradient propre à la slide. Nom d'export éditable.
 // `regionY` = position verticale de la capture (0 = haut, 1 = bas ; les mockups
@@ -212,6 +216,8 @@ export type ProjectSnapshot = {
   showcaseSlides: ShowcaseSlide[];
   // Couleur de fond du mesh, COMMUNE à toutes les slides (projet-global).
   showcaseMeshBase: string;
+  // Fond animé du Motion Studio (par projet).
+  motionBg: MotionBgSettings;
   regionY: number;
   localFontFile: string | null;
   importedFonts: Record<string, string>;
@@ -346,6 +352,10 @@ export type DAStore = {
   // Couleur de fond commune du carrousel (projet-global).
   showcaseMeshBase: string;
   setShowcaseMeshBase: (color: string) => void;
+
+  // Fond animé du Motion Studio (par projet) — patch partiel.
+  motionBg: MotionBgSettings;
+  setMotionBg: (patch: Partial<MotionBgSettings>) => void;
 
   // Zone de capture globale : position verticale (0 = haut, 1 = bas) de la
   // région de la page affichée par les visuels desktop/mobile. 0 = comportement

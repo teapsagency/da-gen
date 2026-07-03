@@ -9,6 +9,8 @@ type Tab<T extends string> = { id: T; label: React.ReactNode };
  * le fond blanc s'anime vers celui-ci (retour à l'onglet actif quand la souris
  * quitte le groupe). Position/largeur mesurées sur les boutons (offsetLeft/Width),
  * recalculées au survol, au changement de valeur et au resize.
+ * Au clic : effet de pression — pilule + label se compressent (scale 0.94) le
+ * temps de l'appui, puis se relâchent avec un léger ressort (ease-out-back).
  */
 export function SlidingTabs<T extends string>({
   tabs,
@@ -24,6 +26,7 @@ export function SlidingTabs<T extends string>({
 }) {
   const btnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [hovered, setHovered] = useState<T | null>(null);
+  const [pressed, setPressed] = useState<T | null>(null);
   const [ind, setInd] = useState<{ left: number; width: number } | null>(null);
 
   const target = hovered ?? value;
@@ -54,10 +57,16 @@ export function SlidingTabs<T extends string>({
           style={{
             left: ind.left,
             width: ind.width,
+            // Pression : la pilule se compresse sous le doigt (rapide), puis se
+            // relâche avec un léger ressort — même personnalité que la glisse.
+            transform: pressed !== null && pressed === target ? "scale(0.94)" : "scale(1)",
             // Position avec un léger dépassement/settle (ressort discret) ; la
             // largeur suit en douceur → effet « glisse et se cale ».
             transition:
-              "left 300ms cubic-bezier(0.34, 1.4, 0.5, 1), width 260ms cubic-bezier(0.22, 1, 0.36, 1)",
+              "left 300ms cubic-bezier(0.34, 1.4, 0.5, 1), width 260ms cubic-bezier(0.22, 1, 0.36, 1), transform " +
+              (pressed !== null
+                ? "100ms cubic-bezier(0.2, 0, 0, 1)"
+                : "280ms cubic-bezier(0.34, 1.56, 0.64, 1)"),
           }}
         />
       )}
@@ -69,11 +78,27 @@ export function SlidingTabs<T extends string>({
           }}
           onClick={() => onChange(t.id)}
           onMouseEnter={() => setHovered(t.id)}
-          className={`relative z-10 ${itemClassName} py-1.5 text-[11px] font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+          onPointerDown={() => setPressed(t.id)}
+          onPointerUp={() => setPressed(null)}
+          onPointerLeave={() => setPressed((p) => (p === t.id ? null : p))}
+          className={`relative z-10 ${itemClassName} py-1.5 text-[11px] font-semibold rounded-md transition-colors cursor-pointer whitespace-nowrap select-none ${
             target === t.id ? "text-foreground" : "text-foreground/40"
           }`}
         >
-          {t.label}
+          {/* Le label suit la compression de la pilule (même timing) pour que
+              pilule + texte réagissent comme un seul objet. */}
+          <span
+            className="flex items-center gap-1.5"
+            style={{
+              transform: pressed === t.id ? "scale(0.94)" : "scale(1)",
+              transition:
+                pressed === t.id
+                  ? "transform 100ms cubic-bezier(0.2, 0, 0, 1)"
+                  : "transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+            }}
+          >
+            {t.label}
+          </span>
         </button>
       ))}
     </div>

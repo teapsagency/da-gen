@@ -53,6 +53,7 @@ export const useDAStore = create<DAStore>()(
         showcaseMeshBase: p.showcaseMeshBase
           ?? p.showcaseSlides?.[0]?.mesh.base
           ?? deriveMeshBase((p.selectedColors?.length ? p.selectedColors : p.scrapeResult?.colors.map((c) => c.hex)) ?? []),
+        motionBg: p.motionBg ?? { accent: null, speed: 1, intensity: 1 },
         bgColor: p.bgColor ?? '#f5f5f5',
         borderRadius: p.borderRadius ?? 28,
         logoScale: p.logoScale ?? 1,
@@ -95,6 +96,7 @@ export const useDAStore = create<DAStore>()(
         // Nouveau site → carrousel Showcase reseedé sur sa charte (4 slides par défaut).
         showcaseSlides: makeDefaultShowcaseSlides(result.colors.slice(0, 4).map((c) => c.hex)),
         showcaseMeshBase: deriveMeshBase(result.colors.slice(0, 4).map((c) => c.hex)),
+        motionBg: { accent: null, speed: 1, intensity: 1 },
         activePageIndex: 0,
         sitemapUrls: [],
         sitemapSource: null,
@@ -196,6 +198,10 @@ export const useDAStore = create<DAStore>()(
       setShowcaseSlides: (slides) => set({ showcaseSlides: slides }),
       showcaseMeshBase: '#8f9399',
       setShowcaseMeshBase: (color) => set({ showcaseMeshBase: color }),
+
+      // Fond animé du Motion Studio (accent null = dérivé de la palette).
+      motionBg: { accent: null, speed: 1, intensity: 1 },
+      setMotionBg: (patch) => set((state) => ({ motionBg: { ...state.motionBg, ...patch } })),
       addShowcaseSlide: () => set((state) => {
         const palette = state.selectedColors.length
           ? state.selectedColors
@@ -322,6 +328,7 @@ export const useDAStore = create<DAStore>()(
           showcaseWording: 'focus',
           showcaseSlides: [],
           showcaseMeshBase: '#8f9399',
+          motionBg: { accent: null, speed: 1, intensity: 1 },
           bgColor: '#f5f5f5',
           borderRadius: 28,
           logoScale: 1,

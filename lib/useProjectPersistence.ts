@@ -26,6 +26,7 @@ const pickSnapshot = (s: DAStore): ProjectSnapshot => ({
   showcaseWording: s.showcaseWording,
   showcaseSlides: s.showcaseSlides,
   showcaseMeshBase: s.showcaseMeshBase,
+  motionBg: s.motionBg,
   bgColor: s.bgColor,
   borderRadius: s.borderRadius,
   logoScale: s.logoScale,
