@@ -122,6 +122,7 @@ export type AssetLayer = {
   y: number;
   iconName?: string;   // type 'icon' ou glyphe custom d'une 'pill' (nom Lucide)
   iconEmoji?: string;  // type 'icon' ou glyphe custom d'une 'pill' (emoji)
+  imageSrc?: string;   // type 'icon' : image custom importée (dataUrl) — prioritaire sur iconName/iconEmoji
   iconColor?: string;  // type 'icon' : couleur du glyphe Lucide (défaut TEAPS_ACCENT)
   brandSlug?: string;  // type 'brand' (simple-icons)
   hideLabel?: boolean; // type 'brand' : logo seul (sans le nom de la marque)

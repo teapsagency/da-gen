@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { icons, Briefcase, X, GripVertical, ImagePlus, type LucideIcon } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
 import { ASSET_DIMS, TEAPS_ACCENT } from "@/lib/sectorThemes";
@@ -8,6 +8,52 @@ import type { AssetLayer, SectorAsset } from "@/types";
 const ICON_RECORD = icons as unknown as Record<string, LucideIcon>;
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
+/**
+ * Texte d'un calque (pilule/badge) éditable en place : contentEditable NON
+ * contrôlé (le contenu est posé impérativement via ref, resynchronisé seulement
+ * hors édition) → pas de reset du curseur quand le parent re-rend pendant la
+ * frappe. Commit au blur / Entrée.
+ */
+function EditableLayerText({
+  value,
+  onCommit,
+  style,
+}: {
+  value: string;
+  onCommit: (t: string) => void;
+  style: React.CSSProperties;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    if (!editing && ref.current && ref.current.textContent !== value) {
+      ref.current.textContent = value;
+    }
+  }, [value, editing]);
+  return (
+    <span
+      ref={ref}
+      contentEditable
+      suppressContentEditableWarning
+      spellCheck={false}
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onFocus={() => setEditing(true)}
+      onBlur={(e) => {
+        setEditing(false);
+        onCommit(e.currentTarget.textContent ?? "");
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        }
+      }}
+      style={{ outline: "none", cursor: "text", ...style }}
+    />
+  );
+}
+
 type Props = {
   asset: SectorAsset;
   id?: string;
@@ -15,6 +61,12 @@ type Props = {
   onMoveLayer?: (id: string, x: number, y: number) => void;
   onRemoveLayer?: (id: string) => void;
   onImageClick?: () => void;
+  // Clic sur le corps d'un calque icône/logo → ouvre le picker (côté parent).
+  onEditLayer?: (id: string) => void;
+  // Édition en place du texte d'un calque pilule/badge (commit au blur/Entrée).
+  onEditText?: (id: string, text: string) => void;
+  // Clic sur le glyphe d'une pilule → ouvre le picker de glyphe (côté parent).
+  onEditGlyph?: (id: string) => void;
 };
 
 /**
@@ -22,7 +74,7 @@ type Props = {
  * overlay bleu TEAPS, entourée de calques (`asset.layers`) déplaçables via une
  * poignée. Fond de card TRANSPARENT → export PNG transparent.
  */
-export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImageClick }: Props) => {
+export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImageClick, onEditLayer, onEditText, onEditGlyph }: Props) => {
   const agencyLogo = useDAStore((s) => s.agencyLogo);
   const accent = TEAPS_ACCENT;
   const interactive = !id;
@@ -75,6 +127,32 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
   const renderLayer = (layer: AssetLayer) => {
     switch (layer.type) {
       case "icon": {
+        // Image/logo custom : la pastille garde une HAUTEUR fixe (= iconBox) mais
+        // sa LARGEUR s'adapte au ratio de l'image (logo large → boîte large, pas
+        // une pastille carrée avec du vide sur les côtés).
+        if (layer.imageSrc) {
+          const padX = Math.round(iconBox * 0.2);
+          const glyphH = Math.round(iconBox * 0.6);
+          return (
+            <div
+              style={{
+                height: iconBox,
+                borderRadius: boxR(layer.radius),
+                background: "#fff",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: `0 ${padX}px`,
+                boxSizing: "border-box",
+                boxShadow: chipShadow,
+                border: chipBorder,
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={layer.imageSrc} alt="" style={{ height: glyphH, width: "auto", objectFit: "contain", display: "block" }} />
+            </div>
+          );
+        }
         const Icon = ICON_RECORD[layer.iconName ?? "Briefcase"] ?? Briefcase;
         return (
           <div
@@ -109,11 +187,26 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
       case "pill": {
         const PillIcon = layer.iconName ? ICON_RECORD[layer.iconName] ?? Briefcase : null;
         // Glyphe : emoji custom → icône Lucide custom → rien.
-        const glyph = layer.iconEmoji ? (
+        const rawGlyph = layer.iconEmoji ? (
           <span style={{ fontSize: chipFont * 1.1, lineHeight: 1, flexShrink: 0 }}>{layer.iconEmoji}</span>
         ) : PillIcon ? (
           <PillIcon style={{ width: chipFont * 1.15, height: chipFont * 1.15, color: accent, flexShrink: 0 }} strokeWidth={2.4} />
         ) : null;
+        // En aperçu, le glyphe est cliquable → ouvre le picker de glyphe.
+        const glyph =
+          rawGlyph && interactive && onEditGlyph ? (
+            <span
+              onClick={(e) => { e.stopPropagation(); onEditGlyph(layer.id); }}
+              onPointerDown={(e) => e.stopPropagation()}
+              title="Changer le glyphe"
+              style={{ display: "inline-flex", cursor: "pointer", flexShrink: 0 }}
+            >
+              {rawGlyph}
+            </span>
+          ) : (
+            rawGlyph
+          );
+        const textStyle: React.CSSProperties = { fontWeight: 700, fontSize: `${chipFont}px`, color: "#111", lineHeight: 1.1 };
         return (
           <div
             style={{
@@ -130,7 +223,11 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
             }}
           >
             {glyph}
-            <span style={{ fontWeight: 700, fontSize: `${chipFont}px`, color: "#111", lineHeight: 1.1 }}>{layer.text}</span>
+            {interactive && onEditText ? (
+              <EditableLayerText value={layer.text ?? ""} onCommit={(t) => onEditText(layer.id, t)} style={textStyle} />
+            ) : (
+              <span style={textStyle}>{layer.text}</span>
+            )}
           </div>
         );
       }
@@ -148,7 +245,11 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
               whiteSpace: "nowrap",
             }}
           >
-            {layer.text}
+            {interactive && onEditText ? (
+              <EditableLayerText value={layer.text ?? ""} onCommit={(t) => onEditText(layer.id, t)} style={{ color: "#fff" }} />
+            ) : (
+              layer.text
+            )}
           </div>
         );
       case "brand": {
@@ -300,6 +401,11 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
       {/* Calques flottants */}
       {asset.layers.map((layer) => {
         const showControls = interactive && (hoveredId === layer.id || draggingId === layer.id);
+        // Corps cliquable → ouvre le picker, uniquement pour icône/logo (les
+        // autres calques s'éditent depuis la liste). Pas de conflit avec le
+        // drag : celui-ci passe par la poignée, jamais par le corps.
+        const clickToEdit =
+          interactive && !!onEditLayer && (layer.type === "icon" || layer.type === "brand");
         return (
           <div
             key={layer.id}
@@ -313,7 +419,21 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
               zIndex: draggingId === layer.id ? 30 : 20,
             }}
           >
-            {renderLayer(layer)}
+            <div
+              onClick={clickToEdit ? () => onEditLayer!(layer.id) : undefined}
+              style={{
+                cursor: clickToEdit ? "pointer" : undefined,
+                transition: "transform 160ms ease, filter 160ms ease",
+                transform: clickToEdit && hoveredId === layer.id ? "scale(1.05)" : "scale(1)",
+                filter:
+                  clickToEdit && hoveredId === layer.id
+                    ? "drop-shadow(0 8px 18px rgba(15,20,60,0.22))"
+                    : "drop-shadow(0 0 0 rgba(15,20,60,0))",
+              }}
+              title={clickToEdit ? "Changer l'icône / le logo" : undefined}
+            >
+              {renderLayer(layer)}
+            </div>
 
             {/* Poignée de déplacement */}
             {interactive && onMoveLayer && (

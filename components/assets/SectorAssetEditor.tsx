@@ -7,10 +7,10 @@ import { useDAStore } from "@/store/daStore";
 import { FrameSectorAsset } from "@/components/frames/FrameSectorAsset";
 import { StockPickerModal } from "./StockPickerModal";
 import { IconPickerModal } from "./IconPickerModal";
-import { BrandPickerModal } from "./BrandPickerModal";
 import { BRAND_MAP } from "@/lib/brandLogos";
 import { EditableValue, percentFormat, percentParse } from "@/components/ui/EditableValue";
 import { EditableTitle } from "@/components/ui/EditableTitle";
+import { SlidingTabs } from "@/components/ui/SlidingTabs";
 import { searchStock, stockToDataUrl, StockUnavailableError, type StockPhoto } from "@/lib/stock";
 import { exportSectorAsset } from "@/lib/exportFrames";
 import { ASSET_DIMS, ASSET_RATIOS, makeLayer, TEAPS_ACCENT } from "@/lib/sectorThemes";
@@ -18,7 +18,6 @@ import type { AssetLayer, AssetLayerType, AssetRatio, SectorAsset } from "@/type
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
-const LAYER_TYPES: AssetLayerType[] = ["icon", "pill", "badge", "brand", "logo"];
 const LAYER_LABEL: Record<AssetLayerType, string> = {
   icon: "Icône",
   pill: "Pilule",
@@ -33,12 +32,24 @@ const LAYER_ICON: Record<AssetLayerType, LucideIcon> = {
   brand: Boxes,
   logo: Building2,
 };
-const segCls = (active: boolean) =>
-  `px-1.5 py-1 cursor-pointer transition-colors flex items-center justify-center ${
-    active ? "bg-foreground text-background" : "text-foreground/50 hover:bg-foreground/10"
-  }`;
 
-type BrandTarget = { mode: "new" } | { mode: "edit"; id: string };
+// Menu « Ajouter » : icône et logo techno sont fusionnés en une seule entrée
+// « Icône / Logo » (le picker unifié gère les deux → crée un calque icône ou
+// brand selon le choix). Les autres calques restent des entrées distinctes.
+type AddKey = "symbol" | "pill" | "badge" | "logo";
+const ADD_ITEMS: { key: AddKey; label: string; icon: LucideIcon }[] = [
+  { key: "symbol", label: "Icône / Logo", icon: Shapes },
+  { key: "pill", label: "Pilule", icon: Tag },
+  { key: "badge", label: "Badge", icon: Award },
+  { key: "logo", label: "Logo TEAPS", icon: Building2 },
+];
+
+// Cible du picker unifié : nouveau symbole, édition d'un calque icône/brand
+// (conversion possible entre les deux), ou glyphe d'une pilule (icône/emoji seuls).
+type PickerTarget =
+  | { kind: "symbol-new" }
+  | { kind: "symbol-edit"; id: string }
+  | { kind: "pill-glyph"; id: string };
 
 export function SectorAssetEditor({ asset, defaultName }: { asset: SectorAsset; defaultName: string }) {
   const updateAsset = useDAStore((s) => s.updateAgencyAsset);
@@ -47,8 +58,7 @@ export function SectorAssetEditor({ asset, defaultName }: { asset: SectorAsset; 
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [iconEditId, setIconEditId] = useState<string | null>(null);
-  const [brandTarget, setBrandTarget] = useState<BrandTarget | null>(null);
+  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -79,23 +89,39 @@ export function SectorAssetEditor({ asset, defaultName }: { asset: SectorAsset; 
   );
   const updateLayer = (lid: string, patch: Partial<AssetLayer>) =>
     updateAsset(asset.id, { layers: asset.layers.map((l) => (l.id === lid ? { ...l, ...patch } : l)) });
-  const addLayer = (type: AssetLayerType) => {
+  const onAdd = (key: AddKey) => {
     setAddOpen(false);
-    if (type === "brand") {
-      setBrandTarget({ mode: "new" });
+    if (key === "symbol") {
+      setPickerTarget({ kind: "symbol-new" });
       return;
     }
-    updateAsset(asset.id, { layers: [...asset.layers, makeLayer(type)] });
+    updateAsset(asset.id, { layers: [...asset.layers, makeLayer(key)] });
   };
-  const onBrandPick = (slug: string | null) => {
-    const target = brandTarget;
-    setBrandTarget(null);
+  // Résout un choix du picker unifié : glyphe de pilule (icône/emoji), ou calque
+  // symbole (icône OU logo techno), en création ou en édition avec conversion.
+  const applySymbol = (sel: { iconName?: string; iconEmoji?: string; brandSlug?: string; customSrc?: string }) => {
+    const target = pickerTarget;
+    setPickerTarget(null);
     if (!target) return;
-    if (target.mode === "new") {
-      if (slug) updateAsset(asset.id, { layers: [...asset.layers, { ...makeLayer("brand"), brandSlug: slug }] });
+    if (target.kind === "pill-glyph") {
+      if (sel.iconName) updateLayer(target.id, { iconName: sel.iconName, iconEmoji: undefined });
+      else if (sel.iconEmoji) updateLayer(target.id, { iconName: undefined, iconEmoji: sel.iconEmoji });
+      return;
+    }
+    const asBrand = !!sel.brandSlug;
+    if (target.kind === "symbol-new") {
+      const base = makeLayer(asBrand ? "brand" : "icon");
+      // Image custom → calque icône avec imageSrc (prioritaire sur iconName/emoji).
+      const layer: AssetLayer = asBrand
+        ? { ...base, brandSlug: sel.brandSlug }
+        : { ...base, iconName: sel.iconName, iconEmoji: sel.iconEmoji, imageSrc: sel.customSrc };
+      updateAsset(asset.id, { layers: [...asset.layers, layer] });
+    } else if (asBrand) {
+      // Conversion icône → logo techno (id/position conservés).
+      updateLayer(target.id, { type: "brand", brandSlug: sel.brandSlug, iconName: undefined, iconEmoji: undefined, imageSrc: undefined, iconColor: undefined });
     } else {
-      if (slug) updateLayer(target.id, { brandSlug: slug });
-      else removeLayer(target.id);
+      // Conversion logo/icône → icône (image custom, emoji, ou Lucide).
+      updateLayer(target.id, { type: "icon", iconName: sel.iconName, iconEmoji: sel.iconEmoji, imageSrc: sel.customSrc, brandSlug: undefined, hideLabel: undefined });
     }
   };
 
@@ -171,9 +197,9 @@ export function SectorAssetEditor({ asset, defaultName }: { asset: SectorAsset; 
     }
   };
 
-  const iconLayer = iconEditId ? asset.layers.find((l) => l.id === iconEditId) : null;
-  const brandEditSlug =
-    brandTarget?.mode === "edit" ? asset.layers.find((l) => l.id === brandTarget.id)?.brandSlug : undefined;
+  // Calque en cours d'édition dans le picker unifié (pour pré-sélectionner l'onglet/valeur).
+  const editLayer =
+    pickerTarget && "id" in pickerTarget ? asset.layers.find((l) => l.id === pickerTarget.id) : null;
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -232,6 +258,9 @@ export function SectorAssetEditor({ asset, defaultName }: { asset: SectorAsset; 
               onMoveLayer={moveLayer}
               onRemoveLayer={removeLayer}
               onImageClick={() => setPickerOpen(true)}
+              onEditLayer={(lid) => setPickerTarget({ kind: "symbol-edit", id: lid })}
+              onEditText={(lid, text) => updateLayer(lid, { text })}
+              onEditGlyph={(lid) => setPickerTarget({ kind: "pill-glyph", id: lid })}
             />
           </div>
           {busy && (
@@ -293,18 +322,15 @@ export function SectorAssetEditor({ asset, defaultName }: { asset: SectorAsset; 
               </button>
               {addOpen && (
                 <div className="absolute right-0 bottom-full mb-1 z-20 bg-card border border-border rounded-lg shadow-xl py-1 min-w-[160px] max-h-[240px] overflow-y-auto">
-                  {LAYER_TYPES.map((t) => {
-                    const I = LAYER_ICON[t];
-                    return (
-                      <button
-                        key={t}
-                        onClick={() => addLayer(t)}
-                        className="w-full text-left text-[12px] px-3 py-1.5 hover:bg-foreground/[0.06] cursor-pointer flex items-center gap-2"
-                      >
-                        <I className="w-3.5 h-3.5 text-foreground/50" /> {LAYER_LABEL[t]}
-                      </button>
-                    );
-                  })}
+                  {ADD_ITEMS.map(({ key, label, icon: I }) => (
+                    <button
+                      key={key}
+                      onClick={() => onAdd(key)}
+                      className="w-full text-left text-[12px] px-3 py-1.5 hover:bg-foreground/[0.06] cursor-pointer flex items-center gap-2"
+                    >
+                      <I className="w-3.5 h-3.5 text-foreground/50" /> {label}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -324,18 +350,21 @@ export function SectorAssetEditor({ asset, defaultName }: { asset: SectorAsset; 
                   {layer.type === "icon" && (
                     <>
                       <button
-                        onClick={() => setIconEditId(layer.id)}
+                        onClick={() => setPickerTarget({ kind: "symbol-edit", id: layer.id })}
                         className="text-[11px] font-semibold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
                       >
-                        {layer.iconEmoji ? (
+                        {layer.imageSrc ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={layer.imageSrc} alt="" className="w-4 h-4 object-contain" />
+                        ) : layer.iconEmoji ? (
                           <span className="text-[15px] leading-none">{layer.iconEmoji}</span>
                         ) : (
                           <Shapes className="w-3.5 h-3.5" />
                         )}
                         Choisir
                       </button>
-                      {/* Couleur du glyphe — sans objet pour un emoji (déjà coloré). */}
-                      {!layer.iconEmoji && (
+                      {/* Couleur du glyphe — sans objet pour un emoji ou une image custom (déjà colorés). */}
+                      {!layer.iconEmoji && !layer.imageSrc && (
                         <div className="flex items-center gap-1 shrink-0">
                           <label className="relative w-7 h-7 cursor-pointer" title="Couleur de l'icône">
                             <span
@@ -365,7 +394,7 @@ export function SectorAssetEditor({ asset, defaultName }: { asset: SectorAsset; 
                   {layer.type === "brand" && (
                     <>
                       <button
-                        onClick={() => setBrandTarget({ mode: "edit", id: layer.id })}
+                        onClick={() => setPickerTarget({ kind: "symbol-edit", id: layer.id })}
                         className="text-[11px] font-semibold border border-border bg-card px-2.5 py-1 rounded-md cursor-pointer hover:opacity-70 transition-all flex items-center gap-1.5"
                       >
                         {brand ? (
@@ -376,14 +405,16 @@ export function SectorAssetEditor({ asset, defaultName }: { asset: SectorAsset; 
                         {brand ? brand.title : "Choisir"}
                       </button>
                       {brand && (
-                        <div className="flex items-center border border-border rounded-md overflow-hidden shrink-0 text-[10px] font-bold">
-                          <button title="Logo seul" onClick={() => updateLayer(layer.id, { hideLabel: true })} className={segCls(!!layer.hideLabel)}>
-                            Logo
-                          </button>
-                          <button title="Logo + nom" onClick={() => updateLayer(layer.id, { hideLabel: false })} className={segCls(!layer.hideLabel)}>
-                            + Nom
-                          </button>
-                        </div>
+                        <SlidingTabs
+                          value={layer.hideLabel ? "logo" : "name"}
+                          onChange={(id) => updateLayer(layer.id, { hideLabel: id === "logo" })}
+                          itemClassName="px-2.5 py-1"
+                          className="border border-border shrink-0"
+                          tabs={[
+                            { id: "logo", label: "Logo" },
+                            { id: "name", label: "+ Nom" },
+                          ]}
+                        />
                       )}
                     </>
                   )}
@@ -395,21 +426,27 @@ export function SectorAssetEditor({ asset, defaultName }: { asset: SectorAsset; 
                         placeholder="Texte de la pilule"
                         className="flex-1 min-w-0 text-[12px] border border-border bg-background rounded-md px-3 py-1.5 outline-none placeholder:text-foreground/30"
                       />
-                      <div className="flex items-center border border-border rounded-md overflow-hidden shrink-0" title="Glyphe de la pilule">
-                        <button
-                          title="Aucun glyphe"
-                          onClick={() => updateLayer(layer.id, { iconName: undefined, iconEmoji: undefined })}
-                          className={segCls(!layer.iconName && !layer.iconEmoji)}
-                        >
-                          <Ban className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          title="Icône custom"
-                          onClick={() => setIconEditId(layer.id)}
-                          className={segCls(!!(layer.iconName || layer.iconEmoji))}
-                        >
-                          {layer.iconEmoji ? <span className="text-[13px] leading-none">{layer.iconEmoji}</span> : <Shapes className="w-3.5 h-3.5" />}
-                        </button>
+                      <div className="shrink-0" title="Glyphe de la pilule">
+                        <SlidingTabs
+                          value={layer.iconName || layer.iconEmoji ? "icon" : "none"}
+                          onChange={(id) => {
+                            if (id === "none") updateLayer(layer.id, { iconName: undefined, iconEmoji: undefined });
+                            else setPickerTarget({ kind: "pill-glyph", id: layer.id });
+                          }}
+                          itemClassName="px-2 py-1"
+                          className="border border-border"
+                          tabs={[
+                            { id: "none", label: <Ban className="w-3.5 h-3.5" /> },
+                            {
+                              id: "icon",
+                              label: layer.iconEmoji ? (
+                                <span className="text-[13px] leading-none">{layer.iconEmoji}</span>
+                              ) : (
+                                <Shapes className="w-3.5 h-3.5" />
+                              ),
+                            },
+                          ]}
+                        />
                       </div>
                       {(layer.iconName || layer.iconEmoji) && (
                         <button
@@ -461,25 +498,16 @@ export function SectorAssetEditor({ asset, defaultName }: { asset: SectorAsset; 
       />
 
       <IconPickerModal
-        key={`icon-${iconEditId ?? "closed"}`}
-        open={!!iconEditId}
-        value={{ iconName: iconLayer?.iconName ?? "Briefcase", iconEmoji: iconLayer?.iconEmoji }}
-        onClose={() => setIconEditId(null)}
-        onPick={(sel) => {
-          if (iconEditId) {
-            if (sel.iconName) updateLayer(iconEditId, { iconName: sel.iconName, iconEmoji: undefined });
-            else if (sel.iconEmoji) updateLayer(iconEditId, { iconName: undefined, iconEmoji: sel.iconEmoji });
-          }
-          setIconEditId(null);
+        key={`sym-${pickerTarget ? pickerTarget.kind + ("id" in pickerTarget ? pickerTarget.id : "new") : "closed"}`}
+        open={!!pickerTarget}
+        allowBrand={pickerTarget?.kind !== "pill-glyph"}
+        value={{
+          iconName: editLayer?.iconName ?? "Briefcase",
+          iconEmoji: editLayer?.iconEmoji,
+          brandSlug: editLayer?.brandSlug,
         }}
-      />
-
-      <BrandPickerModal
-        key={`brand-${brandTarget ? (brandTarget.mode === "edit" ? brandTarget.id : "new") : "closed"}`}
-        open={!!brandTarget}
-        value={brandEditSlug}
-        onClose={() => setBrandTarget(null)}
-        onPick={onBrandPick}
+        onClose={() => setPickerTarget(null)}
+        onPick={applySymbol}
       />
     </div>
   );
