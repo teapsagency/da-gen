@@ -349,6 +349,13 @@ export type DAStore = {
   addShowcaseSlide: () => void;
   removeShowcaseSlide: (id: string) => void;
   updateShowcaseSlide: (id: string, patch: Partial<ShowcaseSlide>) => void;
+  // Reset : une slide (agencement par défaut de sa position, id/nom conservés)
+  // ou tout le carrousel (4 slides par défaut reseedées depuis la palette).
+  resetShowcaseSlide: (id: string) => void;
+  resetShowcaseSlides: () => void;
+  // Dupliquer une slide (copie insérée juste après) / la déplacer d'un cran.
+  duplicateShowcaseSlide: (id: string) => void;
+  moveShowcaseSlide: (id: string, dir: -1 | 1) => void;
   // Couleur de fond commune du carrousel (projet-global).
   showcaseMeshBase: string;
   setShowcaseMeshBase: (color: string) => void;
@@ -406,6 +413,12 @@ export type DAStore = {
   // plus nets sur les réseaux). S'applique à l'export unitaire ET au pack ZIP.
   exportScale: number;
   setExportScale: (scale: number) => void;
+
+  // Format des exports client (pack + unitaires + carrousels) : PNG (défaut)
+  // ou JPEG (fichiers bien plus légers, sans transparence). Les assets agence
+  // (fond transparent voulu) restent toujours en PNG.
+  exportFormat: 'png' | 'jpeg';
+  setExportFormat: (f: 'png' | 'jpeg') => void;
 
   // Nombre de mockups affichés sur les planches « showcase » (frames 09/10).
   boardMockups: number;

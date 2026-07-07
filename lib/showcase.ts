@@ -35,3 +35,22 @@ export function makeShowcaseSlide(
 export function makeDefaultShowcaseSlides(palette: string[]): ShowcaseSlide[] {
   return DEFAULT_SLIDES.map((d, i) => makeShowcaseSlide(palette, i, d.device, d.count, d.regionY, d.stagger));
 }
+
+// Copie d'une slide avec un nouvel id (points de mesh clonés) — pour la
+// duplication depuis l'éditeur ; le nom d'export édité est suffixé.
+export function cloneShowcaseSlide(s: ShowcaseSlide): ShowcaseSlide {
+  return {
+    ...s,
+    id: newSlideId(),
+    name: s.name ? `${s.name}-copie` : undefined,
+    mesh: { ...s.mesh, points: s.mesh.points.map((p) => ({ ...p })) },
+  };
+}
+
+// Slide par défaut pour une position donnée (cycle sur les 4 agencements) —
+// sert au reset individuel d'une slide sans toucher aux autres.
+export function makeDefaultShowcaseSlideAt(palette: string[], index: number): ShowcaseSlide {
+  const i = ((index % DEFAULT_SLIDES.length) + DEFAULT_SLIDES.length) % DEFAULT_SLIDES.length;
+  const d = DEFAULT_SLIDES[i];
+  return makeShowcaseSlide(palette, i, d.device, d.count, d.regionY, d.stagger);
+}

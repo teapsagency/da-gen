@@ -15,13 +15,16 @@ export const Frame1_DA = ({ id }: { id?: string }) => {
     localFontFile,
     logoScale,
     fontUppercase,
+    desktopPadding,
   } = useDAStore();
   const activeScreenshots = useActiveScreenshots();
 
   if (!scrapeResult || !activeScreenshots) return null;
 
   const fontFamily = localFontFile ? "LocalFont" : `"${fontName}", sans-serif`;
-  const bgTextColor = getTextColor(bgColor);
+  // Marge externe pilotée par le toggle « marges visuels desktop » (comme 03/04) :
+  // 0 par défaut (grille pleine surface), 58px quand l'utilisateur l'active.
+  const pad = desktopPadding ? 58 : 0;
 
   return (
     <div
@@ -32,7 +35,7 @@ export const Frame1_DA = ({ id }: { id?: string }) => {
         background: bgColor,
         // Asset plat : ni bordure ni arrondi (rajoutés ensuite sur Elementor).
         borderRadius: 0,
-        padding: "28px",
+        padding: `${pad}px`,
         boxSizing: "border-box",
         overflow: "hidden",
         display: "grid",
@@ -122,7 +125,8 @@ export const Frame1_DA = ({ id }: { id?: string }) => {
             width: "100%",
             height: "100%",
             boxSizing: "border-box",
-            background: bgColor,
+            // Fond blanc comme les 3 autres cellules (logo / couleurs / aperçu).
+            background: "#FFFFFF",
             display: "flex",
             flexDirection: "column",
             justifyContent: "flex-end",
@@ -143,7 +147,7 @@ export const Frame1_DA = ({ id }: { id?: string }) => {
                 fontFamily: fontFamily,
                 fontWeight: 500,
                 fontSize: "420px",
-                color: bgTextColor,
+                color: "#111111",
                 lineHeight: "0.85",
                 letterSpacing: "-0.02em",
                 textTransform: fontUppercase ? "uppercase" : "none",
@@ -159,7 +163,7 @@ export const Frame1_DA = ({ id }: { id?: string }) => {
                 fontFamily: "Satoshi, sans-serif",
                 fontWeight: 700,
                 fontSize: "72px",
-                color: bgTextColor,
+                color: "#111111",
                 letterSpacing: "-0.02em",
                 // Casse alignée sur le toggle « majuscules » du panneau (même
                 // règle que l'aperçu « Aa » ci-dessus) : majuscules seulement si

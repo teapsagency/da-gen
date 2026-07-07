@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowRight, Globe, Image as ImageIcon, Check } from "lucide-react";
+import { ArrowRight, Globe, Image as ImageIcon, Check, Copy } from "lucide-react";
 import type { ProjectMeta } from "@/types";
 import { loadProject, saveThumbnail } from "@/lib/projectStorage";
 import { makeThumbnail } from "@/lib/thumbnail";
@@ -61,6 +61,8 @@ type ProjectCardProps = {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
+  /** Action « Dupliquer » (page Historique) — absent = bouton masqué. */
+  onDuplicate?: () => void;
 };
 
 export function ProjectCard({
@@ -70,6 +72,7 @@ export function ProjectCard({
   selectable,
   selected,
   onToggleSelect,
+  onDuplicate,
 }: ProjectCardProps) {
   // `generated` ne contient que la vignette produite à la volée ; la vignette
   // déjà en cache (`meta.thumbnail`) prime et reste dérivée des props — pas de
@@ -176,6 +179,22 @@ export function ProjectCard({
           }`}
         >
           <Check className="w-3.5 h-3.5" strokeWidth={3} />
+        </button>
+      )}
+
+      {/* Dupliquer (Historique) — même traitement que la case : superposé, jamais d'ouverture. */}
+      {onDuplicate && (
+        <button
+          type="button"
+          aria-label="Dupliquer le projet"
+          title="Dupliquer"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDuplicate();
+          }}
+          className="absolute top-3.5 right-3.5 z-10 w-5 h-5 rounded-md border border-border bg-card/80 backdrop-blur-sm text-foreground/60 hover:text-foreground flex items-center justify-center transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <Copy className="w-3 h-3" />
         </button>
       )}
     </div>

@@ -16,13 +16,16 @@ export function SlidingTabs<T extends string>({
   tabs,
   value,
   onChange,
-  itemClassName = "px-4",
+  itemClassName = "px-4 py-1.5",
+  className = "",
 }: {
   tabs: Tab<T>[];
   value: T;
   onChange: (id: T) => void;
-  /** Classes de padding horizontal des onglets (défaut px-4 ; px-3 pour compact). */
+  /** Classes de padding des onglets (défaut px-4 py-1.5 ; réduire pour compact). */
   itemClassName?: string;
+  /** Classes additionnelles du conteneur (ex. bordure des mini-barres de réglage). */
+  className?: string;
 }) {
   const btnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [hovered, setHovered] = useState<T | null>(null);
@@ -48,7 +51,7 @@ export function SlidingTabs<T extends string>({
   return (
     <div
       onMouseLeave={() => setHovered(null)}
-      className="relative flex bg-foreground/[0.04] rounded-lg p-0.5 gap-0.5 w-fit"
+      className={`relative flex bg-foreground/[0.04] rounded-lg p-0.5 gap-0.5 w-fit ${className}`}
     >
       {ind && (
         <span
@@ -81,7 +84,7 @@ export function SlidingTabs<T extends string>({
           onPointerDown={() => setPressed(t.id)}
           onPointerUp={() => setPressed(null)}
           onPointerLeave={() => setPressed((p) => (p === t.id ? null : p))}
-          className={`relative z-10 ${itemClassName} py-1.5 text-[11px] font-semibold rounded-md transition-colors cursor-pointer whitespace-nowrap select-none ${
+          className={`relative z-10 ${itemClassName} text-[11px] font-semibold rounded-md transition-colors cursor-pointer whitespace-nowrap select-none ${
             target === t.id ? "text-foreground" : "text-foreground/40"
           }`}
         >

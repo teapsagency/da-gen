@@ -186,11 +186,24 @@ export const ColorPicker = () => {
               )}
             </button>
           ))}
+          {/* Transparent : fond de frame transparent (damier en aperçu) → PNG
+              transparent à l'export. Passer en JPEG remet un fond blanc. */}
+          <button
+            onClick={() => setBgColor("transparent")}
+            className={`h-8 w-8 rounded-lg border-2 transition-all cursor-pointer flex items-center justify-center bg-checkerboard ${
+              bgColor === "transparent"
+                ? "border-foreground"
+                : "border-border/50 opacity-70 hover:opacity-100 hover:border-foreground/30"
+            }`}
+            title="Transparent (export PNG)"
+          >
+            {bgColor === "transparent" && <Check className="w-3 h-3 text-black/50" strokeWidth={3} />}
+          </button>
           <div className="flex items-center gap-1.5 h-8 bg-background px-2 rounded-lg border border-border ml-1">
             <Pipette className="w-3 h-3 text-foreground/30" />
             <input
               type="color"
-              value={bgColor}
+              value={bgColor === "transparent" ? "#ffffff" : bgColor}
               onChange={(e) => setBgColor(e.target.value)}
               className="w-4 h-4 rounded overflow-hidden bg-transparent border-none cursor-pointer p-0"
             />

@@ -217,7 +217,14 @@ function drawBackground(ctx: CanvasRenderingContext2D, rawT: number, A: MotionAs
     ctx.drawImage(A.heroBlur, (W - bw) / 2 + drift, (H - bh) / 2, bw, bh);
     ctx.restore();
   }
-  const dark = mix(A.base, "#000000", 0.6);
+  // Nappe « dark » = ombrage du fond pour la profondeur du dégradé. On atténue
+  // l'assombrissement à mesure que la base est claire : une base blanche doit
+  // rester blanche (« full blanc ») et non virer au gris via cette nappe. Courbe
+  // cubique → la profondeur reste quasi intacte sur les bases colorées/sombres
+  // (dont le gris par défaut) et ne s'efface que près du blanc pur.
+  const [br, bgc, bb] = parseHex(A.base);
+  const baseLum = (0.299 * br + 0.587 * bgc + 0.114 * bb) / 255; // 0..1
+  const dark = mix(A.base, "#000000", 0.6 * (1 - baseLum ** 3));
   const light = mix(A.base, "#ffffff", 0.55);
   const blob = (cx: number, cy: number, rad: number, color: string, alpha: number) => {
     const [r, g, b] = parseHex(color);

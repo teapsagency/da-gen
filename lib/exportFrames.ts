@@ -3,6 +3,7 @@ import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import type { SectorAsset, ShowcaseSlide } from '@/types';
 import { ASSET_DIMS } from './sectorThemes';
+import { useDAStore } from '@/store/daStore';
 
 // Dimensions natives d'une slide Showcase (16:9).
 const SHOWCASE_W = 1920;
@@ -16,15 +17,31 @@ export const sanitizeName = (name: string) =>
     .replace(/^_|_$/g, '')
     .toLowerCase();
 
+// ─── Format d'export global (PNG/JPEG) ───
+// Lu via getState() au moment de chaque capture (on est hors React, et le
+// réglage peut changer entre deux exports). JPEG ≈ fichiers bien plus légers,
+// mais sans alpha → fond blanc forcé (sans lui, les pixels transparents
+// sortiraient noirs). Les assets « site agence » restent TOUJOURS en PNG
+// (fond transparent voulu pour Elementor) : ils passent par
+// captureFrameCropped → canvasToBlob, qui encode en PNG quoi qu'il arrive.
+const resolveFormat = (forcePng = false): 'png' | 'jpeg' =>
+  forcePng ? 'png' : useDAStore.getState().exportFormat;
+
+// Extension de fichier du format courant ('png' → .png, 'jpeg' → .jpg).
+const exportExt = () => (resolveFormat() === 'jpeg' ? 'jpg' : 'png');
+
 export async function captureFrame(
   frameId: string,
   width = 2373,
   height = 1473,
   scale = 1,
+  // Forçage PNG ponctuel (assets à transparence voulue) — ignore le réglage JPEG.
+  forcePng = false,
 ): Promise<Blob | null> {
   const element = document.getElementById(frameId);
   if (!element) return null;
 
+  const format = resolveFormat(forcePng);
   try {
     const blob = await toBlob(element, {
       width,
@@ -44,6 +61,12 @@ export async function captureFrame(
       // ils ont déjà opacity:0 hors hover, ce filtre garantit qu'ils ne
       // peuvent pas se retrouver dans le PNG même si un état hover trainait.
       filter: (node) => !(node instanceof HTMLElement) || !node.hasAttribute('data-editor-only'),
+      // Bascule PNG/JPEG (réglage global exportFormat). toBlob accepte le type
+      // MIME cible : même rendu que toJpeg, mais on garde un Blob (saveAs /
+      // zip.file). Le fond blanc est indispensable en JPEG (pas d'alpha).
+      ...(format === 'jpeg'
+        ? { type: 'image/jpeg', quality: 0.9, backgroundColor: '#ffffff' }
+        : {}),
     });
     return blob;
   } catch (err) {
@@ -52,6 +75,8 @@ export async function captureFrame(
   }
 }
 
+// Toujours PNG, volontairement : utilisé uniquement par le recadrage des assets
+// « site agence », dont la transparence doit survivre au réglage exportFormat.
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/png'));
 }
@@ -131,7 +156,7 @@ async function captureFrameCropped(frameId: string, width: number, height: numbe
 export async function exportFrame(frameId: string, filename: string, width?: number, height?: number, scale = 1) {
   const blob = await captureFrame(frameId, width, height, scale);
   if (blob) {
-    saveAs(blob, `${filename}.png`);
+    saveAs(blob, `${filename}.${exportExt()}`);
   }
 }
 
@@ -173,7 +198,7 @@ async function addFramesToZip(
       const label = names[frame.id]?.trim()
         ? sanitizeName(names[frame.id])
         : `${prefix}_${frame.name}`;
-      target.file(`${label}.png`, blob);
+      target.file(`${label}.${exportExt()}`, blob);
     }
   }
 }
@@ -193,8 +218,10 @@ export const defaultAssetName = (role: SectorAsset['role'], index: number) =>
 const assetExportName = (asset: SectorAsset, fallback: string) =>
   sanitizeName(asset.name?.trim() ? asset.name : fallback);
 
-// Export PNG unitaire d'un asset secteur. `defaultName` = nom par défaut résolu
+// Export unitaire d'un asset secteur. `defaultName` = nom par défaut résolu
 // (numéroté par rôle) fourni par l'appelant, pour coller à ce qui est affiché.
+// TOUJOURS en PNG quel que soit le réglage exportFormat : le fond transparent
+// est voulu pour Elementor, et le JPEG n'a pas d'alpha.
 export async function exportSectorAsset(asset: SectorAsset, defaultName: string, scale = 1) {
   const { w, h } = ASSET_DIMS[asset.ratio];
   const blob = await captureFrameCropped(sectorAssetExportId(asset.id), w, h, scale);
@@ -203,6 +230,7 @@ export async function exportSectorAsset(asset: SectorAsset, defaultName: string,
 
 // Pack ZIP de tous les assets secteur (dossier assets_secteur/). Recadrage auto
 // à l'export ; noms numérotés par rôle (édités si l'asset a un nom).
+// TOUJOURS en PNG, comme exportSectorAsset — ne suit pas le réglage exportFormat.
 export async function exportSectorAssetsPack(clientName: string, assets: SectorAsset[], scale = 1) {
   const name = sanitizeName(clientName);
   const zip = new JSZip();
@@ -233,10 +261,11 @@ export const defaultShowcaseName = (index: number) => `showcase-${index + 1}`;
 const showcaseName = (slide: ShowcaseSlide, fallback: string) =>
   sanitizeName(slide.name?.trim() ? slide.name : fallback);
 
-// Export PNG unitaire d'une slide Showcase (rectangle plein 16:9, non recadré).
+// Export unitaire d'une slide Showcase (rectangle plein 16:9, non recadré).
+// Suit le réglage exportFormat (PNG ou JPEG).
 export async function exportShowcaseSlide(slide: ShowcaseSlide, defaultName: string, scale = 1) {
   const blob = await captureFrame(showcaseSlideExportId(slide.id), SHOWCASE_W, SHOWCASE_H, scale);
-  if (blob) saveAs(blob, `${showcaseName(slide, defaultName)}.png`);
+  if (blob) saveAs(blob, `${showcaseName(slide, defaultName)}.${exportExt()}`);
 }
 
 // Pack ZIP de toutes les slides (dossier showcase/) — noms numérotés (édités si nommés).
@@ -247,7 +276,7 @@ export async function exportShowcaseSlidesPack(clientName: string, slides: Showc
   if (folder) {
     for (let i = 0; i < slides.length; i++) {
       const blob = await captureFrame(showcaseSlideExportId(slides[i].id), SHOWCASE_W, SHOWCASE_H, scale);
-      if (blob) folder.file(`${showcaseName(slides[i], defaultShowcaseName(i))}.png`, blob);
+      if (blob) folder.file(`${showcaseName(slides[i], defaultShowcaseName(i))}.${exportExt()}`, blob);
     }
   }
   const content = await zip.generateAsync({ type: 'blob' });

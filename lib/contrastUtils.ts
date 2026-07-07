@@ -10,7 +10,11 @@ function getRelativeLuminance(r: number, g: number, b: number): number {
 export function getTextColor(hex: string): '#000000' | '#FFFFFF' {
   // Remove # if present
   const cleanHex = hex.startsWith('#') ? hex.slice(1) : hex;
-  
+
+  // Fond transparent (ou valeur non-hex) : le PNG transparent est posé sur du
+  // blanc à l'usage (Elementor) → on suppose un fond clair, donc texte noir.
+  if (!/^[0-9a-fA-F]{6}$/.test(cleanHex)) return '#000000';
+
   const r = parseInt(cleanHex.slice(0, 2), 16);
   const g = parseInt(cleanHex.slice(2, 4), 16);
   const b = parseInt(cleanHex.slice(4, 6), 16);

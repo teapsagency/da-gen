@@ -9,6 +9,7 @@ import {
   injectFontCss,
 } from "@/lib/fontLoader";
 import { Upload, Check, TriangleAlert, Loader } from "lucide-react";
+import { SlidingTabs } from "@/components/ui/SlidingTabs";
 
 // Clean up font names — the scraper normalizes new scrapes, but this also
 // repairs legacy projects with raw names (e.g. "_Satoshi_Variable" → "Satoshi").
@@ -214,24 +215,16 @@ export const FontSelector = () => {
             capitales (text-transform). Bascule l'échantillon de la frame 01. */}
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-medium text-foreground/40">Casse de l&apos;aperçu</span>
-          <div className="flex items-center gap-1 bg-foreground/5 border border-border rounded-lg p-0.5">
-            <button
-              onClick={() => setFontUppercase(false)}
-              className={`px-2.5 h-6 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                !fontUppercase ? "bg-background shadow-sm text-foreground" : "text-foreground/50 hover:text-foreground/80"
-              }`}
-            >
-              Aa
-            </button>
-            <button
-              onClick={() => setFontUppercase(true)}
-              className={`px-2.5 h-6 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                fontUppercase ? "bg-background shadow-sm text-foreground" : "text-foreground/50 hover:text-foreground/80"
-              }`}
-            >
-              AA
-            </button>
-          </div>
+          <SlidingTabs
+            value={fontUppercase ? "upper" : "normal"}
+            onChange={(id) => setFontUppercase(id === "upper")}
+            itemClassName="px-2.5 py-1"
+            className="border border-border"
+            tabs={[
+              { id: "normal", label: "Aa" },
+              { id: "upper", label: "AA" },
+            ]}
+          />
         </div>
 
         {/* Unavailable font warning for active font — with inline import */}

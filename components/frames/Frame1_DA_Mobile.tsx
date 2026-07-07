@@ -26,7 +26,6 @@ export const Frame1_DA_Mobile = ({ id }: { id?: string }) => {
   if (!scrapeResult || !activeScreenshots) return null;
 
   const fontFamily = localFontFile ? "LocalFont" : `"${fontName}", sans-serif`;
-  const bgTextColor = getTextColor(bgColor);
   const card: React.CSSProperties = {
     background: "#FFFFFF",
     borderRadius: "26px",
@@ -104,7 +103,8 @@ export const Frame1_DA_Mobile = ({ id }: { id?: string }) => {
               width: "100%",
               height: "100%",
               boxSizing: "border-box",
-              background: bgColor,
+              // Fond blanc comme les autres cellules (logo / palette / aperçu).
+              background: "#FFFFFF",
               display: "flex",
               flexDirection: "column",
               justifyContent: "flex-end",
@@ -118,7 +118,7 @@ export const Frame1_DA_Mobile = ({ id }: { id?: string }) => {
                   fontFamily,
                   fontWeight: 500,
                   fontSize: "180px",
-                  color: bgTextColor,
+                  color: "#111111",
                   lineHeight: "1",
                   letterSpacing: "-0.02em",
                   textTransform: fontUppercase ? "uppercase" : "none",
@@ -133,7 +133,7 @@ export const Frame1_DA_Mobile = ({ id }: { id?: string }) => {
                   fontFamily: "Satoshi, sans-serif",
                   fontWeight: 700,
                   fontSize: "44px",
-                  color: bgTextColor,
+                  color: "#111111",
                   letterSpacing: "-0.02em",
                   textTransform: fontUppercase ? "uppercase" : "none",
                   lineHeight: "1",

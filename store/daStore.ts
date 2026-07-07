@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { DAStore, GeminiApiKey, GeneratedContent, PreviewFormat, PreviewImageRef, ScrapeResult, SocialIdentity } from '@/types';
 import { DEFAULT_CONTENT_PROMPT, DEFAULT_GEMINI_MODEL } from '@/lib/defaultPrompt';
 import { makeSectorAsset } from '@/lib/sectorThemes';
-import { makeShowcaseSlide, makeDefaultShowcaseSlides } from '@/lib/showcase';
+import { makeShowcaseSlide, makeDefaultShowcaseSlides, makeDefaultShowcaseSlideAt, cloneShowcaseSlide } from '@/lib/showcase';
 import { deriveMeshBase } from '@/lib/meshGradient';
 
 type LegacyPersistedState = Partial<{
@@ -214,6 +214,43 @@ export const useDAStore = create<DAStore>()(
       updateShowcaseSlide: (id, patch) => set((state) => ({
         showcaseSlides: state.showcaseSlides.map((s) => (s.id === id ? { ...s, ...patch } : s)),
       })),
+      // Reset d'une slide : agencement par défaut de sa position (id + nom conservés).
+      resetShowcaseSlide: (id) => set((state) => {
+        const palette = state.selectedColors.length
+          ? state.selectedColors
+          : state.scrapeResult?.colors.map((c) => c.hex) ?? [];
+        return {
+          showcaseSlides: state.showcaseSlides.map((s, i) =>
+            s.id === id ? { ...makeDefaultShowcaseSlideAt(palette, i), id: s.id, name: s.name } : s),
+        };
+      }),
+      // Duplication : copie insérée juste après l'originale (nouvel id).
+      duplicateShowcaseSlide: (id) => set((state) => {
+        const i = state.showcaseSlides.findIndex((s) => s.id === id);
+        if (i < 0) return {};
+        const next = [...state.showcaseSlides];
+        next.splice(i + 1, 0, cloneShowcaseSlide(next[i]));
+        return { showcaseSlides: next };
+      }),
+      // Déplacement d'un cran vers le haut (-1) ou le bas (+1).
+      moveShowcaseSlide: (id, dir) => set((state) => {
+        const i = state.showcaseSlides.findIndex((s) => s.id === id);
+        const j = i + dir;
+        if (i < 0 || j < 0 || j >= state.showcaseSlides.length) return {};
+        const next = [...state.showcaseSlides];
+        [next[i], next[j]] = [next[j], next[i]];
+        return { showcaseSlides: next };
+      }),
+      // Reset global : même seed qu'au scrape (4 slides par défaut + base dérivée).
+      resetShowcaseSlides: () => set((state) => {
+        const palette = state.selectedColors.length
+          ? state.selectedColors
+          : state.scrapeResult?.colors.map((c) => c.hex) ?? [];
+        return {
+          showcaseSlides: makeDefaultShowcaseSlides(palette),
+          showcaseMeshBase: deriveMeshBase(palette),
+        };
+      }),
 
       regionY: 0,
       setRegionY: (v: number) => set({ regionY: Math.min(1, Math.max(0, v)) }),
@@ -282,6 +319,9 @@ export const useDAStore = create<DAStore>()(
       // Résolution d'export : ×2 par défaut (visuels nets sur les réseaux).
       exportScale: 2,
       setExportScale: (scale: number) => set({ exportScale: scale === 2 ? 2 : 1 }),
+
+      exportFormat: 'png',
+      setExportFormat: (f) => set({ exportFormat: f }),
 
       // Nombre de mockups sur les planches showcase (09/10). Bornes 2–9.
       boardMockups: 6,
@@ -424,6 +464,7 @@ export const useDAStore = create<DAStore>()(
         screenshotDelay: state.screenshotDelay,
         scrapeZoom: state.scrapeZoom,
         exportScale: state.exportScale,
+        exportFormat: state.exportFormat,
         boardMockups: state.boardMockups,
         dropShadow: state.dropShadow,
         geminiApiKeys: state.geminiApiKeys,

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Loader2, FolderDown, LayoutTemplate } from "lucide-react";
+import { Plus, Loader2, FolderDown, LayoutTemplate, RotateCcw } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
 import { FrameShowcase } from "@/components/frames/FrameShowcase";
 import { ShowcaseSlideEditor } from "./ShowcaseSlideEditor";
@@ -16,9 +16,45 @@ import { exportShowcaseSlidesPack, showcaseSlideExportId, defaultShowcaseName } 
 export function ShowcaseSection() {
   const slides = useDAStore((s) => s.showcaseSlides);
   const addSlide = useDAStore((s) => s.addShowcaseSlide);
+  const resetSlides = useDAStore((s) => s.resetShowcaseSlides);
+  const setSlides = useDAStore((s) => s.setShowcaseSlides);
   const scrapeResult = useDAStore((s) => s.scrapeResult);
   const exportScale = useDAStore((s) => s.exportScale);
   const [exporting, setExporting] = useState(false);
+
+  // Réordonnancement par drag (poignée grip de l'en-tête de chaque slide).
+  // Le wrapper est TOUJOURS draggable, mais onDragStart n'accepte le geste que
+  // s'il part de la poignée : celle-ci arme `armedRef` de façon SYNCHRONE au
+  // mousedown (un state React commité trop tard rendrait le drag aléatoire —
+  // seule la 1re carte marchait). Tout drag non armé (texte, image, slider) est
+  // annulé, ce qui protège l'édition interne.
+  const armedRef = useRef<number | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  const handleReorderDrop = (target: number) => {
+    if (dragIndex === null || dragIndex === target) return;
+    const next = [...slides];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(target, 0, moved);
+    setSlides(next);
+  };
+
+  // Reset global avec possibilité d'annuler : on snapshote slides + base mesh
+  // avant, et le toast restaure via les setters bruts du store.
+  const handleReset = () => {
+    const { showcaseSlides: prevSlides, showcaseMeshBase: prevBase, setShowcaseSlides, setShowcaseMeshBase } = useDAStore.getState();
+    resetSlides();
+    toast.success("Carrousel réinitialisé", {
+      action: {
+        label: "Annuler",
+        onClick: () => {
+          setShowcaseSlides(prevSlides);
+          setShowcaseMeshBase(prevBase);
+        },
+      },
+    });
+  };
 
   const handleExportPack = async () => {
     if (!slides.length || !scrapeResult) return;
@@ -42,6 +78,13 @@ export function ShowcaseSection() {
           multi-points tiré de la charte du site. Points déplaçables, export PNG plat.
         </p>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleReset}
+            className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition-all active:scale-[0.97]"
+            title="Repartir des 4 slides par défaut (charte du site)"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Réinitialiser
+          </button>
           <button
             onClick={addSlide}
             className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition-all active:scale-[0.97]"
@@ -72,9 +115,53 @@ export function ShowcaseSection() {
           </button>
         </div>
       ) : (
-        <div className="flex flex-col gap-8">
+        <div className={`flex flex-col ${dragIndex !== null ? "gap-3" : "gap-8"}`}>
           {slides.map((slide, i) => (
-            <ShowcaseSlideEditor key={slide.id} slide={slide} defaultName={defaultShowcaseName(i)} />
+            <div
+              key={slide.id}
+              draggable
+              onDragStart={(e) => {
+                // N'accepte le drag que s'il part de la poignée (armedRef posé
+                // au mousedown) — sinon on annule pour laisser l'édition interne
+                // et le drag natif d'images/texte tranquilles.
+                if (armedRef.current !== i) { e.preventDefault(); return; }
+                e.dataTransfer.effectAllowed = "move";
+                // Ghost = seulement la barre d'en-tête : la carte complète
+                // (snapshotée avant le repli) serait beaucoup trop chargée.
+                const header = e.currentTarget.querySelector<HTMLElement>("[data-slide-header]");
+                if (header) {
+                  const r = header.getBoundingClientRect();
+                  e.dataTransfer.setDragImage(header, e.clientX - r.left, e.clientY - r.top);
+                }
+                // Repli DIFFÉRÉ d'une frame : replier dans le même tick que le
+                // dragstart fait rétrécir les cartes du dessus → la carte draguée
+                // saute vers le haut et Chrome annule le drag (seule la 1re, sans
+                // rien au-dessus, survivait). Le rAF laisse le drag natif démarrer
+                // sur un layout stable ; une fois lancé il survit au reflow.
+                requestAnimationFrame(() => setDragIndex(i));
+              }}
+              onDragEnter={() => setOverIndex(i)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => handleReorderDrop(i)}
+              onDragEnd={() => { setDragIndex(null); setOverIndex(null); armedRef.current = null; }}
+              className={`rounded-xl transition-all ${
+                dragIndex === i
+                  ? "opacity-40"
+                  : dragIndex !== null && overIndex === i
+                    ? "ring-2 ring-foreground"
+                    : ""
+              }`}
+            >
+              <ShowcaseSlideEditor
+                slide={slide}
+                defaultName={defaultShowcaseName(i)}
+                isFirst={i === 0}
+                isLast={i === slides.length - 1}
+                collapsed={dragIndex !== null}
+                onGripDown={() => { armedRef.current = i; }}
+                onGripUp={() => { armedRef.current = null; }}
+              />
+            </div>
           ))}
         </div>
       )}

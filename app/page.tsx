@@ -52,6 +52,7 @@ import { localFontFaceCss } from "@/lib/fontName";
 import { GeneratedContent } from "@/types";
 import { exportFrame, exportFullPack, sanitizeName } from "@/lib/exportFrames";
 import { EditableTitle } from "@/components/ui/EditableTitle";
+import { ExportButton } from "@/components/ui/ExportButton";
 import { toast } from "sonner";
 import {
   Download,
@@ -108,6 +109,8 @@ export default function Home() {
     localFontFile,
     exportScale,
     setExportScale,
+    exportFormat,
+    setExportFormat,
     setUrl,
     setIsLoading,
     setScrapeResult,
@@ -793,23 +796,35 @@ export default function Home() {
 
                   <div className="mt-8 mb-6">
                     {/* Qualité d'export : ×2 = visuels deux fois plus nets pour
-                        les réseaux (fichiers plus lourds). S'applique au pack ET
-                        aux exports PNG unitaires. */}
+                        les réseaux (fichiers plus lourds). Format : JPEG ≈ fichiers
+                        bien plus légers, mais sans transparence (fond blanc) — les
+                        assets « site agence » restent toujours en PNG. Les deux
+                        réglages s'appliquent au pack ET aux exports unitaires. */}
                     <div className="flex items-center justify-between gap-2 mb-3">
                       <span className="text-xs font-medium text-foreground/40">Qualité d&apos;export</span>
-                      <div className="flex items-center gap-1 bg-foreground/5 border border-border rounded-lg p-0.5">
-                        {[1, 2].map((s) => (
-                          <button
-                            key={s}
-                            onClick={() => setExportScale(s)}
-                            className={`px-2.5 h-6 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                              exportScale === s ? "bg-background shadow-sm text-foreground" : "text-foreground/50 hover:text-foreground/80"
-                            }`}
-                          >
-                            ×{s}
-                          </button>
-                        ))}
-                      </div>
+                      <SlidingTabs
+                        value={String(exportScale)}
+                        onChange={(id) => setExportScale(Number(id))}
+                        itemClassName="px-2.5 py-1"
+                        className="border border-border"
+                        tabs={[
+                          { id: "1", label: "×1" },
+                          { id: "2", label: "×2" },
+                        ]}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className="text-xs font-medium text-foreground/40">Format</span>
+                      <SlidingTabs
+                        value={exportFormat}
+                        onChange={setExportFormat}
+                        itemClassName="px-2.5 py-1"
+                        className="border border-border"
+                        tabs={[
+                          { id: "png", label: "PNG" },
+                          { id: "jpeg", label: "JPEG" },
+                        ]}
+                      />
                     </div>
                     <button
                       onClick={handleExportPack}
@@ -902,7 +917,7 @@ export default function Home() {
                   <SlidingTabs
                     value={assetFormat}
                     onChange={setAssetFormat}
-                    itemClassName="px-3"
+                    itemClassName="px-3 py-1.5"
                     tabs={[
                       { id: "all", label: "Tous" },
                       { id: "desktop", label: (<><Monitor className="w-3.5 h-3.5" /> Desktop</>) },
@@ -1456,6 +1471,7 @@ function PreviewContainer({
   const [isExporting, setIsExporting] = React.useState(false);
   const [showExportFrame, setShowExportFrame] = React.useState(false);
   const { scrapeResult, exportScale } = useDAStore();
+  const bgColor = useDAStore((s) => s.bgColor);
   const frameName = useDAStore((s) => s.frameNames[id]);
   const setFrameName = useDAStore((s) => s.setFrameName);
   // Nom COMPLET du fichier à l'export (préfixe domaine inclus), éditable en
@@ -1520,14 +1536,7 @@ function PreviewContainer({
           </span>
           <div className="flex items-center gap-2">
             {!actionsBelow && actions}
-            <button
-              onClick={handleExport}
-              disabled={isExporting}
-              className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-2 cursor-pointer disabled:opacity-30 transition-all hover:opacity-70 active:scale-[0.97]"
-            >
-              {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-              <span>{isExporting ? "Export..." : "Export PNG"}</span>
-            </button>
+            <ExportButton onExport={handleExport} busy={isExporting} />
           </div>
         </div>
         {baseStyleHint && (
@@ -1567,7 +1576,9 @@ function PreviewContainer({
         </div>
         <div
           ref={containerRef}
-          className="overflow-hidden relative shadow-2xl shadow-black/[0.03] dark:shadow-white/[0.01] bg-card"
+          className={`overflow-hidden relative shadow-2xl shadow-black/[0.03] dark:shadow-white/[0.01] ${
+            bgColor === "transparent" ? "bg-checkerboard" : "bg-card"
+          }`}
           style={{
             height: `${nativeHeight * scale}px`,
           }}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Trash2, Loader2, Clock } from "lucide-react";
+import { Trash2, Loader2, Clock, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useDAStore } from "@/store/daStore";
 import type { ProjectMeta } from "@/types";
@@ -9,20 +9,29 @@ import {
   listProjects,
   loadProject,
   deleteProject,
+  duplicateProject,
   clearAllProjects,
   touchProject,
 } from "@/lib/projectStorage";
 import { ProjectCard } from "@/components/ui/ProjectCard";
 
+// Normalisation pour la recherche : minuscules + accents retirés.
+const normalize = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
 export function HistoryPanel({ onProjectOpen }: { onProjectOpen: () => void }) {
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
   const activeProjectId = useDAStore((s) => s.activeProjectId);
   const loadProjectData = useDAStore((s) => s.loadProjectData);
   const resetProject = useDAStore((s) => s.resetProject);
 
-  // Reloads the list — used by the delete handlers.
+  // Recharge la liste — utilisé par les handlers de suppression et de duplication.
   const refresh = useCallback(async () => {
     setProjects(await listProjects());
   }, []);
@@ -78,6 +87,17 @@ export function HistoryPanel({ onProjectOpen }: { onProjectOpen: () => void }) {
     );
   };
 
+  const handleDuplicate = async (id: string) => {
+    const meta = await duplicateProject(id);
+    if (meta) {
+      await refresh();
+      toast.success(`« ${meta.title} » ajouté à l'historique.`);
+    } else {
+      toast.error("Impossible de dupliquer ce projet.");
+      refresh();
+    }
+  };
+
   const handleClearAll = async () => {
     if (
       !window.confirm(
@@ -116,6 +136,12 @@ export function HistoryPanel({ onProjectOpen }: { onProjectOpen: () => void }) {
   }
 
   const selCount = selected.size;
+
+  // Filtre client-side (titre + domaine), insensible à la casse et aux accents.
+  const q = normalize(query.trim());
+  const visible = q
+    ? projects.filter((p) => normalize(`${p.title} ${p.domain}`).includes(q))
+    : projects;
 
   return (
     <div className="flex flex-col gap-4">
@@ -160,19 +186,39 @@ export function HistoryPanel({ onProjectOpen }: { onProjectOpen: () => void }) {
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5">
-        {projects.map((p) => (
-          <ProjectCard
-            key={p.id}
-            meta={p}
-            isActive={p.id === activeProjectId}
-            onOpen={() => handleOpen(p.id)}
-            selectable
-            selected={selected.has(p.id)}
-            onToggleSelect={() => toggleSelect(p.id)}
+      {/* Recherche — seulement quand la liste devient longue (inutile sinon). */}
+      {projects.length > 3 && (
+        <div className="flex items-center gap-2 border border-border rounded-md px-3 py-2 bg-background">
+          <Search className="w-3.5 h-3.5 text-foreground/40 shrink-0" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Rechercher un projet…"
+            className="flex-1 bg-transparent text-[12px] outline-none placeholder:text-foreground/30"
           />
-        ))}
-      </div>
+        </div>
+      )}
+
+      {visible.length === 0 ? (
+        <p className="py-10 text-center text-[12px] text-foreground/40">
+          Aucun projet ne correspond à «&nbsp;{query.trim()}&nbsp;».
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5">
+          {visible.map((p) => (
+            <ProjectCard
+              key={p.id}
+              meta={p}
+              isActive={p.id === activeProjectId}
+              onOpen={() => handleOpen(p.id)}
+              selectable
+              selected={selected.has(p.id)}
+              onToggleSelect={() => toggleSelect(p.id)}
+              onDuplicate={() => handleDuplicate(p.id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

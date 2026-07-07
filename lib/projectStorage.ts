@@ -158,6 +158,44 @@ export async function loadProject(id: string): Promise<StoredProject | null> {
   }
 }
 
+/**
+ * Duplique un projet sous un nouvel id (données complètes + meta). Le titre
+ * affiché dans la liste prend un suffixe « (copie) », la vignette est reprise
+ * de la meta d'origine (pour que la carte ne soit pas vide) et les dates
+ * repartent de maintenant. Renvoie la nouvelle meta, ou null si le projet
+ * source n'existe pas (ou en cas d'échec d'écriture).
+ */
+export async function duplicateProject(id: string): Promise<ProjectMeta | null> {
+  try {
+    const source = await loadProject(id);
+    if (!source) return null;
+    const db = await getDb();
+    const newId = newProjectId();
+    const savedAt = Date.now();
+    return await new Promise<ProjectMeta | null>((resolve, reject) => {
+      const tx = db.transaction([PROJECTS, META], 'readwrite');
+      const metaStore = tx.objectStore(META);
+      let created: ProjectMeta | null = null;
+      // On lit la meta d'origine pour récupérer la vignette déjà générée et le
+      // titre tel qu'affiché dans la liste (metaOf le re-dériverait à l'identique).
+      const prevReq = metaStore.get(id);
+      prevReq.onsuccess = () => {
+        const prev = prevReq.result as ProjectMeta | undefined;
+        const base = metaOf(newId, savedAt, source, savedAt, prev?.thumbnail);
+        created = { ...base, title: `${prev?.title || base.title} (copie)` };
+        tx.objectStore(PROJECTS).put({ ...source, id: newId, savedAt }, newId);
+        metaStore.put(created, newId);
+      };
+      tx.oncomplete = () => resolve(created);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } catch (e) {
+    console.warn('[projectStorage] duplicate failed:', e);
+    return null;
+  }
+}
+
 /** Lists every saved project (light meta only), most recent first. */
 export async function listProjects(): Promise<ProjectMeta[]> {
   try {
