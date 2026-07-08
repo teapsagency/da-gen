@@ -87,6 +87,10 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [imgHover, setImgHover] = useState(false);
+  // Guides d'alignement type Figma : quand le centre du calque s'aligne sur le
+  // centre de l'image (= centre de la frame), on l'aimante et on trace une ligne.
+  const [guides, setGuides] = useState<{ x: boolean; y: boolean }>({ x: false, y: false });
+  const SNAP = 0.008; // seuil d'accroche au centre (fraction de la dimension)
 
   const onHandleDown = (e: React.PointerEvent, layer: AssetLayer) => {
     if (!onMoveLayer || !rootRef.current) return;
@@ -101,14 +105,20 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
   const onHandleMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d) return;
-    const nx = clamp01((e.clientX - d.offX - d.rect.left) / d.rect.width);
-    const ny = clamp01((e.clientY - d.offY - d.rect.top) / d.rect.height);
+    let nx = clamp01((e.clientX - d.offX - d.rect.left) / d.rect.width);
+    let ny = clamp01((e.clientY - d.offY - d.rect.top) / d.rect.height);
+    const snapX = Math.abs(nx - 0.5) < SNAP;
+    const snapY = Math.abs(ny - 0.5) < SNAP;
+    if (snapX) nx = 0.5;
+    if (snapY) ny = 0.5;
+    setGuides((g) => (g.x === snapX && g.y === snapY ? g : { x: snapX, y: snapY }));
     onMoveLayer?.(d.id, nx, ny);
   };
   const onHandleUp = (e: React.PointerEvent) => {
     if (!dragRef.current) return;
     dragRef.current = null;
     setDraggingId(null);
+    setGuides({ x: false, y: false });
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
   };
 
@@ -505,6 +515,44 @@ export const FrameSectorAsset = ({ asset, id, onMoveLayer, onRemoveLayer, onImag
           </div>
         );
       })}
+
+      {/* Guides de centrage (aperçu uniquement, pendant le drag) */}
+      {interactive && draggingId && (guides.x || guides.y) && (
+        <>
+          {guides.x && (
+            <div
+              data-editor-only=""
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: 0,
+                bottom: 0,
+                width: Math.max(2, Math.round(w * 0.0015)),
+                transform: "translateX(-50%)",
+                background: "#ff2d55",
+                zIndex: 40,
+                pointerEvents: "none",
+              }}
+            />
+          )}
+          {guides.y && (
+            <div
+              data-editor-only=""
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: 0,
+                right: 0,
+                height: Math.max(2, Math.round(w * 0.0015)),
+                transform: "translateY(-50%)",
+                background: "#ff2d55",
+                zIndex: 40,
+                pointerEvents: "none",
+              }}
+            />
+          )}
+        </>
+      )}
     </div>
   );
 };
