@@ -135,6 +135,80 @@ export type PromptVars = {
   sitemap: string;
 };
 
+// ─── Régénération d'un seul bloc ───────────────────────────────────────────────
+// Utilisé par /api/generate-content quand le FormData contient `regenField`.
+// On régénère UNIQUEMENT ce champ, en gardant le reste du contenu comme contexte.
+
+export const REGEN_FIELDS = ['intro', 'challenge', 'solution', 'results', 'caption'] as const;
+export type RegenField = (typeof REGEN_FIELDS)[number];
+
+const REGEN_FIELD_BRIEF: Record<RegenField, string> = {
+  intro:
+    "l'INTRODUCTION de l'étude de cas (60-100 mots) : qui est le client, son activité, son histoire, ce qui le rend singulier. Ton narratif et posé.",
+  challenge:
+    "le paragraphe « DÉFI CLIENT » de l'étude de cas (50-80 mots) : pourquoi le client nous a contactés, ses besoins concrets, le contexte.",
+  solution:
+    "le paragraphe « SOLUTION APPORTÉE » de l'étude de cas (60-100 mots) : ce qu'on a conçu — technologie, design, fonctionnalités. Factuel et concret.",
+  results:
+    "le paragraphe « RÉSULTATS » de l'étude de cas (50-80 mots) : impact qualitatif (lisibilité, fluidité, ergonomie). Aucun chiffre inventé — métriques uniquement si présentes dans le brief/docs.",
+  caption:
+    "la LÉGENDE du post social (LinkedIn / Instagram). Post naturel et varié, blocs séparés par une ligne vide : ouverture annonçant le projet, accroche, contexte client (1-2 phrases), ce qu'on a réalisé (1-2 phrases), lien vers le site, puis CTA final « Vous aussi vous souhaitez votre site web ? 👉 https://teaps.fr/ ». Emojis : 0 à 3 max sur le corps (👉 obligatoire uniquement devant l'URL teaps.fr), jamais enchaînés.",
+};
+
+export type RegenVars = {
+  field: RegenField;
+  siteTitle: string;
+  siteUrl: string;
+  domain: string;
+  chips: string;
+  brief: string;
+  /** GeneratedContent courant, sérialisé en JSON (contexte à préserver). */
+  current: string;
+};
+
+export function buildRegenPrompt(vars: RegenVars): string {
+  const isCaption = vars.field === 'caption';
+  const outputFormat = isCaption
+    ? `{
+  "caption": "Post complet, blocs séparés par \\n\\n",
+  "hashtags": ["#marketing", "#marketingdigital", "#digital", "#hashtag4", "#hashtag5", "#hashtag6"]
+}`
+    : `{
+  "value": "Le nouveau texte du bloc, sans guillemets superflus ni markdown de titre."
+}`;
+
+  return `Tu es rédacteur pour TEAPS, agence digitale basée à Toulon. Tu écris comme un artisan qui décrit son travail, pas comme un commercial qui vend un produit.
+
+## Tâche
+Régénère UNIQUEMENT ${REGEN_FIELD_BRIEF[vars.field]}
+Propose une VARIANTE différente de la version actuelle (autre angle, autre formulation), sans changer les faits. Ne régénère aucun autre bloc.
+
+## Contexte — site analysé
+- Nom / Titre : ${vars.siteTitle}
+- URL : ${vars.siteUrl}
+- Domaine : ${vars.domain}
+- Type de projet : ${vars.chips}
+${vars.brief ? `\n## Brief client (fourni par l'agence — prioritaire)\n${vars.brief}\n` : ''}
+## Contenu déjà généré (à NE PAS réécrire — sert de contexte pour rester cohérent)
+${vars.current}
+
+## Règles absolues
+1. Français, voix de l'agence au "nous", client nommé par son nom.
+2. Ne jamais inventer de chiffres, dates, fonctionnalités, témoignages, récompenses. Si une info manque, omets-la.
+3. Le brief/docs priment sur toute supposition.
+4. Reste cohérent avec les autres blocs déjà générés (même client, même projet, même ton).
+5. N'invente aucune URL. Tu peux reprendre un lien Markdown [ancre](url) déjà présent dans le contenu existant s'il est pertinent, jamais en créer un nouveau.
+
+## Tonalité
+- On veut : phrases simples et courtes, vocabulaire courant, descriptions concrètes et factuelles, ton d'artisan précis et tranquille, nommer les choses ("un site Shopify", "une refonte du tunnel d'achat").
+- On refuse : exclamations forcées, marketing creux ("disruptif", "game-changer", "clé en main"), adjectifs empilés, superlatifs non justifiés, ton publicitaire.
+
+## Format de sortie
+Un objet JSON strictement valide, rien d'autre — pas de \`\`\`json, pas de texte avant/après, pas de commentaire.
+
+${outputFormat}`;
+}
+
 export function renderPrompt(template: string, vars: PromptVars): string {
   return template
     .replaceAll('{{siteTitle}}', vars.siteTitle)

@@ -25,6 +25,9 @@ export type MotionAssets = MotionImages & {
   domain: string;
   siteName: string;
   fontLabel: string;
+  // Labels courts « ce qu'on a réalisé » (résolus depuis motionChips) affichés
+  // en pastilles pendant les scènes du site. Vide → aucune pastille.
+  tags: string[];
 };
 
 // ─── Easing (personnalité « premium » : entrées décélérées, sorties accélérées) ───
@@ -81,6 +84,20 @@ function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: numb
   const sx = (iw - sw) / 2;
   const sy = clamp(panY) * (ih - sh);
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+
+// Amplitude de scroll adaptée à la HAUTEUR de la page : la vitesse (hauteurs de
+// mockup parcourues par seconde) reste CONSTANTE quelle que soit la page. Page
+// haute → on descend moins (mais au même rythme lisible) ; page courte → on va
+// jusqu'en bas. Renvoie le panY max (0..1) visé sur `seconds` de scroll.
+const SCROLL_VP_PER_SEC = 0.6;
+function coverMaxPan(img: HTMLImageElement | null, boxW: number, boxH: number, seconds: number): number {
+  if (!img || !img.naturalWidth || !img.naturalHeight) return 0;
+  const scale = Math.max(boxW / img.naturalWidth, boxH / img.naturalHeight);
+  const visibleH = boxH / scale; // hauteur d'image réellement visible dans le mockup
+  const scrollableVp = img.naturalHeight / visibleH - 1; // « viewports » à parcourir
+  if (scrollableVp <= 0.001) return 0;
+  return clamp((SCROLL_VP_PER_SEC * seconds) / scrollableVp, 0, 1);
 }
 
 function drawContain(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cx: number, cy: number, bw: number, bh: number) {
@@ -345,12 +362,10 @@ const SCENES: Scene[] = [
         const rectH = lerp(MOTION_H, stripH, b);
         ctx.fillStyle = hex;
         ctx.fillRect(i * bandW, rectY, bandW + 1, rectH);
-        const la = easeOutCubic(clamp((p - 0.16 - i * 0.05) / 0.3));
+        // Le hex est SOLIDAIRE de sa bande (il monte/compresse avec elle) → pas
+        // de transition d'opacité propre, il suit simplement le fondu de la scène.
         const labelY = rectY + rectH - lerp(MOTION_H * 0.12, stripH * 0.5, b);
-        ctx.save();
-        ctx.globalAlpha *= la;
         text(ctx, hex.toUpperCase(), i * bandW + bandW / 2, labelY, `700 30px Satoshi, sans-serif`, readable(hex));
-        ctx.restore();
       });
       // Bloc typo/logo (au-dessus du bandeau) — rise + scale, sortie vers le haut.
       const ce = easeEmph(clamp((p - 0.55) / 0.35));
@@ -402,7 +417,8 @@ const SCENES: Scene[] = [
       const zoom = lerp(1.12, 1, ein);
       const rise = (1 - ein) * MOTION_H * 0.16; // entre en se posant depuis le bas
       const rz = -0.02 + Math.sin(t * 0.5) * 0.005;
-      const pan = easeInOutCubic(clamp((p - 0.26) / 0.38)) * 0.9;
+      // Scroll à vitesse constante, adaptée à la hauteur de la page (voir coverMaxPan).
+      const pan = easeInOutCubic(clamp((p - 0.1) / 0.6)) * coverMaxPan(A.desktopFull, w, h, 2.2);
       const drift = Math.sin(t * 0.7) * MOTION_H * 0.008; // il flotte…
       // Chute naturelle en 2 temps : montée DOUCE qui décélère jusqu'à l'arrêt
       // (apex), puis gravité pure depuis vitesse nulle (accélération constante).
@@ -430,7 +446,9 @@ const SCENES: Scene[] = [
       // repartent tous les deux vers le HAUT.
       const sIn = easeInOutCubic(clamp(p / 0.46)); // montée en arc
       const sUp = easeSpring(clamp(p / 0.46)); // redressement (léger ressort)
-      const pan = easeInOutCubic(clamp((p - 0.44) / 0.26)) * 0.65; // scroll pendant la pause
+      // Scroll à vitesse constante adaptée à la hauteur de la page (coverMaxPan),
+      // étalé sur toute la pause debout — au-delà de l'accueil vers le contenu.
+      const pan = easeInOutCubic(clamp((p - 0.36) / 0.34)) * coverMaxPan(imgs[0], w, w / 0.49, 1.43);
       const bob = Math.sin(t * 1.6) * 0.008; // micro-flottement debout
       const QUART = Math.PI / 4; // 45°
       const phones: { fromX: number; restX: number; bulge: number; rotIn: number; outDelay: number; scale: number; alpha: number; imgIdx: number }[] = [
@@ -528,6 +546,100 @@ function sceneAlpha(t: number, s: Scene): number {
   return easeInOutCubic(Math.min(inA, outA));
 }
 
+// ─── Pastilles « ce qu'on a réalisé » (overlay écran, HORS caméra) ───
+// Elles entrent une par une (glisse + ressort), s'accumulent autour du mockup,
+// puis TOMBENT TOUTES ENSEMBLE — synchronisées sur la chute du mockup desktop :
+// petit rollback (remontée/anticipation) puis gravité pure, avec une rotation
+// ALÉATOIRE par pastille et un micro-décalage de quelques dizaines de ms.
+// Style plat cohérent app : corps blanc, fine bordure, texte seul — AUCUNE ombre.
+const TAGS_START = 9.7; // 1ère pastille (le desktop est posé)
+const TAG_STAGGER = 0.28; // entrées décalées
+const TAG_ENTER = 0.55; // durée d'entrée
+const DROP_TIME = 11.9; // LÂCHER commun, calé sur la chute du mockup desktop (p≈0.7)
+const DROP_DUR = 1.2; // durée de chute
+
+// Ancres : bord d'ancrage (fraction W) + côté d'expansion + hauteur de repos
+// (fraction H). Alternent droite/gauche et évitent le centre occupé par le mockup.
+const TAG_ANCHORS: { ax: number; ay: number; side: "l" | "r"; phase: number }[] = [
+  { ax: 0.87, ay: 0.22, side: "r", phase: 0 },
+  { ax: 0.13, ay: 0.34, side: "l", phase: 1.7 },
+  { ax: 0.88, ay: 0.48, side: "r", phase: 3.1 },
+  { ax: 0.12, ay: 0.6, side: "l", phase: 4.2 },
+  { ax: 0.84, ay: 0.72, side: "r", phase: 5.0 },
+  { ax: 0.16, ay: 0.2, side: "l", phase: 2.4 },
+];
+
+// Pseudo-aléatoire déterministe par pastille (stable frame à frame → pas de
+// tremblement sous le motion blur, mais varié d'une pastille à l'autre).
+function hash01(n: number): number {
+  const s = Math.sin(n * 12.9898 + 4.13) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+function drawTags(ctx: CanvasRenderingContext2D, t: number, A: MotionAssets) {
+  if (!A.tags.length) return;
+  const W = MOTION_W, H = MOTION_H;
+  const FS = 30, PADX = 32, PILL_H = 64;
+  ctx.font = `600 ${FS}px Satoshi, sans-serif`;
+
+  A.tags.forEach((label, i) => {
+    if (i >= TAG_ANCHORS.length) return; // cap = nb d'ancres (aligné sur MOTION_TAG_LIMIT)
+    const a = TAG_ANCHORS[i];
+    const local = t - (TAGS_START + i * TAG_STAGGER);
+    if (local < 0) return; // pas encore née
+    const dir = a.side === "r" ? 1 : -1;
+
+    // Tirages aléatoires STABLES : sens + amplitude de rotation, micro-décalage
+    // du lâcher (quelques dizaines de ms → la chute n'est pas parfaitement pile).
+    const spinDir = hash01(i + 1) < 0.5 ? -1 : 1;
+    const spinAmt = 0.7 + hash01(i * 3 + 2) * 1.0; // 0.7..1.7
+    const dropAt = DROP_TIME + hash01(i * 7 + 5) * 0.12;
+
+    // Entrée : glisse depuis l'extérieur avec un léger overshoot (ressort),
+    // arrive un chouïa inclinée puis se redresse, fondu doux.
+    const pe = clamp(local / TAG_ENTER);
+    const enter = easeOutCubic(pe);
+    const spring = easeSpring(pe); // peut dépasser 1 → overshoot
+    const scale = lerp(0.82, 1, spring);
+
+    // Chute COMMUNE (synchro desktop) : rollback (remonte un peu → apex) puis
+    // gravité pure, exactement comme la frame desktop qu'on lâche.
+    const drop = (t - dropAt) / DROP_DUR;
+    if (drop > 1.0) return; // tombée hors cadre
+    let dy = 0, spin = 0;
+    if (drop > 0) {
+      const lift = -H * 0.055 * easeOutCubic(clamp(drop / 0.22)); // rollback vers le haut
+      const fq = Math.max(0, (drop - 0.22) / 0.78); // gravité après l'apex
+      dy = lift + H * 1.9 * fq * fq;
+      spin = spinDir * spinAmt * (0.35 * fq + 0.9 * fq * fq); // tumble qui s'emballe
+    }
+    const falling = clamp(drop);
+
+    const textW = ctx.measureText(label).width;
+    const pillW = PADX * 2 + textW;
+    const edge = a.ax * W;
+    const restX = a.side === "r" ? edge - pillW / 2 : edge + pillW / 2;
+
+    const bob = Math.sin(t * 1.25 + a.phase) * 5 * (1 - falling); // flottement, éteint en tombant
+    const cx = restX + dir * (1 - spring) * W * 0.05 + spinDir * falling * falling * W * 0.02;
+    const cy = a.ay * H + bob + dy;
+    const rot = (1 - spring) * dir * 0.08 + spin; // redressement à l'entrée, tumble à la chute
+
+    ctx.save();
+    ctx.globalAlpha *= enter;
+    xform(ctx, cx, cy, scale, rot, () => {
+      roundRectPath(ctx, -pillW / 2, -PILL_H / 2, pillW, PILL_H, PILL_H / 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.10)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      text(ctx, label, 0, 1, `600 ${FS}px Satoshi, sans-serif`, "#111", "center");
+    });
+    ctx.restore();
+  });
+}
+
 // Rend UN échantillon temporel complet au temps t (une passe opaque).
 function renderSample(ctx: CanvasRenderingContext2D, t: number, A: MotionAssets) {
   const W = MOTION_W, H = MOTION_H;
@@ -566,6 +678,8 @@ function renderSample(ctx: CanvasRenderingContext2D, t: number, A: MotionAssets)
   vg.addColorStop(1, `rgba(0,0,0,${0.2 * (1 - wf * 0.9)})`);
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, W, H);
+  // Pastilles « ce qu'on a réalisé » — overlay UI net, au-dessus de tout.
+  drawTags(ctx, t, A);
 }
 
 // Canvas d'échantillon réutilisé (motion blur) — alloué une fois.

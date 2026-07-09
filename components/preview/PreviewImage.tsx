@@ -11,6 +11,7 @@ import { Frame7_Social_ThreeImg } from "@/components/frames/Frame7_Social_ThreeI
 import { Frame8_Social_CardSite } from "@/components/frames/Frame8_Social_CardSite";
 import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_BoardDesktop";
 import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
+import { Frame11_Social_StoryHero } from "@/components/frames/Frame11_Social_StoryHero";
 import { Frame1_DA_Mobile } from "@/components/frames/Frame1_DA_Mobile";
 import { FrameColors_Mobile } from "@/components/frames/FrameColors_Mobile";
 import { Frame2_Mockup_Mobile } from "@/components/frames/Frame2_Mockup_Mobile";
@@ -28,6 +29,7 @@ export const FRAME_RENDER: Record<SocialFrameId, { w: number; h: number; node: R
   frame8: { w: 1080, h: 1350, node: <Frame8_Social_CardSite /> },
   frame9: { w: 1080, h: 1350, node: <Frame9_Social_BoardDesktop /> },
   frame10: { w: 1080, h: 1350, node: <Frame10_Social_BoardMobile /> },
+  frame11: { w: 1080, h: 1920, node: <Frame11_Social_StoryHero /> },
 };
 
 /** Frame sociale rendue en live, scalée « cover » dans son conteneur absolu. */

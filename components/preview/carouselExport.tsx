@@ -7,6 +7,7 @@ import { Frame7_Social_ThreeImg } from "@/components/frames/Frame7_Social_ThreeI
 import { Frame8_Social_CardSite } from "@/components/frames/Frame8_Social_CardSite";
 import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_BoardDesktop";
 import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
+import { Frame11_Social_StoryHero } from "@/components/frames/Frame11_Social_StoryHero";
 import { Frame1_DA_Mobile } from "@/components/frames/Frame1_DA_Mobile";
 import { FrameColors_Mobile } from "@/components/frames/FrameColors_Mobile";
 import { Frame2_Mockup_Mobile } from "@/components/frames/Frame2_Mockup_Mobile";
@@ -30,6 +31,7 @@ export const CAROUSEL_FRAME_EXPORT: Record<
   frame8: { id: "carousel-frame8", w: 1080, h: 1350, name: "card_site", node: <Frame8_Social_CardSite id="carousel-frame8" /> },
   frame9: { id: "carousel-frame9", w: 1080, h: 1350, name: "planche_desktop", node: <Frame9_Social_BoardDesktop id="carousel-frame9" /> },
   frame10: { id: "carousel-frame10", w: 1080, h: 1350, name: "planche_mobile", node: <Frame10_Social_BoardMobile id="carousel-frame10" /> },
+  frame11: { id: "carousel-frame11", w: 1080, h: 1920, name: "story_hero", node: <Frame11_Social_StoryHero id="carousel-frame11" /> },
   identityMobile: { id: "carousel-identityMobile", w: 1080, h: 1350, name: "identite_mobile", node: <Frame1_DA_Mobile id="carousel-identityMobile" /> },
   colorsMobile: { id: "carousel-colorsMobile", w: 1080, h: 1350, name: "couleurs_mobile", node: <FrameColors_Mobile id="carousel-colorsMobile" /> },
   mockupMobile: { id: "carousel-mockupMobile", w: 1080, h: 1350, name: "interface_mobile", node: <Frame2_Mockup_Mobile id="carousel-mockupMobile" /> },

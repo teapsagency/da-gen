@@ -5,7 +5,7 @@ import {
   Loader2, ArrowUp, Copy, Check,
   ChevronDown, ChevronUp, Paperclip, X,
   Linkedin, Instagram,
-  FileText, Braces, Code, Sparkles, MonitorSmartphone,
+  FileText, Braces, Code, Sparkles, MonitorSmartphone, RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { GeneratedContent } from "@/types";
@@ -23,6 +23,9 @@ type Props = {
   content: GeneratedContent | null;
   error: string | null;
   onOpenPreview: () => void;
+  // Régénération d'un seul bloc. `field` ∈ {intro,challenge,solution,results,caption}.
+  onRegenerateField?: (field: string) => void;
+  regeneratingField?: string | null;
 };
 
 const ACCEPTED_EXTS = [".md", ".txt", ".pdf", ".html", ".json"];
@@ -35,6 +38,7 @@ export function ContentChat({
   onGenerate, isGenerating,
   content, error,
   onOpenPreview,
+  onRegenerateField, regeneratingField = null,
 }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -103,10 +107,10 @@ export function ContentChat({
                     )}
                   </div>
                   <div className="grid grid-cols-1 gap-4">
-                    {content.caseStudy.intro && <ContentField label="Introduction" value={content.caseStudy.intro} />}
-                    {content.caseStudy.challenge && <ContentField label="Défi client" value={content.caseStudy.challenge} />}
-                    {content.caseStudy.solution && <ContentField label="Solution apportée" value={content.caseStudy.solution} />}
-                    {content.caseStudy.results && <ContentField label="Résultats" value={content.caseStudy.results} />}
+                    {content.caseStudy.intro && <ContentField label="Introduction" value={content.caseStudy.intro} field="intro" onRegenerate={onRegenerateField} regeneratingField={regeneratingField} />}
+                    {content.caseStudy.challenge && <ContentField label="Défi client" value={content.caseStudy.challenge} field="challenge" onRegenerate={onRegenerateField} regeneratingField={regeneratingField} />}
+                    {content.caseStudy.solution && <ContentField label="Solution apportée" value={content.caseStudy.solution} field="solution" onRegenerate={onRegenerateField} regeneratingField={regeneratingField} />}
+                    {content.caseStudy.results && <ContentField label="Résultats" value={content.caseStudy.results} field="results" onRegenerate={onRegenerateField} regeneratingField={regeneratingField} />}
                   </div>
                   {(content.caseStudy.services?.length > 0 || content.caseStudy.platform) && (
                   <div className="flex flex-col gap-2">
@@ -139,7 +143,18 @@ export function ContentChat({
               <div className="flex flex-col gap-4">
                 {content.socialPost && (
                   <div className="bg-foreground/[0.03] rounded-xl p-4 border border-border">
-                    <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap font-medium">
+                    {content.socialPost.caption && onRegenerateField && (
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/25">Légende</span>
+                        <RegenButton
+                          field="caption"
+                          onRegenerate={onRegenerateField}
+                          isRegenerating={regeneratingField === "caption"}
+                          disabled={regeneratingField != null}
+                        />
+                      </div>
+                    )}
+                    <p className={`text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap font-medium ${regeneratingField === "caption" ? "opacity-40" : ""}`}>
                       {content.socialPost.caption ?? ""}
                     </p>
                     {(content.socialPost.hashtags?.length ?? 0) > 0 && (
@@ -389,15 +404,52 @@ function ResultSection({ id, title, badge, expanded, onToggle, children }: {
   );
 }
 
-function ContentField({ label, value }: { label: string; value: string }) {
+function ContentField({ label, value, field, onRegenerate, regeneratingField = null }: {
+  label: string;
+  value: string;
+  field?: string;
+  onRegenerate?: (field: string) => void;
+  regeneratingField?: string | null;
+}) {
+  const isRegenerating = !!field && regeneratingField === field;
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/25">{label}</span>
-        <CopyButton value={value} label="Copier" />
+        <div className="flex items-center gap-3">
+          {field && onRegenerate && (
+            <RegenButton
+              field={field}
+              onRegenerate={onRegenerate}
+              isRegenerating={isRegenerating}
+              disabled={regeneratingField != null}
+            />
+          )}
+          <CopyButton value={value} label="Copier" />
+        </div>
       </div>
-      <p className="text-sm text-foreground/70 leading-relaxed font-medium">{value}</p>
+      <p className={`text-sm text-foreground/70 leading-relaxed font-medium ${isRegenerating ? "opacity-40" : ""}`}>{value}</p>
     </div>
+  );
+}
+
+// Petit bouton discret pour régénérer un seul bloc (à côté de « Copier »).
+function RegenButton({ field, onRegenerate, isRegenerating, disabled }: {
+  field: string;
+  onRegenerate: (field: string) => void;
+  isRegenerating: boolean;
+  disabled: boolean;
+}) {
+  return (
+    <button
+      onClick={() => onRegenerate(field)}
+      disabled={disabled}
+      title="Regénérer ce bloc"
+      className="flex items-center gap-1 text-[10px] font-semibold text-foreground/30 hover:text-foreground/60 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      {isRegenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+      {isRegenerating ? "..." : "Regénérer"}
+    </button>
   );
 }
 

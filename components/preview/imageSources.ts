@@ -48,4 +48,5 @@ export const FRAME_SOURCES: { ref: PreviewImageRef; label: string }[] = [
   { ref: { kind: "frame", frame: "frame8" }, label: "08 / Card site" },
   { ref: { kind: "frame", frame: "frame9" }, label: "09 / Planche desktop" },
   { ref: { kind: "frame", frame: "frame10" }, label: "10 / Planche mobile" },
+  { ref: { kind: "frame", frame: "frame11" }, label: "11 / Story 9:16" },
 ];

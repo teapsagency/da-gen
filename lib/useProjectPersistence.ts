@@ -43,6 +43,7 @@ const pickSnapshot = (s: DAStore): ProjectSnapshot => ({
   sitemapError: s.sitemapError,
   generatedContent: s.generatedContent,
   contentChips: s.contentChips,
+  motionChips: s.motionChips,
   contentBrief: s.contentBrief,
   previewCaption: s.previewCaption,
   previewImages: s.previewImages,

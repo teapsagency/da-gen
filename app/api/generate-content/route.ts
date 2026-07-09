@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI, Part } from '@google/generative-ai';
-import { DEFAULT_CONTENT_PROMPT, DEFAULT_GEMINI_MODEL, renderPrompt } from '@/lib/defaultPrompt';
+import {
+  DEFAULT_CONTENT_PROMPT,
+  DEFAULT_GEMINI_MODEL,
+  renderPrompt,
+  buildRegenPrompt,
+  REGEN_FIELDS,
+  type RegenField,
+} from '@/lib/defaultPrompt';
 
 // AI generation streams for a while.
 export const maxDuration = 120;
@@ -17,6 +24,7 @@ export async function POST(request: NextRequest) {
     const clientApiKey = (formData.get('apiKey') as string || '').trim();
     const clientPrompt = (formData.get('prompt') as string || '').trim();
     const clientModel = (formData.get('model') as string || '').trim();
+    const regenField = (formData.get('regenField') as string || '').trim();
     const sitemapUrls = JSON.parse(formData.get('sitemap') as string || '[]') as string[];
     const files = (formData.getAll('files') as File[])
       .filter((f) => f && f.size > 0 && f.size <= MAX_FILE_SIZE)
@@ -28,6 +36,57 @@ export async function POST(request: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
+
+    // ─── Mode régénération d'UN SEUL bloc ───────────────────────────────────
+    // Déclenché par `regenField` dans le FormData. Réponse JSON simple (pas de
+    // streaming) : { value } pour les blocs texte, { caption, hashtags } pour la
+    // légende. Le chemin de génération complète (ci-dessous) reste intact.
+    if (regenField && (REGEN_FIELDS as readonly string[]).includes(regenField)) {
+      const current = JSON.parse((formData.get('currentContent') as string) || '{}');
+      const regenPrompt = buildRegenPrompt({
+        field: regenField as RegenField,
+        siteTitle: siteData.title || siteData.domain || '',
+        siteUrl: siteData.siteUrl || '',
+        domain: siteData.domain || '',
+        chips: chips.length > 0 ? chips.join(' · ') : 'Non précisé',
+        brief: clientBrief,
+        current: JSON.stringify(current),
+      });
+
+      const modelName = clientModel || process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: { responseMimeType: 'application/json' },
+      });
+      const result = await model.generateContent(regenPrompt);
+      const raw = result.response.text().trim();
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw.replace(/^```(?:json)?\s*/m, '').replace(/\s*```$/m, '').trim());
+      } catch {
+        return NextResponse.json({ error: "Réponse de l'IA invalide. Réessayez." }, { status: 502 });
+      }
+
+      if (regenField === 'caption') {
+        const obj = parsed as { caption?: unknown; hashtags?: unknown };
+        const caption = typeof obj.caption === 'string' ? obj.caption.trim() : '';
+        const hashtags = Array.isArray(obj.hashtags)
+          ? obj.hashtags.filter((h): h is string => typeof h === 'string')
+          : [];
+        if (!caption) {
+          return NextResponse.json({ error: 'Régénération vide. Réessayez.' }, { status: 502 });
+        }
+        return NextResponse.json({ caption, hashtags });
+      }
+
+      const obj = parsed as { value?: unknown };
+      const value = typeof obj.value === 'string' ? obj.value.trim() : '';
+      if (!value) {
+        return NextResponse.json({ error: 'Régénération vide. Réessayez.' }, { status: 502 });
+      }
+      return NextResponse.json({ value });
+    }
 
     let fileContext = '';
     const pdfParts: Part[] = [];

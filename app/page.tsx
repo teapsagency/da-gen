@@ -29,6 +29,7 @@ import { Frame7_Social_ThreeImg } from "@/components/frames/Frame7_Social_ThreeI
 import { Frame8_Social_CardSite } from "@/components/frames/Frame8_Social_CardSite";
 import { Frame9_Social_BoardDesktop } from "@/components/frames/Frame9_Social_BoardDesktop";
 import { Frame10_Social_BoardMobile } from "@/components/frames/Frame10_Social_BoardMobile";
+import { Frame11_Social_StoryHero } from "@/components/frames/Frame11_Social_StoryHero";
 import { ShowcaseSection } from "@/components/showcase/ShowcaseSection";
 import { MotionStudio } from "@/components/motion/MotionStudio";
 import { SlidingTabs } from "@/components/ui/SlidingTabs";
@@ -176,6 +177,9 @@ export default function Home() {
   const [streamingContent, setStreamingContent] = React.useState<string>("");
   const [isGeneratingContent, setIsGeneratingContent] = React.useState(false);
   const [contentError, setContentError] = React.useState<string | null>(null);
+  // Régénération d'un seul bloc (intro/challenge/solution/results/caption) :
+  // null = aucun en cours, sinon la clé du champ en train d'être régénéré.
+  const [regeneratingField, setRegeneratingField] = React.useState<string | null>(null);
   const scrapeLogs = useDAStore((s) => s.scrapeLogs);
   const setScrapeLogs = useDAStore((s) => s.setScrapeLogs);
   const clearScrapeLogs = useDAStore((s) => s.clearScrapeLogs);
@@ -271,6 +275,55 @@ export default function Home() {
       setStreamingContent("");
     }
   }, [scrapeResult, contentChips, contentFiles, contentBrief, tryParsePartial]);
+
+  // Régénère UN SEUL bloc du contenu (intro/challenge/solution/results/caption)
+  // via /api/generate-content en mode `regenField`, sans relancer le reste.
+  const handleRegenerateField = React.useCallback(async (field: string) => {
+    const prev = useDAStore.getState().generatedContent;
+    if (!scrapeResult || !prev || regeneratingField) return;
+    setRegeneratingField(field);
+    setContentError(null);
+    try {
+      const { geminiApiKeys, activeApiKeyId, geminiModel } = useDAStore.getState();
+      const activeKey = geminiApiKeys.find((k) => k.id === activeApiKeyId) || geminiApiKeys[0];
+      const geminiApiKey = activeKey?.key || '';
+      const formData = new FormData();
+      formData.append("regenField", field);
+      formData.append("currentContent", JSON.stringify(prev));
+      formData.append("chips", JSON.stringify(contentChips));
+      formData.append("siteData", JSON.stringify({
+        title: scrapeResult.title,
+        domain: scrapeResult.domain,
+        siteUrl: scrapeResult.siteUrl,
+      }));
+      formData.append("clientBrief", contentBrief);
+      if (geminiApiKey) formData.append("apiKey", geminiApiKey);
+      if (geminiModel) formData.append("model", geminiModel);
+
+      const res = await fetch("/api/generate-content", { method: "POST", body: formData });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || "Erreur lors de la régénération.");
+      }
+      const data = await res.json();
+
+      // Recharge la version fraîche du store (au cas où elle aurait changé).
+      const base = useDAStore.getState().generatedContent ?? prev;
+      if (field === "caption") {
+        const caption = typeof data.caption === "string" ? data.caption : base.socialPost.caption;
+        const hashtags = Array.isArray(data.hashtags) ? data.hashtags : base.socialPost.hashtags;
+        setGeneratedContent({ ...base, socialPost: { ...base.socialPost, caption, hashtags } });
+      } else {
+        const value = typeof data.value === "string" ? data.value : "";
+        if (!value) throw new Error("Régénération vide.");
+        setGeneratedContent({ ...base, caseStudy: { ...base.caseStudy, [field]: value } });
+      }
+    } catch (err) {
+      setContentError(err instanceof Error ? err.message : "Erreur lors de la régénération.");
+    } finally {
+      setRegeneratingField(null);
+    }
+  }, [scrapeResult, contentChips, contentBrief, regeneratingField, setGeneratedContent]);
 
   // "Nouveau projet" — clears the editing canvas and returns to the home
   // screen. No confirmation needed: the current project stays safe in the
@@ -1030,6 +1083,9 @@ export default function Home() {
                     <PreviewContainer title="10 / PLANCHE MOBILE" id="frame-10-board-mobile" nativeWidth={1080} nativeHeight={1350} actions={<BoardCountControl />}>
                       <Frame10_Social_BoardMobile />
                     </PreviewContainer>
+                    <PreviewContainer title="11 / STORY 9:16" id="frame-11-story" nativeWidth={1080} nativeHeight={1920} actions={<ShowcaseWordingControl />}>
+                      <Frame11_Social_StoryHero />
+                    </PreviewContainer>
                   </div>
                 ) : (
                   <div className="max-w-3xl mx-auto text-center text-[12px] text-foreground/40 py-24">
@@ -1062,6 +1118,8 @@ export default function Home() {
                   content={generatedContent}
                   error={contentError}
                   onOpenPreview={() => setSidebarTab("preview")}
+                  onRegenerateField={handleRegenerateField}
+                  regeneratingField={regeneratingField}
                 />
               </div>
             )}
@@ -1523,6 +1581,7 @@ function PreviewContainer({
       case "frame-8-social-card": return <Frame8_Social_CardSite id="frame-8-social-card" />;
       case "frame-9-board-desktop": return <Frame9_Social_BoardDesktop id="frame-9-board-desktop" />;
       case "frame-10-board-mobile": return <Frame10_Social_BoardMobile id="frame-10-board-mobile" />;
+      case "frame-11-story": return <Frame11_Social_StoryHero id="frame-11-story" />;
       default: return null;
     }
   };

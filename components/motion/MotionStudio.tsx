@@ -3,10 +3,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { saveAs } from "file-saver";
-import { Play, Pause, Film, Loader2, Download, RotateCcw, Music, X } from "lucide-react";
+import { Play, Pause, Film, Loader2, Download, RotateCcw, Music, X, Tag, ChevronDown } from "lucide-react";
 import { useDAStore } from "@/store/daStore";
 import { seedMesh } from "@/lib/meshGradient";
 import { sanitizeName } from "@/lib/exportFrames";
+import { ChipSelector } from "@/components/ui/ChipSelector";
+import { resolveMotionTags } from "@/lib/projectChips";
 import {
   drawFrame,
   preloadMotionImages,
@@ -39,6 +41,8 @@ export function MotionStudio() {
   const motionBg = useDAStore((s) => s.motionBg);
   const setMotionBg = useDAStore((s) => s.setMotionBg);
   const fontName = useDAStore((s) => s.fontName);
+  const motionChips = useDAStore((s) => s.motionChips);
+  const setMotionChips = useDAStore((s) => s.setMotionChips);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [images, setImages] = useState<MotionImages | null>(null);
@@ -52,6 +56,12 @@ export function MotionStudio() {
   const audioInputRef = useRef<HTMLInputElement>(null);
   // Motion blur façon AE (échantillonnage du shutter). Aperçu 2 passes, export 4.
   const [motionBlur, setMotionBlur] = useState(true);
+  // Panneau « Ce qu'on a réalisé » (pastilles) — replié par défaut.
+  const [showTags, setShowTags] = useState(false);
+
+  // Labels courts résolus depuis la sélection (type de site + techno + services),
+  // capés à 6 → pastilles affichées dans la vidéo.
+  const tags = useMemo(() => resolveMotionTags(motionChips), [motionChips]);
 
   // Raison du blocage de l'export (HTTPS manquant vs navigateur sans WebCodecs),
   // évaluée après montage pour lire le vrai contexte du navigateur.
@@ -104,8 +114,9 @@ export function MotionStudio() {
       domain,
       siteName: scrapeResult.siteName || domain,
       fontLabel: fontName || scrapeResult.font?.name || "",
+      tags,
     };
-  }, [images, scrapeResult, palette, showcaseMeshBase, accent, motionBg.speed, motionBg.intensity, fontName]);
+  }, [images, scrapeResult, palette, showcaseMeshBase, accent, motionBg.speed, motionBg.intensity, fontName, tags]);
 
   const drawAt = useCallback(
     (ti: number) => {
@@ -351,6 +362,34 @@ export function MotionStudio() {
           </button>
         )}
         <input ref={audioInputRef} type="file" accept="audio/*" onChange={handleAudioFile} className="hidden" />
+      </div>
+
+      {/* Ce qu'on a réalisé → pastilles affichées pendant les scènes du site */}
+      <div className="mb-4 border border-border bg-card rounded-md">
+        <button
+          onClick={() => setShowTags((v) => !v)}
+          className="w-full flex items-center justify-between px-3 py-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <span className="text-[11px] font-bold text-foreground/60 flex items-center gap-2">
+            <Tag className="w-3.5 h-3.5" />
+            Ce qu&apos;on a réalisé
+            {tags.length > 0 && (
+              <span className="text-foreground/35 font-medium">
+                · {tags.length} pastille{tags.length > 1 ? "s" : ""}
+              </span>
+            )}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-foreground/40 transition-transform ${showTags ? "rotate-180" : ""}`} />
+        </button>
+        {showTags && (
+          <div className="px-3 pb-3 pt-1 border-t border-border">
+            <p className="text-[11px] text-foreground/40 mb-3 leading-relaxed">
+              Type de site et prestations : affichés en pastilles pendant les scènes du site (6 max).
+              Type de projet et secteur restent masqués à l&apos;écran.
+            </p>
+            <ChipSelector selected={motionChips} onChange={setMotionChips} />
+          </div>
+        )}
       </div>
 
       {/* Aperçu */}

@@ -73,7 +73,7 @@ export type GeneratedContent = {
 };
 
 export type SocialFrameId =
-  | 'frame4' | 'frame5' | 'frame6' | 'frame7' | 'frame8' | 'frame9' | 'frame10'
+  | 'frame4' | 'frame5' | 'frame6' | 'frame7' | 'frame8' | 'frame9' | 'frame10' | 'frame11'
   | 'identityMobile' | 'colorsMobile' | 'mockupMobile' | 'coverMobile';
 
 export type SocialPlatform = 'instagram' | 'linkedin';
@@ -228,6 +228,9 @@ export type ProjectSnapshot = {
   sitemapError: string | null;
   generatedContent: GeneratedContent | null;
   contentChips: string[];
+  // Tags « ce qu'on a réalisé » affichés en pastilles dans la vidéo Motion
+  // (dédiés au Motion, indépendants de contentChips).
+  motionChips: string[];
   contentBrief: string;
   // Preview réseaux sociaux — état du post (par projet).
   previewCaption: string;
@@ -451,6 +454,8 @@ export type DAStore = {
   setGeneratedContent: (c: GeneratedContent | null) => void;
   contentChips: string[];
   setContentChips: (chips: string[]) => void;
+  motionChips: string[];
+  setMotionChips: (chips: string[]) => void;
   contentBrief: string;
   setContentBrief: (brief: string) => void;
 
