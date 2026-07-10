@@ -204,6 +204,11 @@ async function dismissPopups(page: Page) {
       '[id*="back-to-top" i]', '[id*="backtotop" i]', '[id*="back-top" i]',
       '[id*="scroll-to-top" i]', '[id*="scrolltop" i]', '[id*="totop" i]', '[id*="gotop" i]',
       '.wpfront-scroll-top-container', '#wpfront-scroll-top-container',
+      // Beaver Builder : le bouton est <a id="fl-to-top"> — aucun des motifs
+      // ci-dessus ne l'attrape ("fl-to-top" ≠ back-to-top/totop/scrolltop). NB :
+      // le <body> porte lui la classe `fl-scroll-to-top` (simple flag du thème),
+      // exempté par la garde `data-da-gen-keep` plus bas.
+      '#fl-to-top', '.fl-to-top',
       '[aria-label*="back to top" i]', '[aria-label*="scroll to top" i]', '[aria-label*="top of page" i]',
       '[aria-label*="haut de page" i]', '[aria-label*="retour en haut" i]', '[aria-label*="remonter" i]',
       '[title*="haut de page" i]', '[title*="retour en haut" i]', '[title*="back to top" i]',
@@ -257,8 +262,30 @@ async function dismissPopups(page: Page) {
       // n'utilise ce préfixe pour son contenu → sûr.
       '[id^="tarteaucitron" i]',
     ];
+
+    // Garde-fou anti-page-blanche. Ces sélecteurs sont volontairement larges
+    // (substring sur class/id) et peuvent attraper un CONTENEUR DE PAGE au lieu
+    // d'un overlay : le thème Beaver Builder pose `fl-scroll-to-top` sur le
+    // <body> (un flag « ce site a un bouton retour-en-haut », pas le bouton) →
+    // `[class*="scroll-to-top"]` masquait le site entier (cas vidon.com).
+    // On exempte donc, AVANT d'injecter : <html>/<body>, et tout élément en flux
+    // normal qui occupe une grande part du document — un vrai overlay est
+    // toujours fixed/absolute/sticky, jamais static/relative sur 50% du doc.
+    const docH = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+    const isLayoutContainer = (el: Element): boolean => {
+      if (el === document.body || el === document.documentElement) return true;
+      const pos = window.getComputedStyle(el).position;
+      if (pos === 'fixed' || pos === 'absolute' || pos === 'sticky') return false;
+      return el.getBoundingClientRect().height > docH * 0.5;
+    };
+    for (const sel of overlaySelectors) {
+      document.querySelectorAll(sel).forEach((el) => {
+        if (isLayoutContainer(el)) el.setAttribute('data-da-gen-keep', '');
+      });
+    }
+
     const style = document.createElement('style');
-    style.innerHTML = overlaySelectors.map(s => `${s} { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }`).join('\n');
+    style.innerHTML = overlaySelectors.map(s => `${s}:not([data-da-gen-keep]) { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }`).join('\n');
     document.head.appendChild(style);
   });
   await new Promise(resolve => setTimeout(resolve, 500));
