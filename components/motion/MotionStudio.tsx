@@ -76,6 +76,8 @@ export function MotionStudio() {
       logo: selectedLogo || scrapeResult.logo || null,
       desktopFull: scrapeResult.screenshots.desktopFull,
       mobiles: [scrapeResult.screenshots.mobile, ...scrapeResult.extraPages.map((p) => p.mobile)].filter(Boolean) as string[],
+      // Captures desktop des pages additionnelles → déroulées dans la scène « pages ».
+      extraDesktops: scrapeResult.extraPages.map((p) => p.desktopFull).filter(Boolean) as string[],
     };
   }, [scrapeResult, selectedLogo]);
 
@@ -115,6 +117,8 @@ export function MotionStudio() {
       siteName: scrapeResult.siteName || domain,
       fontLabel: fontName || scrapeResult.font?.name || "",
       tags,
+      // Home + pages additionnelles (barre du navigateur de la scène « pages »).
+      pageLabels: [domain, ...scrapeResult.extraPages.slice(0, 2).map((p) => p.label?.trim() || domain)],
     };
   }, [images, scrapeResult, palette, showcaseMeshBase, accent, motionBg.speed, motionBg.intensity, fontName, tags]);
 

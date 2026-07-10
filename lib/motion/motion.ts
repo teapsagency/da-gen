@@ -12,6 +12,9 @@ export type MotionImages = {
   desktopFull: HTMLImageElement | null;
   mobiles: HTMLImageElement[];
   heroBlur: HTMLCanvasElement | null;
+  // Captures desktop fullpage à dérouler dans la scène « pages » : home +
+  // pages additionnelles scrapées (page produit…). [0] = home.
+  pages: HTMLImageElement[];
 };
 
 // Images + style (couleurs, fond, textes). Reconstruit à chaque réglage sans
@@ -28,6 +31,9 @@ export type MotionAssets = MotionImages & {
   // Labels courts « ce qu'on a réalisé » (résolus depuis motionChips) affichés
   // en pastilles pendant les scènes du site. Vide → aucune pastille.
   tags: string[];
+  // Libellé d'URL affiché dans la barre du navigateur pour chaque page de la
+  // scène « pages » (aligné sur `pages`). [0] = domaine, puis pages additionnelles.
+  pageLabels: string[];
 };
 
 // ─── Easing (personnalité « premium » : entrées décélérées, sorties accélérées) ───
@@ -90,14 +96,15 @@ function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: numb
 // mockup parcourues par seconde) reste CONSTANTE quelle que soit la page. Page
 // haute → on descend moins (mais au même rythme lisible) ; page courte → on va
 // jusqu'en bas. Renvoie le panY max (0..1) visé sur `seconds` de scroll.
-const SCROLL_VP_PER_SEC = 0.6;
-function coverMaxPan(img: HTMLImageElement | null, boxW: number, boxH: number, seconds: number): number {
+const SCROLL_VP_PER_SEC = 0.6; // vitesse de scroll des mockups (desktop / mobile)
+const PAGES_SCROLL_VP_PER_SEC = 0.32; // scène « pages » : bien plus posé (lecture)
+function coverMaxPan(img: HTMLImageElement | null, boxW: number, boxH: number, seconds: number, vpPerSec = SCROLL_VP_PER_SEC): number {
   if (!img || !img.naturalWidth || !img.naturalHeight) return 0;
   const scale = Math.max(boxW / img.naturalWidth, boxH / img.naturalHeight);
   const visibleH = boxH / scale; // hauteur d'image réellement visible dans le mockup
   const scrollableVp = img.naturalHeight / visibleH - 1; // « viewports » à parcourir
   if (scrollableVp <= 0.001) return 0;
-  return clamp((SCROLL_VP_PER_SEC * seconds) / scrollableVp, 0, 1);
+  return clamp((vpPerSec * seconds) / scrollableVp, 0, 1);
 }
 
 function drawContain(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cx: number, cy: number, bw: number, bh: number) {
@@ -128,7 +135,15 @@ function xform(ctx: CanvasRenderingContext2D, cx: number, cy: number, scale: num
 }
 
 // ─── Mockups (fidèles aux assets de l'app — dots macOS fins, plat) ───
-function drawBrowser(ctx: CanvasRenderingContext2D, w: number, h: number, A: MotionAssets, panY: number) {
+function drawBrowser(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  A: MotionAssets,
+  panY: number,
+  img: HTMLImageElement | null = A.desktopFull,
+  urlLabel: string = A.domain,
+) {
   const x = -w / 2, y = -h / 2;
   const r = w * 0.016;
   ctx.fillStyle = "#ffffff";
@@ -150,11 +165,11 @@ function drawBrowser(ctx: CanvasRenderingContext2D, w: number, h: number, A: Mot
   ctx.fillStyle = "rgba(0,0,0,0.05)";
   roundRectPath(ctx, x + w * 0.35, cy - barH * 0.26, w * 0.3, barH * 0.52, barH * 0.26);
   ctx.fill();
-  text(ctx, A.domain, 0, cy, `600 ${Math.round(barH * 0.36)}px Satoshi, sans-serif`, "#111");
+  text(ctx, urlLabel, 0, cy, `600 ${Math.round(barH * 0.36)}px Satoshi, sans-serif`, "#111");
   ctx.save();
   roundRectPath(ctx, x + w * 0.008, y + barH, w - w * 0.016, h - barH - w * 0.008, r * 0.5);
   ctx.clip();
-  if (A.desktopFull) drawCover(ctx, A.desktopFull, x + w * 0.008, y + barH, w - w * 0.016, h - barH - w * 0.008, panY);
+  if (img) drawCover(ctx, img, x + w * 0.008, y + barH, w - w * 0.016, h - barH - w * 0.008, panY);
   ctx.restore();
 }
 
@@ -353,10 +368,10 @@ const SCENES: Scene[] = [
       const stripY = MOTION_H - stripH;
       const ex = exitP(p);
       A.colors.forEach((hex, i) => {
-        // Toutes les bandes MONTENT du bas (dans le sillage de l'intro qui sort
-        // vers le haut) ; couverture complète à p≈0.40 → là le fond passe au blanc.
-        const a = easeInOutCubic(clamp((p - 0.02 - i * 0.05) / 0.22)); // montée
-        const b = easeInOutCubic(clamp((p - 0.46 - i * 0.02) / 0.2)); // compression
+        // Toutes les bandes montent du bas ENSEMBLE (plus de décalage entre
+        // elles) ; couverture complète à p≈0.40 → là le fond passe au blanc.
+        const a = easeInOutCubic(clamp((p - 0.02) / 0.22)); // montée (synchrone)
+        const b = easeInOutCubic(clamp((p - 0.46) / 0.2)); // compression (synchrone)
         const oy = (1 - a) * MOTION_H;
         const rectY = lerp(0, stripY, b) + oy + ex * MOTION_H * 0.35; // sortie : glisse en bas
         const rectH = lerp(MOTION_H, stripH, b);
@@ -432,10 +447,51 @@ const SCENES: Scene[] = [
       );
     },
   },
+  // 3c · PAGES — DOUBLE VUE : desktop (gauche) + mobile (droite) de la MÊME page,
+  // en même temps, avec un scroll LENT à vitesse constante (lecture posée). Home
+  // puis pages produit scrapées, l'une après l'autre.
+  {
+    key: "pages", start: 12.9, dur: 6.0, fadeOut: 0.4,
+    draw: (ctx, p, t, A) => {
+      const pages = A.pages.length ? A.pages : A.desktopFull ? [A.desktopFull] : [];
+      if (!pages.length) return;
+      const n = Math.min(pages.length, 2); // home + 1 page (la double vue est large)
+      const seg = 1 / n;
+      const idx = Math.min(n - 1, Math.floor(p / seg));
+      const lp = clamp((p - idx * seg) / seg); // progression DANS la page courante
+      const deskImg = pages[idx];
+      const mobImg = A.mobiles[idx] ?? null;
+      const label = A.pageLabels[idx] ?? A.domain;
+      // Transition entre pages : glisse en entrant / en sortant (sauf la dernière).
+      const ein = easeEmph(clamp(lp / 0.14));
+      const eout = idx < n - 1 ? easeAccel(clamp((lp - 0.86) / 0.14)) : 0;
+      const dx = (1 - ein) * MOTION_W * 0.12 - eout * MOTION_W * 0.12;
+      const enter = lerp(1.03, 1, ein) * (1 + 0.006 * Math.sin(t * 0.8)); // zoom d'entrée + respiration
+      // Scroll lent à vitesse CONSTANTE, calé sur la durée du créneau de la page.
+      const scrollP = easeInOutCubic(clamp((lp - 0.06) / 0.86));
+      const secs = 0.86 * (6.0 / n);
+      const wD = MOTION_W * 0.5, hD = wD * 0.6, wM = MOTION_W * 0.15;
+      const panD = scrollP * coverMaxPan(deskImg, wD, hD, secs, PAGES_SCROLL_VP_PER_SEC);
+      const panM = scrollP * coverMaxPan(mobImg, wM, wM / 0.49, secs, PAGES_SCROLL_VP_PER_SEC);
+      ctx.save();
+      ctx.globalAlpha *= ein * (1 - eout);
+      // Desktop (grand, à gauche)
+      xform(ctx, MOTION_W * 0.36 + dx, MOTION_H / 2, enter, 0, () =>
+        drawBrowser(ctx, wD, hD, A, panD, deskImg, label),
+      );
+      // Mobile (à droite, léger flottement propre)
+      if (mobImg) {
+        xform(ctx, MOTION_W * 0.8 + dx, MOTION_H / 2 + Math.sin(t * 0.9) * MOTION_H * 0.006, enter, 0, () =>
+          drawPhone(ctx, wM, mobImg, panM),
+        );
+      }
+      ctx.restore();
+    },
+  },
   // 4 · MOBILES — traversée COMPLÈTE de l'écran (ils sortent par le haut/bas),
   // gauche monte, droite descend, ralenti au croisement, rotation vivante
   {
-    key: "mobile", start: 12.6, dur: 4.2,
+    key: "mobile", start: 18.6, dur: 4.2,
     draw: (ctx, p, t, A) => {
       const imgs = A.mobiles.length ? A.mobiles : [null];
       const w = MOTION_W * 0.16;
@@ -461,13 +517,19 @@ const SCENES: Scene[] = [
         { fromX: W * 1.06, restX: W * 0.59, bulge: W * 0.09, rotIn: QUART, outDelay: 0.05, scale: 1, alpha: 1, imgIdx: 1 },
       ];
       for (const c of phones) {
-        // Départ : MÊME direction que l'arrivée (ils continuent leur diagonale)
-        // mais vers le HAUT — reprennent leur inclinaison de 45° en sortant.
         const sOut = easeAccel(clamp((p - 0.7 - c.outDelay) / 0.3));
-        // Demi-cercle : x rejoint le centre avec un renflement latéral, y monte.
-        const x = lerp(c.fromX, c.restX, sIn) + Math.sin(sIn * Math.PI) * c.bulge + sOut * (W / 2 - c.restX) * 1.6;
-        const y = lerp(H * 1.2, H * 0.5, sIn) - sOut * H * 1.15;
-        const rot = lerp(c.rotIn, 0, sUp) + bob * (1 - sOut) + sOut * c.rotIn * 0.85;
+        // Entrée : arc depuis le coin bas (couché → debout au centre).
+        const inX = lerp(c.fromX, c.restX, sIn) + Math.sin(sIn * Math.PI) * c.bulge;
+        const inY = lerp(H * 1.2, H * 0.5, sIn);
+        const inRot = lerp(c.rotIn, 0, sUp);
+        // Sortie = EXACTEMENT l'entrée en MIROIR, mais vers le HAUT : même arc,
+        // même reprise d'inclinaison à 45°, ils repartent par les coins hauts.
+        const outX = lerp(c.restX, c.fromX, sOut) + Math.sin(sOut * Math.PI) * c.bulge;
+        const outY = lerp(H * 0.5, -H * 0.25, sOut);
+        const outRot = lerp(0, c.rotIn, sOut);
+        const x = sOut > 0 ? outX : inX;
+        const y = sOut > 0 ? outY : inY;
+        const rot = (sOut > 0 ? outRot : inRot) + bob * (1 - sOut);
         ctx.save();
         ctx.globalAlpha *= c.alpha;
         xform(ctx, x, y, c.scale, rot, () => drawPhone(ctx, w, imgs[c.imgIdx % imgs.length], pan));
@@ -478,7 +540,7 @@ const SCENES: Scene[] = [
   // 5 · ENSEMBLE — PC centré et DROIT ; tablette et mobile viennent se poser
   // PAR-DESSUS (léger drop shadow = ils sont au-dessus). Fin en repli doux.
   {
-    key: "ensemble", start: 16.5, dur: 3.4, fadeOut: 0.55,
+    key: "ensemble", start: 22.5, dur: 3.4, fadeOut: 0.55,
     draw: (ctx, p, t, A) => {
       const breathe = 1 + 0.012 * Math.sin(t * 0.9);
       // Fin douce : léger recul d'échelle (match-dissolve avec l'outro), pas de zoom-through.
@@ -518,7 +580,7 @@ const SCENES: Scene[] = [
   },
   // 6 · OUTRO — logo qui se pose, signature ; tient jusqu'à la fin
   {
-    key: "outro", start: 19.6, dur: 2.5,
+    key: "outro", start: 25.6, dur: 2.5,
     draw: (ctx, p, t, A) => {
       const ink = readable(A.base);
       // Entrée douce en continuité du repli de la scène précédente (match-dissolve).
@@ -756,21 +818,31 @@ export async function preloadMotionImages(src: {
   logo?: string | null;
   desktopFull?: string | null;
   mobiles: string[];
+  extraDesktops?: string[];
 }): Promise<MotionImages> {
-  const [logo, desktopFull, ...mobiles] = await Promise.all([
+  const [logo, desktopFull, mobiles, extras] = await Promise.all([
     loadImg(src.logo),
     loadImg(src.desktopFull),
-    ...src.mobiles.slice(0, 3).map((m) => loadImg(m)),
+    Promise.all(src.mobiles.slice(0, 3).map((m) => loadImg(m))).then((a) =>
+      a.filter((m): m is HTMLImageElement => !!m),
+    ),
+    Promise.all((src.extraDesktops ?? []).slice(0, 2).map((d) => loadImg(d))).then((a) =>
+      a.filter((m): m is HTMLImageElement => !!m),
+    ),
   ]);
   try {
     await (document as Document & { fonts?: FontFaceSet }).fonts?.ready;
   } catch {
     /* best effort */
   }
+  // Pages à dérouler dans la scène « pages » : la home d'abord, puis les pages
+  // additionnelles scrapées (page produit…).
+  const pages = [desktopFull, ...extras].filter((m): m is HTMLImageElement => !!m);
   return {
     logo,
     desktopFull,
-    mobiles: mobiles.filter((m): m is HTMLImageElement => !!m),
+    mobiles,
     heroBlur: makeHeroBlur(desktopFull),
+    pages,
   };
 }
