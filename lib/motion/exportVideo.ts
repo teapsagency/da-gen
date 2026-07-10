@@ -1,5 +1,5 @@
 import { Muxer, ArrayBufferTarget } from "mp4-muxer";
-import { drawFrame, MOTION_W, MOTION_H, MOTION_FPS, MOTION_DURATION, type MotionAssets } from "./motion";
+import { drawFrame, MOTION_W, MOTION_H, MOTION_FPS, motionDuration, type MotionAssets } from "./motion";
 
 // True si l'export MP4 côté navigateur est possible (WebCodecs H.264).
 export function canExportMotion(): boolean {
@@ -105,7 +105,8 @@ export async function exportMotionMp4(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D indisponible.");
 
-  const totalFrames = Math.round(MOTION_DURATION * MOTION_FPS);
+  const duration = motionDuration(assets.includeCharte);
+  const totalFrames = Math.round(duration * MOTION_FPS);
   const frameDur = 1_000_000 / MOTION_FPS; // µs
 
   for (let i = 0; i < totalFrames; i++) {
@@ -126,7 +127,7 @@ export async function exportMotionMp4(
   }
 
   await encoder.flush();
-  if (withAudio && audio) await encodeAudioTrack(muxer, audio, MOTION_DURATION);
+  if (withAudio && audio) await encodeAudioTrack(muxer, audio, duration);
   muxer.finalize();
   onProgress?.(1);
   return new Blob([target.buffer], { type: "video/mp4" });

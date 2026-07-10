@@ -195,6 +195,10 @@ export type SitemapStatus = 'idle' | 'loading' | 'loaded' | 'empty' | 'error';
 // Includes the visual customisations so each project keeps its own look.
 export type ProjectSnapshot = {
   scrapeResult: ScrapeResult | null;
+  // Nom du projet saisi à la main (vide = déduit du scrape). Prime sur
+  // scrapeResult.siteName partout où on affiche le nom (intro Motion…) —
+  // le title scrapé est souvent du SEO (« Carrelage Toulon - … ») pas la marque.
+  projectName: string;
   selectedLogo: string;
   activePageIndex: number;
   selectedColors: string[];
@@ -231,6 +235,8 @@ export type ProjectSnapshot = {
   // Tags « ce qu'on a réalisé » affichés en pastilles dans la vidéo Motion
   // (dédiés au Motion, indépendants de contentChips).
   motionChips: string[];
+  // Scène charte graphique (bandes de couleurs) incluse dans la vidéo Motion.
+  motionCharte: boolean;
   contentBrief: string;
   // Preview réseaux sociaux — état du post (par projet).
   previewCaption: string;
@@ -456,6 +462,10 @@ export type DAStore = {
   setContentChips: (chips: string[]) => void;
   motionChips: string[];
   setMotionChips: (chips: string[]) => void;
+  motionCharte: boolean;
+  setMotionCharte: (v: boolean) => void;
+  projectName: string;
+  setProjectName: (name: string) => void;
   contentBrief: string;
   setContentBrief: (brief: string) => void;
 

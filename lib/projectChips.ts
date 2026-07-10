@@ -162,6 +162,35 @@ export function getDownstreamChips(fromGroup: ChipGroup, chipId: string): Set<st
 const MOTION_TAG_GROUPS = ["site-type", "feature-type", "tech-cms", "tech-ecom", "tech-app", "services"];
 export const MOTION_TAG_LIMIT = 6;
 
+// ─── Titre de la scène « prestation » du Motion ───
+// « Création de site vitrine », « Refonte d'application web »… construit
+// depuis le type de projet + le type de site sélectionnés.
+const SITE_HEADLINE: Record<string, string> = {
+  "Vitrine": "site vitrine",
+  "E-commerce": "site e-commerce",
+  "Application web": "application web",
+  "Blog / Magazine": "blog",
+  "Portfolio": "portfolio",
+  "Landing page": "landing page",
+};
+
+export function resolveMotionHeadline(selected: string[]): string {
+  const chosen = new Set(selected);
+  if (chosen.has("Ajout de fonctionnalités")) return "Ajout de fonctionnalités";
+  const site = Object.keys(SITE_HEADLINE).find((id) => chosen.has(id));
+  const siteLabel = site ? SITE_HEADLINE[site] : null;
+  // Élision : « de » devant consonne, « d' » devant voyelle (application…).
+  const de = (s: string) => (/^[aeiouyéèê]/i.test(s) ? `d'${s}` : `de ${s}`);
+  if (siteLabel) {
+    if (chosen.has("Refonte")) return `Refonte ${de(siteLabel)}`;
+    if (chosen.has("Création de zéro")) return `Création ${de(siteLabel)}`;
+    return siteLabel.charAt(0).toUpperCase() + siteLabel.slice(1);
+  }
+  if (chosen.has("Refonte")) return "Refonte de site";
+  if (chosen.has("Création de zéro")) return "Création de site";
+  return "Nouvelle réalisation";
+}
+
 /**
  * Résout la sélection de chips en labels courts à afficher dans la vidéo,
  * dans l'ordre des groupes (type de site → techno → services), capé.

@@ -11,6 +11,10 @@ export type MotionImages = {
   logo: HTMLImageElement | null;
   desktopFull: HTMLImageElement | null;
   mobiles: HTMLImageElement[];
+  // Fraction de hauteur UTILE de chaque capture mobile (aligné sur `mobiles`) :
+  // certaines captures fullpage finissent par une frange blanche sous le footer
+  // (artefact de capture) — détectée au préchargement pour borner le scroll.
+  mobilesContentFrac: number[];
   heroBlur: HTMLCanvasElement | null;
   // Captures desktop fullpage à dérouler dans la scène « pages » : home +
   // pages additionnelles scrapées (page produit…). [0] = home.
@@ -25,12 +29,21 @@ export type MotionAssets = MotionImages & {
   accent: string; // couleur de marque
   bgSpeed: number; // multiplicateur de vitesse du fond
   bgIntensity: number; // multiplicateur d'opacité des blobs
+  // true = accent choisi à la main (color picker) : le fond ne « voyage » plus
+  // à travers la palette au fil des scènes, il respecte le choix tel quel.
+  accentLocked: boolean;
   domain: string;
   siteName: string;
   fontLabel: string;
   // Labels courts « ce qu'on a réalisé » (résolus depuis motionChips) affichés
   // en pastilles pendant les scènes du site. Vide → aucune pastille.
   tags: string[];
+  // Titre de la scène « prestation » (« Création de site vitrine »…), résolu
+  // depuis motionChips — toujours renseigné (fallback « Nouvelle réalisation »).
+  headline: string;
+  // true = la scène charte (bandes de couleurs) est insérée après la
+  // prestation — la timeline s'allonge d'autant (voir SCENES_CHARTE).
+  includeCharte: boolean;
   // Libellé d'URL affiché dans la barre du navigateur pour chaque page de la
   // scène « pages » (aligné sur `pages`). [0] = domaine, puis pages additionnelles.
   pageLabels: string[];
@@ -107,6 +120,17 @@ function coverMaxPan(img: HTMLImageElement | null, boxW: number, boxH: number, s
   return clamp((vpPerSec * seconds) / scrollableVp, 0, 1);
 }
 
+// Pan maximal pour ne pas descendre dans la frange blanche du bas d'une
+// capture (contentFrac = fraction de hauteur utile, cf. usableHeightFrac).
+function coverPanMax(img: HTMLImageElement | null, boxW: number, boxH: number, contentFrac: number): number {
+  if (!img || !img.naturalWidth || !img.naturalHeight || contentFrac >= 0.999) return 1;
+  const scale = Math.max(boxW / img.naturalWidth, boxH / img.naturalHeight);
+  const sh = boxH / scale;
+  const full = img.naturalHeight - sh;
+  if (full <= 0) return 0;
+  return clamp((img.naturalHeight * contentFrac - sh) / full);
+}
+
 function drawContain(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cx: number, cy: number, bw: number, bh: number) {
   const iw = img.naturalWidth, ih = img.naturalHeight;
   if (!iw || !ih) return;
@@ -179,9 +203,14 @@ function drawPhone(ctx: CanvasRenderingContext2D, w: number, img: HTMLImageEleme
   ctx.fillStyle = "#ffffff";
   roundRectPath(ctx, -w / 2, -h / 2, w, h, r);
   ctx.fill();
+  // Liseré discret, identique au navigateur (mockups harmonisés).
+  ctx.strokeStyle = "rgba(0,0,0,0.08)";
+  ctx.lineWidth = Math.max(1.5, w * 0.004);
+  ctx.stroke();
   const b = w * 0.028;
   ctx.save();
-  roundRectPath(ctx, -w / 2 + b, -h / 2 + b, w - 2 * b, h - 2 * b, r * 0.82);
+  // Rayon intérieur = extérieur − bezel → épaisseur CONSTANTE jusque dans les coins.
+  roundRectPath(ctx, -w / 2 + b, -h / 2 + b, w - 2 * b, h - 2 * b, r - b);
   ctx.clip();
   if (img) drawCover(ctx, img, -w / 2 + b, -h / 2 + b, w - 2 * b, h - 2 * b, panY);
   ctx.restore();
@@ -195,9 +224,14 @@ function drawTablet(ctx: CanvasRenderingContext2D, w: number, img: HTMLImageElem
   ctx.fillStyle = "#ffffff";
   roundRectPath(ctx, -w / 2, -h / 2, w, h, r);
   ctx.fill();
+  // Liseré discret, identique au navigateur (mockups harmonisés).
+  ctx.strokeStyle = "rgba(0,0,0,0.08)";
+  ctx.lineWidth = Math.max(1.5, w * 0.004);
+  ctx.stroke();
   const b = w * 0.032;
   ctx.save();
-  roundRectPath(ctx, -w / 2 + b, -h / 2 + b, w - 2 * b, h - 2 * b, r * 0.7);
+  // Rayon intérieur = extérieur − bezel → épaisseur CONSTANTE jusque dans les coins.
+  roundRectPath(ctx, -w / 2 + b, -h / 2 + b, w - 2 * b, h - 2 * b, r - b);
   ctx.clip();
   if (img) drawCover(ctx, img, -w / 2 + b, -h / 2 + b, w - 2 * b, h - 2 * b, panY);
   ctx.restore();
@@ -217,10 +251,13 @@ function drawLogoCard(ctx: CanvasRenderingContext2D, cardW: number, cardH: numbe
 // ─── Couleur d'accent du fond qui VOYAGE au fil des scènes ───
 // Keyframes aux milieux de scènes : chaque scène tire le fond vers une couleur
 // de la palette (mixée à l'accent pour rester dans la marque), interpolation douce.
-function accentAt(t: number, A: MotionAssets): string {
+function accentAt(t: number, A: MotionAssets, scenes: Scene[]): string {
+  // Accent choisi à la main → il ne voyage pas (sinon un accent blanc voulu
+  // « full blanc » se re-colore avec la palette du site).
+  if (A.accentLocked) return A.accent;
   const pal = A.colors.length ? A.colors : [A.accent];
   const colorFor = (i: number) => mix(A.accent, pal[i % pal.length], 0.55);
-  const keys = SCENES.map((s, i) => ({ time: s.start + s.dur / 2, color: i === 0 || i === SCENES.length - 1 ? A.accent : colorFor(i) }));
+  const keys = scenes.map((s, i) => ({ time: s.start + s.dur / 2, color: i === 0 || i === scenes.length - 1 ? A.accent : colorFor(i) }));
   if (t <= keys[0].time) return keys[0].color;
   for (let i = 0; i < keys.length - 1; i++) {
     if (t <= keys[i + 1].time) {
@@ -239,24 +276,25 @@ function drawBackground(ctx: CanvasRenderingContext2D, rawT: number, A: MotionAs
   const M = 0.12;
   ctx.fillStyle = A.base;
   ctx.fillRect(-W * M, -H * M, W * (1 + 2 * M), H * (1 + 2 * M));
+  // « Blancheur » de la base (courbe cubique : ~1 seulement près du blanc pur).
+  // Tout ce qui grise le fond (texture hero, nappe sombre, vignette) s'efface
+  // à mesure qu'on approche du blanc : une base blanche doit RESTER blanche.
+  const [br, bgc, bb] = parseHex(A.base);
+  const baseLum = (0.299 * br + 0.587 * bgc + 0.114 * bb) / 255; // 0..1
+  const whiteness = baseLum ** 3;
   // Texture ambiante : la hero du site floutée, qui dérive lentement.
-  if (A.heroBlur) {
+  if (A.heroBlur && whiteness < 0.999) {
     ctx.save();
-    ctx.globalAlpha = 0.14;
+    ctx.globalAlpha = 0.14 * (1 - whiteness);
     const drift = Math.sin(rawT * 0.25) * W * 0.03;
     const zoom = 1.25 + 0.06 * Math.sin(rawT * 0.18);
     const bw = W * zoom, bh = (W * zoom * A.heroBlur.height) / A.heroBlur.width;
     ctx.drawImage(A.heroBlur, (W - bw) / 2 + drift, (H - bh) / 2, bw, bh);
     ctx.restore();
   }
-  // Nappe « dark » = ombrage du fond pour la profondeur du dégradé. On atténue
-  // l'assombrissement à mesure que la base est claire : une base blanche doit
-  // rester blanche (« full blanc ») et non virer au gris via cette nappe. Courbe
-  // cubique → la profondeur reste quasi intacte sur les bases colorées/sombres
-  // (dont le gris par défaut) et ne s'efface que près du blanc pur.
-  const [br, bgc, bb] = parseHex(A.base);
-  const baseLum = (0.299 * br + 0.587 * bgc + 0.114 * bb) / 255; // 0..1
-  const dark = mix(A.base, "#000000", 0.6 * (1 - baseLum ** 3));
+  // Nappe « dark » = ombrage du fond pour la profondeur du dégradé (même règle
+  // de blancheur : quasi intacte sur les bases colorées/sombres, effacée au blanc).
+  const dark = mix(A.base, "#000000", 0.6 * (1 - whiteness));
   const light = mix(A.base, "#ffffff", 0.55);
   const blob = (cx: number, cy: number, rad: number, color: string, alpha: number) => {
     const [r, g, b] = parseHex(color);
@@ -271,6 +309,157 @@ function drawBackground(ctx: CanvasRenderingContext2D, rawT: number, A: MotionAs
   blob(W * 0.5 + Math.cos(t * 0.55 + 2.1) * W * 0.44, H * 0.55 + Math.sin(t * 0.65 + 1.3) * H * 0.44, W * 0.46, dark, 0.58);
   blob(W * 0.5 + Math.cos(t * 1.1 + 4) * W * 0.4, H * 0.5 + Math.sin(t * 0.95 + 3) * H * 0.42, W * (0.4 + 0.04 * Math.cos(t * 1.1)), light, 0.36);
   blob(W * 0.5 + Math.cos(t * 0.7 + 5.2) * W * 0.48, H * 0.5 + Math.sin(t * 1.25 + 0.6) * H * 0.38, W * 0.36, accent, 0.32);
+}
+
+// ─── Scènes « pages » (home en iso, puis page suivante en colonnes) ───
+const PAGES_ISO_DUR = 5.4;
+const PAGES_COLS_DUR = 4.6;
+
+// Canvas hors-écran réutilisé par la scène iso (fenêtre rendue à plat, puis
+// projetée en perspective par tranches). Alloué une fois.
+let isoCanvas: HTMLCanvasElement | null = null;
+function getIsoCtx(w: number, h: number): CanvasRenderingContext2D | null {
+  if (!isoCanvas) isoCanvas = document.createElement("canvas");
+  if (isoCanvas.width !== w) isoCanvas.width = w;
+  if (isoCanvas.height !== h) isoCanvas.height = h;
+  return isoCanvas.getContext("2d");
+}
+
+// PAGES ISO — la HOME en VRAIE perspective (rotation Y avec point de fuite +
+// bascule vers l'avant : le bord lointain rapetisse réellement) ; le téléphone
+// monte du bas au PREMIER plan, très gros (drop shadow = superposition).
+function drawPagesIso(ctx: CanvasRenderingContext2D, p: number, t: number, A: MotionAssets) {
+  const img = A.pages[0] ?? A.desktopFull;
+  const mob = A.mobiles[0] ?? null;
+  if (!img && !mob) return;
+  const label = A.pageLabels[0] ?? A.domain;
+  const ein = easeEmph(clamp(p / 0.13));
+  const scrollP = easeInOutCubic(clamp((p - 0.05) / 0.88));
+  const secs = 0.88 * PAGES_ISO_DUR;
+  const dx = (1 - ein) * MOTION_W * 0.12; // entre de la droite
+  // Sortie : ON LÂCHE TOUT — rollback (remontée douce → apex) puis gravité pure
+  // + rotation naissante, la chute signature du desktop et des pastilles.
+  const q = clamp((p - 0.78) / 0.22);
+  const lift = -MOTION_H * 0.05 * easeOutCubic(Math.min(1, q / 0.25));
+  const fq = Math.max(0, (q - 0.25) / 0.75);
+  const fall = MOTION_H * 1.8 * fq * fq;
+  const rotFall = 0.1 * fq * fq;
+  ctx.save();
+  if (img) {
+    const wD = Math.round(MOTION_W * 0.66), hD = Math.round(wD * 0.6);
+    const panD = scrollP * coverMaxPan(img, wD, hD, secs, PAGES_SCROLL_VP_PER_SEC);
+    // 1) Fenêtre rendue À PLAT hors-écran…
+    const octx = getIsoCtx(wD, hD);
+    if (octx) {
+      octx.clearRect(0, 0, wD, hD);
+      octx.save();
+      octx.translate(wD / 2, hD / 2);
+      drawBrowser(octx, wD, hD, A, panD, img, label);
+      octx.restore();
+    }
+    // 2) …puis PROJETÉE en perspective par tranches verticales : rotation Y
+    // (bord DROIT qui fuit) + bascule vers l'AVANT (rotX, vue légèrement de
+    // haut → la ligne médiane s'incline, façon plan produit). θ respire à peine.
+    const theta = 0.3 + Math.sin(t * 0.3) * 0.02;
+    const phi = 0.14; // inclinaison vers l'avant
+    const D = wD * 2.4; // distance focale de la perspective
+    const STRIPS = 64;
+    const sinT = Math.sin(theta), cosT = Math.cos(theta);
+    const sinP = Math.sin(phi), cosP = Math.cos(phi);
+    const px = (x: number) => {
+      const sc = D / (D + x * sinT);
+      return { X: x * cosT * sc, sc };
+    };
+    xform(
+      ctx,
+      MOTION_W * 0.4 + dx + fq * fq * MOTION_W * 0.03,
+      MOTION_H * 0.44 + lift + fall,
+      lerp(1.08, 1, ein),
+      rotFall,
+      () => {
+      if (!isoCanvas) return;
+      const sw = wD / STRIPS;
+      for (let i = 0; i < STRIPS; i++) {
+        const a = px(-wD / 2 + i * sw);
+        const b = px(-wD / 2 + (i + 1) * sw);
+        const scM = (a.sc + b.sc) / 2;
+        // Terme croisé du rotX : le côté lointain glisse verticalement → bascule.
+        const yOff = (-wD / 2 + (i + 0.5) * sw) * sinT * sinP * scM;
+        // +0.6 px : recouvre la tranche voisine (évite les liserés).
+        ctx.drawImage(isoCanvas, i * sw, 0, sw, hD, a.X, yOff - (hD / 2) * cosP * scM, b.X - a.X + 0.6, hD * cosP * scM);
+      }
+      },
+    );
+  }
+  if (mob) {
+    const em = easeEmph(clamp((p - 0.05) / 0.3));
+    const wM = MOTION_W * 0.235;
+    const panM = scrollP * coverMaxPan(mob, wM, wM / 0.49, secs, PAGES_SCROLL_VP_PER_SEC);
+    // Le mobile est lâché un souffle APRÈS le desktop, et pivote en sens inverse.
+    const qM = clamp((p - 0.8) / 0.2);
+    const liftM = -MOTION_H * 0.045 * easeOutCubic(Math.min(1, qM / 0.25));
+    const fqM = Math.max(0, (qM - 0.25) / 0.75);
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.28)";
+    ctx.shadowBlur = MOTION_W * 0.025;
+    ctx.shadowOffsetY = MOTION_H * 0.018;
+    xform(
+      ctx,
+      MOTION_W * 0.72 + dx * 1.3 - fqM * fqM * MOTION_W * 0.02,
+      // Monte du bas, se cale… puis LÂCHÉ lui aussi (rollback + gravité).
+      lerp(MOTION_H * 1.45, MOTION_H * 0.64, em) + liftM + MOTION_H * 1.8 * fqM * fqM,
+      1,
+      // Se cale UN PEU INCLINÉ (≈ -3°) au lieu de droit — plus vivant.
+      lerp(0.16, -0.055, em) + Math.sin(t * 0.8) * 0.008 - 0.14 * fqM * fqM,
+      () => drawPhone(ctx, wM, mob, panM),
+    );
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// PAGES COLONNES — la page SUIVANTE (produit si dispo, sinon la home) ENTIÈRE
+// d'un coup : 3 colonnes = 3 tranches successives (haut / milieu / bas), qui
+// entrent en escalier et dérivent en parallaxe (la centrale un peu plus vite).
+function drawPagesColumns(ctx: CanvasRenderingContext2D, p: number, t: number, A: MotionAssets) {
+  const img = A.pages[1] ?? A.pages[0] ?? A.desktopFull;
+  if (!img) return;
+  const W = MOTION_W, H = MOTION_H;
+  const scrollP = easeInOutCubic(clamp((p - 0.05) / 0.9));
+  const colW = W * 0.252, colH = H * 0.82, gapX = W * 0.03;
+  const ein0 = easeEmph(clamp(p / 0.3));
+  ctx.save();
+  xform(ctx, W / 2, H / 2, lerp(1.06, 1, ein0), 0.025, () => {
+    for (let i = 0; i < 3; i++) {
+      const ein = easeEmph(clamp((p - 0.02 - i * 0.06) / 0.24)); // entrée en escalier
+      // Sortie = l'entrée REJOUÉE À L'ENVERS : même courbe easeEmph inversée
+      // dans le temps (départ imperceptible → fuite rapide, le même « bounce »
+      // que le freinage d'entrée, en miroir), même escalier gauche → droite.
+      const eout = 1 - easeEmph(1 - clamp((p - 0.56 - i * 0.05) / 0.32));
+      const cx = (i - 1) * (colW + gapX);
+      const cy = (1 - ein) * H * 0.55 - eout * H * 2.2 + Math.sin(t * 0.7 + i * 1.9) * 6;
+      // Tranche de page : chaque colonne prend le tiers suivant ; la parallaxe
+      // fait glisser doucement la fenêtre pendant la scène.
+      const pan = clamp(i / 3 + scrollP * 0.28 * (i === 1 ? 1.35 : 1), 0, 1);
+      ctx.save();
+      ctx.globalAlpha *= easeOutCubic(ein);
+      const r = colW * 0.055;
+      roundRectPath(ctx, cx - colW / 2, cy - colH / 2, colW, colH, r);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.08)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.save();
+      const b = colW * 0.012;
+      roundRectPath(ctx, cx - colW / 2 + b, cy - colH / 2 + b, colW - 2 * b, colH - 2 * b, r * 0.7);
+      ctx.clip();
+      drawCover(ctx, img, cx - colW / 2 + b, cy - colH / 2 + b, colW - 2 * b, colH - 2 * b, pan);
+      ctx.restore();
+      ctx.restore();
+    }
+  });
+  ctx.restore();
 }
 
 // ─── Scènes ───
@@ -291,9 +480,10 @@ const exitP = (p: number) => easeAccel(clamp((p - 0.86) / 0.14));
 // Le fond ne passe au blanc QUE lorsque les bandes de couleur couvrent toute la
 // hauteur (le switch se fait caché derrière elles) ; le dégradé revient pendant
 // le dézoom du desktop. Fraction 0.40 = fin de la montée des bandes (voir charte).
-function whiteAmount(t: number): number {
-  const charte = SCENES.find((s) => s.key === "charte");
-  const desktop = SCENES.find((s) => s.key === "desktop");
+// Sans scène charte dans la timeline active → 0 (aucune cassure).
+function whiteAmount(t: number, scenes: Scene[]): number {
+  const charte = scenes.find((s) => s.key === "charte");
+  const desktop = scenes.find((s) => s.key === "desktop");
   if (!charte || !desktop) return 0;
   const covered = charte.start + charte.dur * 0.4;
   const rise = easeInOutCubic(clamp((t - covered) / 0.15));
@@ -302,6 +492,48 @@ function whiteAmount(t: number): number {
   const fall = easeInOutCubic(clamp((t - (desktop.start + 0.05)) / 0.7));
   return rise * (1 - fall);
 }
+
+// ─── Scène CHARTE (activable via le toggle « Charte » du studio) ───
+// Bandes de couleurs pleine hauteur → bandeau bas + logo/« Aa »/police.
+// Hors timeline de base ; `includeCharte` l'insère après la prestation (voir
+// SCENES_CHARTE). whiteAmount() suit automatiquement (il cherche la clé "charte").
+export const CHARTE_SCENE: Scene = {
+  key: "charte", start: 3.0, dur: 3.9,
+  draw: (ctx, p, t, A) => {
+    // Fond passé au blanc pendant cette scène → encre sombre.
+    const ink = whiteAmount(t, scenesFor(A)) > 0.5 ? "#111111" : readable(A.base);
+    const n = Math.max(1, A.colors.length);
+    const bandW = MOTION_W / n;
+    const stripH = MOTION_H * 0.2;
+    const stripY = MOTION_H - stripH;
+    const ex = exitP(p);
+    A.colors.forEach((hex, i) => {
+      // Toutes les bandes montent du bas ENSEMBLE (plus de décalage entre
+      // elles) ; couverture complète à p≈0.40 → là le fond passe au blanc.
+      const a = easeInOutCubic(clamp((p - 0.02) / 0.22)); // montée (synchrone)
+      const b = easeInOutCubic(clamp((p - 0.46) / 0.2)); // compression (synchrone)
+      const oy = (1 - a) * MOTION_H;
+      const rectY = lerp(0, stripY, b) + oy + ex * MOTION_H * 0.35; // sortie : glisse en bas
+      const rectH = lerp(MOTION_H, stripH, b);
+      ctx.fillStyle = hex;
+      ctx.fillRect(i * bandW, rectY, bandW + 1, rectH);
+      // Le hex est SOLIDAIRE de sa bande (il monte/compresse avec elle) → pas
+      // de transition d'opacité propre, il suit simplement le fondu de la scène.
+      const labelY = rectY + rectH - lerp(MOTION_H * 0.12, stripH * 0.5, b);
+      text(ctx, hex.toUpperCase(), i * bandW + bandW / 2, labelY, `700 30px Satoshi, sans-serif`, readable(hex));
+    });
+    // Bloc typo/logo (au-dessus du bandeau) — rise + scale, sortie vers le haut.
+    const ce = easeEmph(clamp((p - 0.55) / 0.35));
+    ctx.save();
+    ctx.globalAlpha *= ce;
+    ctx.translate(0, (1 - ce) * 70 - ex * MOTION_H * 0.4);
+    const cardW = MOTION_W * 0.16;
+    xform(ctx, MOTION_W / 2, MOTION_H * 0.2, lerp(1.2, 1, ce), 0, () => drawLogoCard(ctx, cardW, cardW * 0.52, A));
+    text(ctx, "Aa", MOTION_W / 2, MOTION_H * 0.47, `900 150px 'Cabinet Grotesk', Satoshi, sans-serif`, ink);
+    if (A.fontLabel) text(ctx, A.fontLabel, MOTION_W / 2, MOTION_H * 0.6, `600 36px Satoshi, sans-serif`, ink);
+    ctx.restore();
+  },
+};
 
 const SCENES: Scene[] = [
   // 1 · INTRO — tracking-in élégant : le nom se resserre en fondu, le logo se
@@ -355,43 +587,93 @@ const SCENES: Scene[] = [
       ctx.restore();
     },
   },
-  // 2 · CHARTE — bandes pleine hauteur qui essuient, puis se compressent en
-  // bandeau bas pendant que logo + « Aa » + police entrent (éléments séparés)
+  // 2 · PRESTATION — grand titre construit depuis les tags du projet
+  // (« Création de site vitrine », « Refonte de site e-commerce »…) : les mots
+  // entrent en cascade au centre, pendant que le MÊME titre défile en GÉANT et
+  // en contour, à 90°, le long des deux bords (sens opposés) — façon affiche
+  // studio. Sortie vers le haut dans le sillage de l'intro. (Remplace la
+  // charte, activable via le toggle.)
   {
-    key: "charte", start: 3.0, dur: 3.9,
+    key: "headline", start: 3.0, dur: 3.9,
     draw: (ctx, p, t, A) => {
-      // Fond passé au blanc pendant cette scène → encre sombre.
-      const ink = whiteAmount(t) > 0.5 ? "#111111" : readable(A.base);
-      const n = Math.max(1, A.colors.length);
-      const bandW = MOTION_W / n;
-      const stripH = MOTION_H * 0.2;
-      const stripY = MOTION_H - stripH;
-      const ex = exitP(p);
-      A.colors.forEach((hex, i) => {
-        // Toutes les bandes montent du bas ENSEMBLE (plus de décalage entre
-        // elles) ; couverture complète à p≈0.40 → là le fond passe au blanc.
-        const a = easeInOutCubic(clamp((p - 0.02) / 0.22)); // montée (synchrone)
-        const b = easeInOutCubic(clamp((p - 0.46) / 0.2)); // compression (synchrone)
-        const oy = (1 - a) * MOTION_H;
-        const rectY = lerp(0, stripY, b) + oy + ex * MOTION_H * 0.35; // sortie : glisse en bas
-        const rectH = lerp(MOTION_H, stripH, b);
-        ctx.fillStyle = hex;
-        ctx.fillRect(i * bandW, rectY, bandW + 1, rectH);
-        // Le hex est SOLIDAIRE de sa bande (il monte/compresse avec elle) → pas
-        // de transition d'opacité propre, il suit simplement le fondu de la scène.
-        const labelY = rectY + rectH - lerp(MOTION_H * 0.12, stripH * 0.5, b);
-        text(ctx, hex.toUpperCase(), i * bandW + bandW / 2, labelY, `700 30px Satoshi, sans-serif`, readable(hex));
-      });
-      // Bloc typo/logo (au-dessus du bandeau) — rise + scale, sortie vers le haut.
-      const ce = easeEmph(clamp((p - 0.55) / 0.35));
+      const ink = readable(A.base);
+      ctx.translate(0, -exitP(p) * MOTION_H * 0.42);
+      const title = A.headline.toUpperCase();
+      // Marquee vertical : titre répété en contour (stroke), énorme, qui
+      // défile continûment — gauche vers le haut, droite vers le bas.
+      const marquee = (x: number, dir: 1 | -1) => {
+        const mfs = MOTION_H * 0.15;
+        ctx.save();
+        ctx.globalAlpha *= easeOutCubic(clamp((p - 0.06) / 0.35)) * 0.14;
+        ctx.translate(x, MOTION_H / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.font = `900 ${mfs}px 'Cabinet Grotesk', Satoshi, sans-serif`;
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = 2.5;
+        const seg = `${title}   •   `;
+        const segW = ctx.measureText(seg).width;
+        const span = Math.max(MOTION_H * 1.6, segW * 1.2);
+        const off = ((t * 110 * dir) % segW + segW) % segW;
+        for (let mx = -span / 2 - off; mx < span / 2 + segW; mx += segW) {
+          ctx.strokeText(seg, mx, 0);
+        }
+        ctx.restore();
+      };
+      marquee(MOTION_W * 0.06, 1);
+      marquee(MOTION_W * 0.94, -1);
+      const words = title.split(" ");
+      // Taille : 1 ligne si ça tient, sinon 2 lignes équilibrées en largeur.
+      let fs = 128;
+      const setF = () => {
+        ctx.font = `900 ${fs}px 'Cabinet Grotesk', Satoshi, sans-serif`;
+      };
+      setF();
+      let lines: string[][] = [words];
+      if (words.length > 1 && ctx.measureText(words.join(" ")).width > MOTION_W * 0.8) {
+        let cut = 1, diff = Infinity;
+        for (let i = 1; i < words.length; i++) {
+          const d = Math.abs(
+            ctx.measureText(words.slice(0, i).join(" ")).width - ctx.measureText(words.slice(i).join(" ")).width,
+          );
+          if (d < diff) {
+            diff = d;
+            cut = i;
+          }
+        }
+        lines = [words.slice(0, cut), words.slice(cut)];
+      }
+      while (fs > 64 && Math.max(...lines.map((l) => ctx.measureText(l.join(" ")).width)) > MOTION_W * 0.8) {
+        fs -= 6;
+        setF();
+      }
+      // Kicker : le domaine, discret au-dessus.
+      const ke = easeOutCubic(clamp((p - 0.04) / 0.3));
       ctx.save();
-      ctx.globalAlpha *= ce;
-      ctx.translate(0, (1 - ce) * 70 - ex * MOTION_H * 0.4);
-      const cardW = MOTION_W * 0.16;
-      xform(ctx, MOTION_W / 2, MOTION_H * 0.2, lerp(1.2, 1, ce), 0, () => drawLogoCard(ctx, cardW, cardW * 0.52, A));
-      text(ctx, "Aa", MOTION_W / 2, MOTION_H * 0.47, `900 150px 'Cabinet Grotesk', Satoshi, sans-serif`, ink);
-      if (A.fontLabel) text(ctx, A.fontLabel, MOTION_W / 2, MOTION_H * 0.6, `600 36px Satoshi, sans-serif`, ink);
+      ctx.globalAlpha *= ke * 0.55;
+      text(ctx, A.domain.toUpperCase(), MOTION_W / 2, MOTION_H * 0.31 + (1 - ke) * 26, `700 30px Satoshi, sans-serif`, ink);
       ctx.restore();
+      // Titre : mots en cascade (slide-up + fade), ligne par ligne.
+      const lh = fs * 1.16;
+      const blockH = lines.length * lh;
+      const y0 = MOTION_H * 0.5 - blockH / 2 + lh / 2;
+      const space = ctx.measureText(" ").width;
+      let k = 0;
+      lines.forEach((line, li) => {
+        const totalW = line.reduce((s, wd) => s + ctx.measureText(wd).width, 0) + (line.length - 1) * space;
+        let x = MOTION_W / 2 - totalW / 2;
+        const y = y0 + li * lh;
+        for (const word of line) {
+          const e = easeEmph(clamp((p - 0.07 - k * 0.06) / 0.42));
+          ctx.save();
+          ctx.globalAlpha *= easeOutCubic(clamp((p - 0.07 - k * 0.06) / 0.3));
+          text(ctx, word, x, y + (1 - e) * 56, `900 ${fs}px 'Cabinet Grotesk', Satoshi, sans-serif`, ink, "left");
+          ctx.restore();
+          x += ctx.measureText(word).width + space;
+          k++;
+        }
+      });
     },
   },
   // 3 · SITE DESKTOP — zoom énorme (recouvre tout) → se cale en iso, scroll
@@ -447,113 +729,86 @@ const SCENES: Scene[] = [
       );
     },
   },
-  // 3c · PAGES — DOUBLE VUE : desktop (gauche) + mobile (droite) de la MÊME page,
-  // en même temps, avec un scroll LENT à vitesse constante (lecture posée). Home
-  // puis pages produit scrapées, l'une après l'autre.
+  // 3c · PAGES ISO — la home en vraie perspective + mobile géant au premier plan.
   {
-    key: "pages", start: 12.9, dur: 6.0, fadeOut: 0.4,
-    draw: (ctx, p, t, A) => {
-      const pages = A.pages.length ? A.pages : A.desktopFull ? [A.desktopFull] : [];
-      if (!pages.length) return;
-      const n = Math.min(pages.length, 2); // home + 1 page (la double vue est large)
-      const seg = 1 / n;
-      const idx = Math.min(n - 1, Math.floor(p / seg));
-      const lp = clamp((p - idx * seg) / seg); // progression DANS la page courante
-      const deskImg = pages[idx];
-      const mobImg = A.mobiles[idx] ?? null;
-      const label = A.pageLabels[idx] ?? A.domain;
-      // Transition entre pages : glisse en entrant / en sortant (sauf la dernière).
-      const ein = easeEmph(clamp(lp / 0.14));
-      const eout = idx < n - 1 ? easeAccel(clamp((lp - 0.86) / 0.14)) : 0;
-      const dx = (1 - ein) * MOTION_W * 0.12 - eout * MOTION_W * 0.12;
-      const enter = lerp(1.03, 1, ein) * (1 + 0.006 * Math.sin(t * 0.8)); // zoom d'entrée + respiration
-      // Scroll lent à vitesse CONSTANTE, calé sur la durée du créneau de la page.
-      const scrollP = easeInOutCubic(clamp((lp - 0.06) / 0.86));
-      const secs = 0.86 * (6.0 / n);
-      const wD = MOTION_W * 0.5, hD = wD * 0.6, wM = MOTION_W * 0.15;
-      const panD = scrollP * coverMaxPan(deskImg, wD, hD, secs, PAGES_SCROLL_VP_PER_SEC);
-      const panM = scrollP * coverMaxPan(mobImg, wM, wM / 0.49, secs, PAGES_SCROLL_VP_PER_SEC);
-      ctx.save();
-      ctx.globalAlpha *= ein * (1 - eout);
-      // Desktop (grand, à gauche)
-      xform(ctx, MOTION_W * 0.36 + dx, MOTION_H / 2, enter, 0, () =>
-        drawBrowser(ctx, wD, hD, A, panD, deskImg, label),
-      );
-      // Mobile (à droite, léger flottement propre)
-      if (mobImg) {
-        xform(ctx, MOTION_W * 0.8 + dx, MOTION_H / 2 + Math.sin(t * 0.9) * MOTION_H * 0.006, enter, 0, () =>
-          drawPhone(ctx, wM, mobImg, panM),
-        );
-      }
-      ctx.restore();
-    },
+    key: "pagesIso", start: 12.9, dur: PAGES_ISO_DUR, fadeOut: 0.12,
+    draw: drawPagesIso,
   },
-  // 4 · MOBILES — traversée COMPLÈTE de l'écran (ils sortent par le haut/bas),
-  // gauche monte, droite descend, ralenti au croisement, rotation vivante
+  // 3d · PAGES COLONNES — la page suivante éclatée en 3 colonnes parallaxe.
   {
-    key: "mobile", start: 18.6, dur: 4.2,
+    key: "pagesCols", start: 18.0, dur: PAGES_COLS_DUR, fadeOut: 0.4,
+    draw: drawPagesColumns,
+  },
+  // 4 · MOBILES — TRAVERSÉE VERTICALE EN VAGUE : un seul geste continu. Les
+  // trois téléphones montent du bas en file (vague gauche → droite), penchés
+  // dans le mouvement ; ils freinent et se posent en ESCALIER (motif des
+  // planches 09/10), se redressent, scrollent ; puis repartent vers le haut
+  // dans la même vague en ré-accélérant. Même langage vertical que les
+  // colonnes qui précèdent et l'ensemble qui suit.
+  {
+    key: "mobile", start: 22.3, dur: 4.2,
     draw: (ctx, p, t, A) => {
       const imgs = A.mobiles.length ? A.mobiles : [null];
-      const w = MOTION_W * 0.16;
       const W = MOTION_W, H = MOTION_H;
-      // Chorégraphie en DEMI-CERCLE : ils arrivent COUCHÉS (horizontaux) des
-      // coins bas gauche/droit, montent en arc en se redressant, se retrouvent
-      // DEBOUT côte à côte au centre (petite pause, ils scrollent), puis
-      // repartent tous les deux vers le HAUT.
-      const sIn = easeInOutCubic(clamp(p / 0.46)); // montée en arc
-      const sUp = easeSpring(clamp(p / 0.46)); // redressement (léger ressort)
-      // Scroll à vitesse constante adaptée à la hauteur de la page (coverMaxPan),
-      // étalé sur toute la pause debout — au-delà de l'accueil vers le contenu.
-      const pan = easeInOutCubic(clamp((p - 0.36) / 0.34)) * coverMaxPan(imgs[0], w, w / 0.49, 1.43);
-      const bob = Math.sin(t * 1.6) * 0.008; // micro-flottement debout
-      const QUART = Math.PI / 4; // 45°
-      const phones: { fromX: number; restX: number; bulge: number; rotIn: number; outDelay: number; scale: number; alpha: number; imgIdx: number }[] = [
-        ...(imgs.length >= 3
-          ? [{ fromX: W * 0.5, restX: W * 0.5, bulge: 0, rotIn: 0.2, outDelay: 0.03, scale: 0.78, alpha: 0.92, imgIdx: 2 }]
-          : []),
-        // Gauche : à 45°, arrive du bas-gauche, l'arc bombe vers l'extérieur.
-        { fromX: -W * 0.06, restX: W * 0.41, bulge: -W * 0.09, rotIn: -QUART, outDelay: 0, scale: 1, alpha: 1, imgIdx: 0 },
-        // Droite : à 45°, arrive du bas-droit (miroir), part un souffle après.
-        { fromX: W * 1.06, restX: W * 0.59, bulge: W * 0.09, rotIn: QUART, outDelay: 0.05, scale: 1, alpha: 1, imgIdx: 1 },
+      const w = W * 0.16;
+      // Voies : escalier montant gauche → droite, centre en avant (plus grand).
+      // dir = sens du penché pendant le mouvement (extérieur, symétrique).
+      // panBase = ENDROIT de la page montré : centre = début (hero), gauche =
+      // milieu, droite = bas → on embrasse toute la page d'un coup d'œil.
+      // panDir = sens du scroll (la droite est déjà en bas → elle REMONTE).
+      // spin = rotation de sortie (chacun pivote dans son sens en filant).
+      const lanes = [
+        { x: 0.31, restY: 0.56, delay: 0, scale: 0.94, dir: -1, imgIdx: 1, panBase: 0.5, panDir: 1, spin: -0.35 },
+        { x: 0.5, restY: 0.5, delay: 0.05, scale: 1.04, dir: 0, imgIdx: 0, panBase: 0, panDir: 1, spin: 0.25 },
+        { x: 0.69, restY: 0.44, delay: 0.1, scale: 0.94, dir: 1, imgIdx: 2, panBase: 1, panDir: -1, spin: 0.35 },
       ];
-      for (const c of phones) {
-        const sOut = easeAccel(clamp((p - 0.7 - c.outDelay) / 0.3));
-        // Entrée : arc depuis le coin bas (couché → debout au centre).
-        const inX = lerp(c.fromX, c.restX, sIn) + Math.sin(sIn * Math.PI) * c.bulge;
-        const inY = lerp(H * 1.2, H * 0.5, sIn);
-        const inRot = lerp(c.rotIn, 0, sUp);
-        // Sortie = EXACTEMENT l'entrée en MIROIR, mais vers le HAUT : même arc,
-        // même reprise d'inclinaison à 45°, ils repartent par les coins hauts.
-        const outX = lerp(c.restX, c.fromX, sOut) + Math.sin(sOut * Math.PI) * c.bulge;
-        const outY = lerp(H * 0.5, -H * 0.25, sOut);
-        const outRot = lerp(0, c.rotIn, sOut);
-        const x = sOut > 0 ? outX : inX;
-        const y = sOut > 0 ? outY : inY;
-        const rot = (sOut > 0 ? outRot : inRot) + bob * (1 - sOut);
-        ctx.save();
-        ctx.globalAlpha *= c.alpha;
-        xform(ctx, x, y, c.scale, rot, () => drawPhone(ctx, w, imgs[c.imgIdx % imgs.length], pan));
-        ctx.restore();
+      // Progression du scroll commun — étalé sur une fenêtre LONGUE (il dure
+      // pendant toute la pause et déborde sur le début de la sortie).
+      const scrollP = easeInOutCubic(clamp((p - 0.28) / 0.34));
+      for (const l of lanes) {
+        const idx = l.imgIdx % imgs.length;
+        const img = imgs[idx];
+        // Bas UTILE de la page (frange blanche de capture exclue) : la voie de
+        // droite se cale sur le footer réel et remonte — jamais dans le blanc.
+        const panMax = coverPanMax(img, w, w / 0.49, A.mobilesContentFrac[idx] ?? 1);
+        // Scroll depuis la zone de base, dans le sens de la voie, borné au contenu.
+        const drift = scrollP * coverMaxPan(img, w, w / 0.49, 1.4);
+        const pan = clamp(l.panBase * panMax + drift * l.panDir, 0, panMax);
+        // Montée : décélère jusqu'à sa marche (freinage doux, easeEmph).
+        const eIn = easeEmph(clamp((p - l.delay) / 0.4));
+        // Sortie = l'entrée REJOUÉE À L'ENVERS : même courbe easeEmph inversée
+        // dans le temps (départ imperceptible → fuite rapide), même vague, même
+        // ordre, + le spin propre à chaque voie. Terminée avant le fondu.
+        const eOut = 1 - easeEmph(1 - clamp((p - 0.5 - l.delay) / 0.34));
+        const y = lerp(H * 1.4, H * l.restY, eIn) - eOut * H * (l.restY + 0.45);
+        // Pose PENCHÉE au repos : gauche penché à gauche, centre droit, droite
+        // penchée à droite. Le penché s'accentue à l'entrée, et à la sortie
+        // c'est le spin propre à chaque voie qui prend le relais.
+        const bob = Math.sin(t * 1.4 + l.x * 9) * 0.006 * (1 - eOut);
+        const rot = l.dir * (0.055 + 0.06 * (1 - eIn)) + l.spin * eOut + bob;
+        xform(ctx, W * l.x, y, l.scale, rot, () => drawPhone(ctx, w, img, pan));
       }
     },
   },
   // 5 · ENSEMBLE — PC centré et DROIT ; tablette et mobile viennent se poser
   // PAR-DESSUS (léger drop shadow = ils sont au-dessus). Fin en repli doux.
   {
-    key: "ensemble", start: 22.5, dur: 3.4, fadeOut: 0.55,
+    key: "ensemble", start: 26.2, dur: 3.4, fadeOut: 0.55,
     draw: (ctx, p, t, A) => {
       const breathe = 1 + 0.012 * Math.sin(t * 0.9);
       // Fin douce : léger recul d'échelle (match-dissolve avec l'outro), pas de zoom-through.
       const soft = 1 - easeInOutCubic(clamp((p - 0.84) / 0.16)) * 0.06;
-      xform(ctx, MOTION_W / 2, MOTION_H / 2, breathe * soft, 0, () => {
+      // ×1.16 : le trio remplit davantage le cadre (composition identique).
+      xform(ctx, MOTION_W / 2, MOTION_H / 2, 1.16 * breathe * soft, 0, () => {
         const eB = easeEmph(clamp(p / 0.38)); // PC (centre) d'abord
         const eT = easeEmph(clamp((p - 0.12) / 0.4)); // tablette (gauche)
         const eP = easeEmph(clamp((p - 0.2) / 0.4)); // mobile (droite)
-        // PC — centré, AUCUNE rotation, se pose en zoom.
+        // PC — centré, AUCUNE rotation, se pose en zoom. Les TROIS devices
+        // montrent le HERO (haut de page) : le même site décliné par support.
         ctx.save();
         ctx.globalAlpha *= easeOutCubic(clamp(p / 0.24));
         xform(ctx, 0, lerp(MOTION_H * 0.05, 0, eB), lerp(1.18, 1, eB), 0, () =>
-          drawBrowser(ctx, MOTION_W * 0.5, MOTION_W * 0.3, A, 0.1),
+          drawBrowser(ctx, MOTION_W * 0.5, MOTION_W * 0.3, A, 0),
         );
         ctx.restore();
         // Tablette + mobile — un peu AU-DESSUS du desktop, posés PAR-DESSUS :
@@ -565,13 +820,13 @@ const SCENES: Scene[] = [
         ctx.save();
         ctx.globalAlpha *= easeOutCubic(clamp((p - 0.12) / 0.25));
         xform(ctx, lerp(-MOTION_W * 0.62, -MOTION_W * 0.285, eT), -MOTION_H * 0.05, 1, 0, () =>
-          drawTablet(ctx, MOTION_W * 0.15, A.desktopFull, 0.35),
+          drawTablet(ctx, MOTION_W * 0.15, A.desktopFull, 0),
         );
         ctx.restore();
         ctx.save();
         ctx.globalAlpha *= easeOutCubic(clamp((p - 0.2) / 0.25));
         xform(ctx, lerp(MOTION_W * 0.62, MOTION_W * 0.285, eP), -MOTION_H * 0.03, 1, 0, () =>
-          drawPhone(ctx, MOTION_W * 0.105, A.mobiles[0] ?? null, 0.3),
+          drawPhone(ctx, MOTION_W * 0.105, A.mobiles[0] ?? null, 0),
         );
         ctx.restore();
         ctx.restore();
@@ -580,7 +835,7 @@ const SCENES: Scene[] = [
   },
   // 6 · OUTRO — logo qui se pose, signature ; tient jusqu'à la fin
   {
-    key: "outro", start: 25.6, dur: 2.5,
+    key: "outro", start: 29.3, dur: 2.5,
     draw: (ctx, p, t, A) => {
       const ink = readable(A.base);
       // Entrée douce en continuité du repli de la scène précédente (match-dissolve).
@@ -599,7 +854,24 @@ const SCENES: Scene[] = [
   },
 ];
 
+// ─── Timeline AVEC charte : insérée après la prestation, la suite décalée ───
+// Décalage = durée de la charte moins le recouvrement de fondu standard (0.2 s).
+const CHARTE_SHIFT = CHARTE_SCENE.dur - 0.2;
+const SCENES_CHARTE: Scene[] = [
+  ...SCENES.filter((s) => s.start < 6.5),
+  { ...CHARTE_SCENE, start: 6.7 },
+  ...SCENES.filter((s) => s.start >= 6.5).map((s) => ({ ...s, start: s.start + CHARTE_SHIFT })),
+];
+
+function scenesFor(A: MotionAssets): Scene[] {
+  return A.includeCharte ? SCENES_CHARTE : SCENES;
+}
+
 export const MOTION_DURATION = SCENES.reduce((m, s) => Math.max(m, s.start + s.dur), 0);
+/** Durée totale de la timeline active (la charte l'allonge de ~3,7 s). */
+export function motionDuration(includeCharte: boolean): number {
+  return (includeCharte ? SCENES_CHARTE : SCENES).reduce((m, s) => Math.max(m, s.start + s.dur), 0);
+}
 
 function sceneAlpha(t: number, s: Scene): number {
   if (t < s.start - 0.001 || t > s.start + s.dur + 0.001) return 0;
@@ -643,11 +915,14 @@ function drawTags(ctx: CanvasRenderingContext2D, t: number, A: MotionAssets) {
   const W = MOTION_W, H = MOTION_H;
   const FS = 30, PADX = 32, PILL_H = 64;
   ctx.font = `600 ${FS}px Satoshi, sans-serif`;
+  // Les pastilles sont calées sur la scène desktop → suivent son décalage
+  // quand la charte est insérée dans la timeline.
+  const shift = A.includeCharte ? CHARTE_SHIFT : 0;
 
   A.tags.forEach((label, i) => {
     if (i >= TAG_ANCHORS.length) return; // cap = nb d'ancres (aligné sur MOTION_TAG_LIMIT)
     const a = TAG_ANCHORS[i];
-    const local = t - (TAGS_START + i * TAG_STAGGER);
+    const local = t - (TAGS_START + shift + i * TAG_STAGGER);
     if (local < 0) return; // pas encore née
     const dir = a.side === "r" ? 1 : -1;
 
@@ -655,7 +930,7 @@ function drawTags(ctx: CanvasRenderingContext2D, t: number, A: MotionAssets) {
     // du lâcher (quelques dizaines de ms → la chute n'est pas parfaitement pile).
     const spinDir = hash01(i + 1) < 0.5 ? -1 : 1;
     const spinAmt = 0.7 + hash01(i * 3 + 2) * 1.0; // 0.7..1.7
-    const dropAt = DROP_TIME + hash01(i * 7 + 5) * 0.12;
+    const dropAt = DROP_TIME + shift + hash01(i * 7 + 5) * 0.12;
 
     // Entrée : glisse depuis l'extérieur avec un léger overshoot (ressort),
     // arrive un chouïa inclinée puis se redresse, fondu doux.
@@ -713,9 +988,10 @@ function renderSample(ctx: CanvasRenderingContext2D, t: number, A: MotionAssets)
   ctx.scale(cam, cam);
   ctx.rotate(Math.sin(t * 0.21) * 0.004);
   ctx.translate(-W / 2, -H / 2);
-  drawBackground(ctx, t, A, accentAt(t, A));
+  const scenes = scenesFor(A); // timeline active (avec ou sans charte)
+  drawBackground(ctx, t, A, accentAt(t, A, scenes));
   // Cassure au blanc (charte) → retour au dégradé (dézoom desktop).
-  const wf = whiteAmount(t);
+  const wf = whiteAmount(t, scenes);
   if (wf > 0.001) {
     ctx.save();
     ctx.globalAlpha = wf;
@@ -723,7 +999,7 @@ function renderSample(ctx: CanvasRenderingContext2D, t: number, A: MotionAssets)
     ctx.fillRect(-W * 0.12, -H * 0.12, W * 1.24, H * 1.24);
     ctx.restore();
   }
-  for (const s of SCENES) {
+  for (const s of scenes) {
     const a = sceneAlpha(t, s);
     if (a <= 0.001) continue;
     const p = clamp((t - s.start) / s.dur);
@@ -734,10 +1010,13 @@ function renderSample(ctx: CanvasRenderingContext2D, t: number, A: MotionAssets)
   }
   ctx.restore();
   // Vignette cinéma discrète (profondeur sans drop shadow) — quasi coupée
-  // pendant la cassure au blanc pour garder un blanc PUR.
+  // pendant la cassure au blanc, et effacée sur base blanche (« full blanc »
+  // : elle grisait les bords d'un fond voulu blanc).
+  const [vr, vgr, vb] = parseHex(A.base);
+  const vWhiteness = ((0.299 * vr + 0.587 * vgr + 0.114 * vb) / 255) ** 3;
   const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, H * 0.95);
   vg.addColorStop(0, "rgba(0,0,0,0)");
-  vg.addColorStop(1, `rgba(0,0,0,${0.2 * (1 - wf * 0.9)})`);
+  vg.addColorStop(1, `rgba(0,0,0,${0.2 * (1 - wf * 0.9) * (1 - vWhiteness)})`);
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, W, H);
   // Pastilles « ce qu'on a réalisé » — overlay UI net, au-dessus de tout.
@@ -796,6 +1075,40 @@ function loadImg(src: string | null | undefined): Promise<HTMLImageElement | nul
   });
 }
 
+// Fraction de hauteur UTILE d'une capture fullpage : certaines captures se
+// terminent par une frange blanche sous le footer (artefact de capture). On
+// scanne les lignes du bas sur un échantillon réduit et on coupe la frange
+// quasi blanche uniforme — au plus 25 % de la hauteur, pour ne jamais manger
+// un vrai footer (clair mais avec du texte = lignes non uniformes).
+function usableHeightFrac(img: HTMLImageElement | null): number {
+  if (!img || !img.naturalWidth || !img.naturalHeight) return 1;
+  const w = 48;
+  const h = Math.min(1600, img.naturalHeight);
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const cctx = c.getContext("2d");
+  if (!cctx) return 1;
+  cctx.drawImage(img, 0, 0, w, h);
+  let data: Uint8ClampedArray;
+  try {
+    data = cctx.getImageData(0, 0, w, h).data;
+  } catch {
+    return 1; // canvas tainté (image cross-origin) → pas de trim
+  }
+  const whiteRow = (y: number): boolean => {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (data[i] < 240 || data[i + 1] < 240 || data[i + 2] < 240) return false;
+    }
+    return true;
+  };
+  let y = h - 1;
+  const floor = Math.round(h * 0.75);
+  while (y > floor && whiteRow(y)) y--;
+  return (y + 1) / h;
+}
+
 // Pré-floute la hero du site UNE FOIS (petit canvas + filter blur) — réutilisée
 // telle quelle à chaque frame, coût nul en lecture. Fallback : le simple
 // downscale/upscale suffit à flouter si `filter` n'est pas supporté.
@@ -842,6 +1155,7 @@ export async function preloadMotionImages(src: {
     logo,
     desktopFull,
     mobiles,
+    mobilesContentFrac: mobiles.map((m) => usableHeightFrac(m)),
     heroBlur: makeHeroBlur(desktopFull),
     pages,
   };

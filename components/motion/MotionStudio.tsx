@@ -8,13 +8,13 @@ import { useDAStore } from "@/store/daStore";
 import { seedMesh } from "@/lib/meshGradient";
 import { sanitizeName } from "@/lib/exportFrames";
 import { ChipSelector } from "@/components/ui/ChipSelector";
-import { resolveMotionTags } from "@/lib/projectChips";
+import { resolveMotionTags, resolveMotionHeadline } from "@/lib/projectChips";
 import {
   drawFrame,
   preloadMotionImages,
+  motionDuration,
   MOTION_W,
   MOTION_H,
-  MOTION_DURATION,
   type MotionImages,
   type MotionAssets,
 } from "@/lib/motion/motion";
@@ -43,6 +43,10 @@ export function MotionStudio() {
   const fontName = useDAStore((s) => s.fontName);
   const motionChips = useDAStore((s) => s.motionChips);
   const setMotionChips = useDAStore((s) => s.setMotionChips);
+  const motionCharte = useDAStore((s) => s.motionCharte);
+  const setMotionCharte = useDAStore((s) => s.setMotionCharte);
+  const projectName = useDAStore((s) => s.projectName);
+  const setProjectName = useDAStore((s) => s.setProjectName);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [images, setImages] = useState<MotionImages | null>(null);
@@ -62,6 +66,10 @@ export function MotionStudio() {
   // Labels courts résolus depuis la sélection (type de site + techno + services),
   // capés à 6 → pastilles affichées dans la vidéo.
   const tags = useMemo(() => resolveMotionTags(motionChips), [motionChips]);
+  // Titre de la scène « prestation » (« Création de site vitrine »…).
+  const headline = useMemo(() => resolveMotionHeadline(motionChips), [motionChips]);
+  // Durée de la timeline active (la scène charte l'allonge de ~3,7 s).
+  const duration = motionDuration(motionCharte);
 
   // Raison du blocage de l'export (HTTPS manquant vs navigateur sans WebCodecs),
   // évaluée après montage pour lire le vrai contexte du navigateur.
@@ -111,16 +119,21 @@ export function MotionStudio() {
       colors: palette.slice(0, 4),
       base: showcaseMeshBase,
       accent,
+      accentLocked: motionBg.accent !== null,
       bgSpeed: motionBg.speed,
       bgIntensity: motionBg.intensity,
       domain,
-      siteName: scrapeResult.siteName || domain,
+      // Le nom saisi à la main prime — le siteName scrapé est souvent un title
+      // SEO (« Carrelage Toulon - … ») et non le nom de la marque.
+      siteName: projectName.trim() || scrapeResult.siteName || domain,
       fontLabel: fontName || scrapeResult.font?.name || "",
       tags,
+      headline,
+      includeCharte: motionCharte,
       // Home + pages additionnelles (barre du navigateur de la scène « pages »).
       pageLabels: [domain, ...scrapeResult.extraPages.slice(0, 2).map((p) => p.label?.trim() || domain)],
     };
-  }, [images, scrapeResult, palette, showcaseMeshBase, accent, motionBg.speed, motionBg.intensity, fontName, tags]);
+  }, [images, scrapeResult, palette, showcaseMeshBase, accent, motionBg.accent, motionBg.speed, motionBg.intensity, fontName, tags, headline, motionCharte, projectName]);
 
   const drawAt = useCallback(
     (ti: number) => {
@@ -148,7 +161,7 @@ export function MotionStudio() {
       last = ts;
       setTime((prev) => {
         let n = prev + dt;
-        if (n >= MOTION_DURATION) {
+        if (n >= duration) {
           n = 0;
           // Boucle : la bande-son repart du début avec la vidéo.
           if (audio) {
@@ -163,7 +176,7 @@ export function MotionStudio() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, assets, drawAt, audio]);
+  }, [playing, assets, drawAt, audio, duration]);
 
   const onScrub = (v: number) => {
     setPlaying(false);
@@ -265,6 +278,17 @@ export function MotionStudio() {
 
       {/* Réglages du fond */}
       <div className="flex items-center gap-2 flex-wrap mb-4">
+        {/* Nom du projet : affiché dans l'intro (le title scrapé est souvent du SEO) */}
+        <label className={groupCls} title="Nom affiché dans l'intro de la vidéo (vide = nom déduit du site)">
+          <span className={labelCls}>Nom</span>
+          <input
+            type="text"
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
+            placeholder={scrapeResult.siteName || scrapeResult.domain.replace(/^www\./, "")}
+            className="bg-transparent text-[12px] font-semibold outline-none w-36 placeholder:text-foreground/25 placeholder:font-medium"
+          />
+        </label>
         <label className={`${groupCls} cursor-pointer`} title="Couleur de fond (partagée avec le Showcase)">
           <span className={labelCls}>Base</span>
           <span className="relative w-6 h-6 rounded-md border border-border overflow-hidden">
@@ -342,6 +366,22 @@ export function MotionStudio() {
           title="Motion blur sur les éléments en mouvement (aperçu allégé, export en pleine qualité)"
         >
           Motion blur
+        </button>
+        {/* Scène charte graphique (bandes de couleurs), insérée après la prestation */}
+        <button
+          onClick={() => {
+            const next = !motionCharte;
+            setMotionCharte(next);
+            // La timeline raccourcit quand on la retire → on ne laisse pas la
+            // tête de lecture au-delà de la fin.
+            if (!next && time > motionDuration(false)) onScrub(0);
+          }}
+          className={`text-[11px] font-bold border border-border px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer transition-all ${
+            motionCharte ? "bg-foreground text-background" : "bg-card text-foreground/50 hover:opacity-70"
+          }`}
+          title="Inclure la scène charte graphique (bandes de couleurs) après l'annonce de la prestation (+~4 s)"
+        >
+          Charte
         </button>
         {/* Bande-son : incluse dans le MP4 (tronquée + fade-out), aperçu synchronisé */}
         {audio ? (
@@ -428,7 +468,7 @@ export function MotionStudio() {
         <input
           type="range"
           min={0}
-          max={MOTION_DURATION}
+          max={duration}
           step={0.05}
           value={time}
           onChange={(e) => onScrub(Number(e.target.value))}
@@ -436,7 +476,7 @@ export function MotionStudio() {
           className="flex-1 h-1 accent-foreground cursor-pointer"
         />
         <span className="text-[11px] font-bold text-foreground/50 tabular-nums w-20 text-right">
-          {time.toFixed(1)}s / {MOTION_DURATION.toFixed(0)}s
+          {time.toFixed(1)}s / {duration.toFixed(0)}s
         </span>
       </div>
 

@@ -26,6 +26,7 @@ export const useDAStore = create<DAStore>()(
       setActiveProjectId: (id: string | null) => set({ activeProjectId: id }),
       loadProjectData: (p) => set({
         scrapeResult: p.scrapeResult,
+        projectName: p.projectName ?? '',
         selectedLogo: p.selectedLogo,
         activePageIndex: p.activePageIndex,
         selectedColors: p.selectedColors ?? [],
@@ -71,6 +72,7 @@ export const useDAStore = create<DAStore>()(
         generatedContent: p.generatedContent ?? null,
         contentChips: p.contentChips ?? [],
         motionChips: p.motionChips ?? [],
+        motionCharte: p.motionCharte ?? false,
         contentBrief: p.contentBrief ?? '',
         previewCaption: p.previewCaption ?? '',
         previewImages: p.previewImages ?? [],
@@ -88,6 +90,7 @@ export const useDAStore = create<DAStore>()(
       scrapeResult: null,
       setScrapeResult: (result: ScrapeResult) => set({
         scrapeResult: result,
+        projectName: '',
         selectedLogo: result.logo || result.logos[0] || '',
         selectedColors: result.colors.slice(0, 4).map(c => c.hex),
         fontName: result.font.name,
@@ -387,6 +390,8 @@ export const useDAStore = create<DAStore>()(
           generatedContent: null,
           contentChips: [],
           motionChips: [],
+          motionCharte: false,
+          projectName: '',
           contentBrief: '',
           previewCaption: '',
           previewImages: [],
@@ -408,6 +413,10 @@ export const useDAStore = create<DAStore>()(
       setContentChips: (chips: string[]) => set({ contentChips: chips }),
       motionChips: [],
       setMotionChips: (chips: string[]) => set({ motionChips: chips }),
+      motionCharte: false,
+      setMotionCharte: (v: boolean) => set({ motionCharte: v }),
+      projectName: '',
+      setProjectName: (name: string) => set({ projectName: name }),
       contentBrief: '',
       setContentBrief: (brief: string) => set({ contentBrief: brief }),
 

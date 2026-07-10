@@ -15,6 +15,7 @@ const SESSION_FLAG = 'da-gen-session-active';
 // Extracts the project-persisted slice from the store.
 const pickSnapshot = (s: DAStore): ProjectSnapshot => ({
   scrapeResult: s.scrapeResult,
+  projectName: s.projectName,
   selectedLogo: s.selectedLogo,
   activePageIndex: s.activePageIndex,
   selectedColors: s.selectedColors,
@@ -44,6 +45,7 @@ const pickSnapshot = (s: DAStore): ProjectSnapshot => ({
   generatedContent: s.generatedContent,
   contentChips: s.contentChips,
   motionChips: s.motionChips,
+  motionCharte: s.motionCharte,
   contentBrief: s.contentBrief,
   previewCaption: s.previewCaption,
   previewImages: s.previewImages,
