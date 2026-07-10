@@ -20,8 +20,54 @@ import {
 } from "@/lib/motion/motion";
 import { exportMotionMp4, motionExportBlocker } from "@/lib/motion/exportVideo";
 
-const groupCls = "flex items-center gap-2 border border-border bg-card px-3 py-1.5 rounded-md";
 const labelCls = "text-[10px] font-bold text-foreground/40 whitespace-nowrap uppercase tracking-wider";
+
+// Interrupteur on/off — même personnalité que les SlidingTabs : à la pression
+// le bouton S'ÉTIRE (ancré de son côté), au relâchement il GLISSE et se cale
+// avec un léger dépassement (ressort), le fond suit en douceur.
+const TRACK_W = 36, TRACK_PAD = 2, KNOB = 16, KNOB_PRESSED = 21;
+function Switch({ checked, onChange, label, title }: { checked: boolean; onChange: (v: boolean) => void; label: string; title?: string }) {
+  const [pressed, setPressed] = useState(false);
+  const knobW = pressed ? KNOB_PRESSED : KNOB;
+  return (
+    <button
+      onClick={() => onChange(!checked)}
+      onPointerDown={() => setPressed(true)}
+      onPointerUp={() => setPressed(false)}
+      onPointerLeave={() => setPressed(false)}
+      className="flex items-center gap-2 cursor-pointer select-none"
+      title={title}
+    >
+      <span className={labelCls}>{label}</span>
+      <span
+        className={`relative rounded-full transition-colors duration-200 ${checked ? "bg-foreground" : "bg-foreground/15"}`}
+        style={{ width: TRACK_W, height: KNOB + TRACK_PAD * 2 }}
+      >
+        <span
+          className="absolute rounded-full bg-background shadow-sm pointer-events-none"
+          style={{
+            top: TRACK_PAD,
+            height: KNOB,
+            width: knobW,
+            left: checked ? TRACK_W - TRACK_PAD - knobW : TRACK_PAD,
+            transition:
+              "left 300ms cubic-bezier(0.34, 1.4, 0.5, 1), width 200ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        />
+      </span>
+    </button>
+  );
+}
+
+// Carte de section des réglages (titre + contrôles inline).
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border border-border bg-card rounded-md px-3 py-2.5 flex flex-col gap-2">
+      <span className="text-[9.5px] font-bold uppercase tracking-widest text-foreground/30">{title}</span>
+      <div className="flex items-center gap-4 flex-wrap min-h-[26px]">{children}</div>
+    </div>
+  );
+}
 
 /**
  * Motion Studio : vidéo de présentation cinématique (typo → charte → site →
@@ -276,166 +322,6 @@ export function MotionStudio() {
         </button>
       </div>
 
-      {/* Réglages du fond */}
-      <div className="flex items-center gap-2 flex-wrap mb-4">
-        {/* Nom du projet : affiché dans l'intro (le title scrapé est souvent du SEO) */}
-        <label className={groupCls} title="Nom affiché dans l'intro de la vidéo (vide = nom déduit du site)">
-          <span className={labelCls}>Nom</span>
-          <input
-            type="text"
-            value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
-            placeholder={scrapeResult.siteName || scrapeResult.domain.replace(/^www\./, "")}
-            className="bg-transparent text-[12px] font-semibold outline-none w-36 placeholder:text-foreground/25 placeholder:font-medium"
-          />
-        </label>
-        <label className={`${groupCls} cursor-pointer`} title="Couleur de fond (partagée avec le Showcase)">
-          <span className={labelCls}>Base</span>
-          <span className="relative w-6 h-6 rounded-md border border-border overflow-hidden">
-            <span className="block w-full h-full" style={{ background: showcaseMeshBase }} />
-            <input
-              type="color"
-              value={showcaseMeshBase}
-              onChange={(e) => setShowcaseMeshBase(e.target.value)}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-          </span>
-        </label>
-        <div className={groupCls} title="Couleur d'accent du fond animé">
-          <span className={labelCls}>Accent</span>
-          <label className="relative w-6 h-6 rounded-md border border-border overflow-hidden cursor-pointer">
-            <span className="block w-full h-full" style={{ background: accent }} />
-            <input
-              type="color"
-              value={accent}
-              onChange={(e) => setMotionBg({ accent: e.target.value })}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-          </label>
-          {palette.slice(0, 4).map((c) => (
-            <button
-              key={c}
-              onClick={() => setMotionBg({ accent: c })}
-              className="w-4 h-4 rounded-full border border-border cursor-pointer hover:scale-110 transition-transform"
-              style={{ background: c }}
-              title={c}
-            />
-          ))}
-          {motionBg.accent && (
-            <button
-              onClick={() => setMotionBg({ accent: null })}
-              title="Revenir à l'accent dérivé de la palette"
-              className="text-foreground/30 hover:text-foreground/60 cursor-pointer transition-colors"
-            >
-              <RotateCcw className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-        <div className={groupCls}>
-          <span className={labelCls}>Vitesse</span>
-          <input
-            type="range"
-            min={0.3}
-            max={2.2}
-            step={0.1}
-            value={motionBg.speed}
-            onChange={(e) => setMotionBg({ speed: Number(e.target.value) })}
-            className="w-24 h-1 accent-foreground cursor-pointer"
-            title="Vitesse du fond animé"
-          />
-        </div>
-        <div className={groupCls}>
-          <span className={labelCls}>Intensité</span>
-          <input
-            type="range"
-            min={0.3}
-            max={1.5}
-            step={0.05}
-            value={motionBg.intensity}
-            onChange={(e) => setMotionBg({ intensity: Number(e.target.value) })}
-            className="w-24 h-1 accent-foreground cursor-pointer"
-            title="Intensité des couleurs du fond"
-          />
-        </div>
-        {/* Motion blur (échantillonnage du shutter, façon After Effects) */}
-        <button
-          onClick={() => setMotionBlur((v) => !v)}
-          className={`text-[11px] font-bold border border-border px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer transition-all ${
-            motionBlur ? "bg-foreground text-background" : "bg-card text-foreground/50 hover:opacity-70"
-          }`}
-          title="Motion blur sur les éléments en mouvement (aperçu allégé, export en pleine qualité)"
-        >
-          Motion blur
-        </button>
-        {/* Scène charte graphique (bandes de couleurs), insérée après la prestation */}
-        <button
-          onClick={() => {
-            const next = !motionCharte;
-            setMotionCharte(next);
-            // La timeline raccourcit quand on la retire → on ne laisse pas la
-            // tête de lecture au-delà de la fin.
-            if (!next && time > motionDuration(false)) onScrub(0);
-          }}
-          className={`text-[11px] font-bold border border-border px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer transition-all ${
-            motionCharte ? "bg-foreground text-background" : "bg-card text-foreground/50 hover:opacity-70"
-          }`}
-          title="Inclure la scène charte graphique (bandes de couleurs) après l'annonce de la prestation (+~4 s)"
-        >
-          Charte
-        </button>
-        {/* Bande-son : incluse dans le MP4 (tronquée + fade-out), aperçu synchronisé */}
-        {audio ? (
-          <div className={groupCls} title="Bande-son du MP4 (session en cours uniquement)">
-            <Music className="w-3.5 h-3.5 text-foreground/50" />
-            <span className="text-[11px] font-semibold text-foreground/70 max-w-[160px] truncate">{audio.name}</span>
-            <button
-              onClick={removeAudio}
-              title="Retirer le son"
-              className="text-foreground/30 hover:text-red-500 cursor-pointer transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => audioInputRef.current?.click()}
-            className="text-[11px] font-bold border border-border bg-card px-3 py-1.5 rounded-md flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition-all"
-            title="Ajouter une musique/un son au MP4 (mp3, wav, m4a)"
-          >
-            <Music className="w-3.5 h-3.5" /> Ajouter un son
-          </button>
-        )}
-        <input ref={audioInputRef} type="file" accept="audio/*" onChange={handleAudioFile} className="hidden" />
-      </div>
-
-      {/* Ce qu'on a réalisé → pastilles affichées pendant les scènes du site */}
-      <div className="mb-4 border border-border bg-card rounded-md">
-        <button
-          onClick={() => setShowTags((v) => !v)}
-          className="w-full flex items-center justify-between px-3 py-2.5 cursor-pointer hover:opacity-80 transition-opacity"
-        >
-          <span className="text-[11px] font-bold text-foreground/60 flex items-center gap-2">
-            <Tag className="w-3.5 h-3.5" />
-            Ce qu&apos;on a réalisé
-            {tags.length > 0 && (
-              <span className="text-foreground/35 font-medium">
-                · {tags.length} pastille{tags.length > 1 ? "s" : ""}
-              </span>
-            )}
-          </span>
-          <ChevronDown className={`w-4 h-4 text-foreground/40 transition-transform ${showTags ? "rotate-180" : ""}`} />
-        </button>
-        {showTags && (
-          <div className="px-3 pb-3 pt-1 border-t border-border">
-            <p className="text-[11px] text-foreground/40 mb-3 leading-relaxed">
-              Type de site et prestations : affichés en pastilles pendant les scènes du site (6 max).
-              Type de projet et secteur restent masqués à l&apos;écran.
-            </p>
-            <ChipSelector selected={motionChips} onChange={setMotionChips} />
-          </div>
-        )}
-      </div>
-
       {/* Aperçu */}
       <div className="relative w-full rounded-xl overflow-hidden bg-black shadow-2xl shadow-black/10" style={{ aspectRatio: `${MOTION_W} / ${MOTION_H}` }}>
         <canvas ref={canvasRef} width={MOTION_W} height={MOTION_H} className="w-full h-full block" />
@@ -483,6 +369,170 @@ export function MotionStudio() {
       {exportBlocker && (
         <p className="mt-3 text-[11px] text-amber-600 dark:text-amber-400">{exportBlocker}</p>
       )}
+
+      {/* ─── Réglages (sous l'aperçu), groupés par thème — une section par ligne ─── */}
+      <div className="mt-6 flex flex-col gap-2">
+        {/* Texte : nom affiché dans l'intro (le title scrapé est souvent du SEO) */}
+        <Section title="Texte">
+          <label className="flex items-center gap-2" title="Nom affiché dans l'intro de la vidéo (vide = nom déduit du site)">
+            <span className={labelCls}>Nom</span>
+            <input
+              type="text"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              placeholder={scrapeResult.siteName || scrapeResult.domain.replace(/^www\./, "")}
+              className="bg-transparent text-[12px] font-semibold outline-none w-36 border-b border-border focus:border-foreground/40 transition-colors placeholder:text-foreground/25 placeholder:font-medium"
+            />
+          </label>
+        </Section>
+
+        {/* Couleurs & fond animé */}
+        <Section title="Couleurs & fond">
+          <label className="flex items-center gap-2 cursor-pointer" title="Couleur de fond (partagée avec le Showcase)">
+            <span className={labelCls}>Base</span>
+            <span className="relative w-6 h-6 rounded-md border border-border overflow-hidden">
+              <span className="block w-full h-full" style={{ background: showcaseMeshBase }} />
+              <input
+                type="color"
+                value={showcaseMeshBase}
+                onChange={(e) => setShowcaseMeshBase(e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+            </span>
+          </label>
+          <div className="flex items-center gap-2" title="Couleur d'accent du fond animé">
+            <span className={labelCls}>Accent</span>
+            <label className="relative w-6 h-6 rounded-md border border-border overflow-hidden cursor-pointer">
+              <span className="block w-full h-full" style={{ background: accent }} />
+              <input
+                type="color"
+                value={accent}
+                onChange={(e) => setMotionBg({ accent: e.target.value })}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+            </label>
+            {palette.slice(0, 4).map((c) => (
+              <button
+                key={c}
+                onClick={() => setMotionBg({ accent: c })}
+                className="w-4 h-4 rounded-full border border-border cursor-pointer hover:scale-110 transition-transform"
+                style={{ background: c }}
+                title={c}
+              />
+            ))}
+            {motionBg.accent && (
+              <button
+                onClick={() => setMotionBg({ accent: null })}
+                title="Revenir à l'accent dérivé de la palette"
+                className="text-foreground/30 hover:text-foreground/60 cursor-pointer transition-colors"
+              >
+                <RotateCcw className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={labelCls}>Vitesse</span>
+            <input
+              type="range"
+              min={0.3}
+              max={2.2}
+              step={0.1}
+              value={motionBg.speed}
+              onChange={(e) => setMotionBg({ speed: Number(e.target.value) })}
+              className="w-24 h-1 accent-foreground cursor-pointer"
+              title="Vitesse du fond animé"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={labelCls}>Intensité</span>
+            <input
+              type="range"
+              min={0.3}
+              max={1.5}
+              step={0.05}
+              value={motionBg.intensity}
+              onChange={(e) => setMotionBg({ intensity: Number(e.target.value) })}
+              className="w-24 h-1 accent-foreground cursor-pointer"
+              title="Intensité des couleurs du fond"
+            />
+          </div>
+        </Section>
+
+        {/* Rendu & timeline */}
+        <Section title="Vidéo">
+          <Switch
+            checked={motionBlur}
+            onChange={setMotionBlur}
+            label="Motion blur"
+            title="Motion blur sur les éléments en mouvement (aperçu allégé, export en pleine qualité)"
+          />
+          <Switch
+            checked={motionCharte}
+            onChange={(v) => {
+              setMotionCharte(v);
+              // La timeline raccourcit quand on retire la charte → on ne
+              // laisse pas la tête de lecture au-delà de la fin.
+              if (!v && time > motionDuration(false)) onScrub(0);
+            }}
+            label="Scène charte"
+            title="Inclure la scène charte graphique (bandes de couleurs) après l'annonce de la prestation (+~4 s)"
+          />
+        </Section>
+
+        {/* Bande-son : incluse dans le MP4 (tronquée + fade-out), aperçu synchronisé */}
+        <Section title="Bande-son">
+          {audio ? (
+            <div className="flex items-center gap-2" title="Bande-son du MP4 (session en cours uniquement)">
+              <Music className="w-3.5 h-3.5 text-foreground/50" />
+              <span className="text-[11px] font-semibold text-foreground/70 max-w-[160px] truncate">{audio.name}</span>
+              <button
+                onClick={removeAudio}
+                title="Retirer le son"
+                className="text-foreground/30 hover:text-red-500 cursor-pointer transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => audioInputRef.current?.click()}
+              className="text-[11px] font-bold border border-border bg-background/60 px-3 py-1 rounded-md flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition-all"
+              title="Ajouter une musique/un son au MP4 (mp3, wav, m4a)"
+            >
+              <Music className="w-3.5 h-3.5" /> Ajouter un son
+            </button>
+          )}
+          <input ref={audioInputRef} type="file" accept="audio/*" onChange={handleAudioFile} className="hidden" />
+        </Section>
+      </div>
+
+      {/* Ce qu'on a réalisé → pastilles affichées pendant les scènes du site */}
+      <div className="mt-4 border border-border bg-card rounded-md">
+        <button
+          onClick={() => setShowTags((v) => !v)}
+          className="w-full flex items-center justify-between px-3 py-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <span className="text-[11px] font-bold text-foreground/60 flex items-center gap-2">
+            <Tag className="w-3.5 h-3.5" />
+            Ce qu&apos;on a réalisé
+            {tags.length > 0 && (
+              <span className="text-foreground/35 font-medium">
+                · {tags.length} pastille{tags.length > 1 ? "s" : ""}
+              </span>
+            )}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-foreground/40 transition-transform ${showTags ? "rotate-180" : ""}`} />
+        </button>
+        {showTags && (
+          <div className="px-3 pb-3 pt-1 border-t border-border">
+            <p className="text-[11px] text-foreground/40 mb-3 leading-relaxed">
+              Type de site et prestations : affichés en pastilles pendant les scènes du site (6 max).
+              Type de projet et secteur restent masqués à l&apos;écran.
+            </p>
+            <ChipSelector selected={motionChips} onChange={setMotionChips} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
