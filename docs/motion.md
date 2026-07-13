@@ -38,10 +38,24 @@ Durée : **~31,8 s** (sans charte) / **~35,5 s** (avec). Les scènes se chevauch
 | 3 | `iso` | 6,7 → 9,4 | Mockup navigateur en **projection isométrique qui pivote** (rotation continue), scroll léger. Sort par le haut en accélérant. |
 | 3b | `desktop` | 9,2 → 12,9 | Desktop à plat : se pose, **scrolle** (vitesse constante), flotte… puis **chute signature** : montée douce → apex → gravité pure + rotation. Les **pastilles** vivent pendant cette scène (voir plus bas). |
 | 3c | `pagesIso` | 12,9 → 18,3 | **Home en vraie perspective** (rotation Y avec point de fuite + bascule avant, rendue par tranches depuis un canvas hors-écran) + **mobile géant** au premier plan (ombre = superposition), les deux scrollent posément. Sortie : chute signature, mobile lâché un souffle après en sens inverse. |
-| 3d | `pagesCols` | 18,0 → 22,6 | **Page produit** (extraPage sinon home) éclatée en **3 colonnes parallaxe** = tranches haut/milieu/bas, entrée en escalier, dérive douce. Sortie = entrée rejouée à l'envers, vers le haut. |
-| 4 | `mobile` | 22,3 → 26,5 | **Traversée verticale en vague** : 3 téléphones montent du bas en file décalée, se posent en escalier (pose penchée : gauche ↖, centre droit, droite ↗). Chacun montre un **endroit différent de la page** (centre = hero, gauche = milieu, droite = footer **qui remonte**). Sortie = entrée inversée + spin par voie. |
+| 3d | `pagesCols` | 18,0 → 22,6 | **3 colonnes parallaxe** = 3 **pages** du site (voir *Plusieurs pages*), ouvertes sur la page suivante (la home passe en dernière colonne). Entrée en escalier, dérive douce. Sortie = entrée rejouée à l'envers, vers le haut. |
+| 4 | `mobile` | 22,3 → 26,5 | **Traversée verticale en vague** : 3 téléphones montent du bas en file décalée, se posent en escalier (pose penchée : gauche ↖, centre droit, droite ↗). Chacun montre une **page** du site (voir *Plusieurs pages*) ; le centre a la vedette (la home). Sortie = entrée inversée + spin par voie. |
 | 5 | `ensemble` | 26,2 → 29,6 | Le trio **PC + tablette + mobile** (×1,16), tous sur le **hero** — le même site décliné par support. Tablette/mobile posés par-dessus avec ombre. Fin en repli doux (match-dissolve avec l'outro). |
 | 6 | `outro` | 29,3 → 31,8 | Carte logo, domaine, signature « Direction artistique · TEAPS ». |
+
+### Plusieurs pages (scènes multi-écrans)
+
+Les scènes à **3 écrans** (`pagesCols` = 3 colonnes desktop, `mobile` = 3 téléphones) montrent **une page différente par écran** dès que le projet a assez de pages scrapées. `pageSlots(3, nbPages, span)` fait la répartition, et le **fallback est dégressif** — jamais deux écrans sur la même vue :
+
+| Pages scrapées | Ce que montrent les 3 écrans |
+|---|---|
+| **3+** (cap `MOTION_SCREENS`) | une page par écran, chacune sur son **hero** (puis elles scrollent) |
+| **2** | page A (hero), page B (hero), page A **plus bas** dans la page |
+| **1** | **haut / milieu / bas** de la même page — le comportement historique |
+
+Les captures sont préchargées **par page** (`preloadMotionImages({ pages: [{desktop, mobile}] })`) : `pages[i]`, `mobiles[i]`, `mobilesContentFrac[i]` et `pageLabels[i]` désignent tous **la même page** ([0] = home). Une capture manquante retombe sur celle de la home plutôt que de décaler les tableaux. Un mobile calé en bas de page **remonte** au lieu de descendre dans la frange blanche (`panDir`).
+
+La scène `ensemble` (PC + tablette + mobile) reste volontairement sur la **home** pour les trois : elle montre *le même site décliné par support*, pas trois pages.
 
 ### Pastilles « ce qu'on a réalisé »
 
@@ -60,7 +74,7 @@ Overlay **hors caméra** (coordonnées écran), dessiné au-dessus de tout, pend
 
 ## Données (`MotionAssets`)
 
-Construites dans `MotionStudio.tsx` en deux couches : les **images** (lourdes, préchargées une fois par projet : logo, desktop fullpage + pages additionnelles, mobiles ×3 max, hero floutée) et le **style** (léger, recalculé à chaque réglage : couleurs, base/accent, vitesse/intensité, nom, titre, tags, toggle charte). Bouger un curseur redessine immédiatement sans recharger les captures.
+Construites dans `MotionStudio.tsx` en deux couches : les **images** (lourdes, préchargées une fois par projet : logo, puis les **pages** — desktop fullpage + mobile alignés, 3 max — et la hero floutée) et le **style** (léger, recalculé à chaque réglage : couleurs, base/accent, vitesse/intensité, nom, titre, tags, toggle charte). Bouger un curseur redessine immédiatement sans recharger les captures.
 
 ## Modifier / ajouter une scène
 

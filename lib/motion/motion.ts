@@ -5,8 +5,16 @@ export const MOTION_W = 1920;
 export const MOTION_H = 1080;
 export const MOTION_FPS = 60;
 
+// Nombre d'écrans des scènes multi-vues (3 colonnes desktop, 3 téléphones) —
+// donc aussi le nombre de pages du site exploitables dans la vidéo.
+export const MOTION_SCREENS = 3;
+
 // Images décodées (lourdes — préchargées une fois, indépendantes des réglages).
 // `heroBlur` : version floutée de la hero du site, texture ambiante du fond.
+// `pages` et `mobiles` sont ALIGNÉS par page ([0] = home, puis les pages
+// additionnelles scrapées) : l'index i désigne la même page dans les deux (une
+// capture manquante retombe sur celle de la home) → les scènes multi-écrans
+// peuvent montrer une page différente par écran, desktop comme mobile.
 export type MotionImages = {
   logo: HTMLImageElement | null;
   desktopFull: HTMLImageElement | null;
@@ -16,8 +24,7 @@ export type MotionImages = {
   // (artefact de capture) — détectée au préchargement pour borner le scroll.
   mobilesContentFrac: number[];
   heroBlur: HTMLCanvasElement | null;
-  // Captures desktop fullpage à dérouler dans la scène « pages » : home +
-  // pages additionnelles scrapées (page produit…). [0] = home.
+  // Captures desktop fullpage à dérouler dans les scènes « pages ». [0] = home.
   pages: HTMLImageElement[];
 };
 
@@ -129,6 +136,25 @@ function coverPanMax(img: HTMLImageElement | null, boxW: number, boxH: number, c
   const full = img.naturalHeight - sh;
   if (full <= 0) return 0;
   return clamp((img.naturalHeight * contentFrac - sh) / full);
+}
+
+// ─── Répartition des pages du site sur les N écrans d'une scène multi-vues ───
+// Une page DIFFÉRENTE par écran tant qu'il y en a ; s'il y a moins de pages que
+// d'écrans, les écrans en trop rejouent une page déjà montrée mais à un AUTRE
+// ENDROIT (les positions de départ sont réparties sur `span` de la hauteur) —
+// jamais deux fois la même vue. Cas limites :
+//   3 pages → une page par écran, toutes sur leur hero ;
+//   2 pages → page A (hero), page B (hero), page A (plus bas) ;
+//   1 page  → haut / milieu / bas de la même page (le comportement historique).
+// `idx` = index de page, `panBase` = point de départ du scroll (0..span).
+function pageSlots(screens: number, pageCount: number, span = 1): { idx: number; panBase: number }[] {
+  const n = Math.max(1, pageCount);
+  return Array.from({ length: screens }, (_, i) => {
+    const idx = i % n;
+    const pass = Math.floor(i / n); // 0 = 1re fois qu'on montre cette page
+    const reuses = Math.ceil((screens - idx) / n); // nb d'écrans qui la montrent
+    return { idx, panBase: reuses > 1 ? (span * pass) / (reuses - 1) : 0 };
+  });
 }
 
 function drawContain(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cx: number, cy: number, bw: number, bh: number) {
@@ -418,12 +444,18 @@ function drawPagesIso(ctx: CanvasRenderingContext2D, p: number, t: number, A: Mo
   ctx.restore();
 }
 
-// PAGES COLONNES — la page SUIVANTE (produit si dispo, sinon la home) ENTIÈRE
-// d'un coup : 3 colonnes = 3 tranches successives (haut / milieu / bas), qui
-// entrent en escalier et dérivent en parallaxe (la centrale un peu plus vite).
+// PAGES COLONNES — 3 colonnes = 3 PAGES du site quand on en a autant (chacune
+// sur son hero), sinon les mêmes pages reprises à un autre endroit (1 seule
+// page → 3 tranches successives haut / milieu / bas, comme avant). Elles entrent
+// en escalier et dérivent en parallaxe (la centrale un peu plus vite).
 function drawPagesColumns(ctx: CanvasRenderingContext2D, p: number, t: number, A: MotionAssets) {
-  const img = A.pages[1] ?? A.pages[0] ?? A.desktopFull;
-  if (!img) return;
+  const all = A.pages.length ? A.pages : A.desktopFull ? [A.desktopFull] : [];
+  if (!all.length) return;
+  // On ouvre sur la page SUIVANTE (produit…) : la home vient de défiler en iso,
+  // elle passe donc en dernière colonne.
+  const pages = all.length > 1 ? [...all.slice(1), all[0]] : all;
+  // span 0.66 : la dernière vue démarre aux 2/3 de la page (elle scrolle encore).
+  const slots = pageSlots(3, pages.length, 0.66);
   const W = MOTION_W, H = MOTION_H;
   const scrollP = easeInOutCubic(clamp((p - 0.05) / 0.9));
   const colW = W * 0.252, colH = H * 0.82, gapX = W * 0.03;
@@ -431,6 +463,7 @@ function drawPagesColumns(ctx: CanvasRenderingContext2D, p: number, t: number, A
   ctx.save();
   xform(ctx, W / 2, H / 2, lerp(1.06, 1, ein0), 0.025, () => {
     for (let i = 0; i < 3; i++) {
+      const img = pages[slots[i].idx];
       const ein = easeEmph(clamp((p - 0.02 - i * 0.06) / 0.24)); // entrée en escalier
       // Sortie = l'entrée REJOUÉE À L'ENVERS : même courbe easeEmph inversée
       // dans le temps (départ imperceptible → fuite rapide, le même « bounce »
@@ -438,9 +471,8 @@ function drawPagesColumns(ctx: CanvasRenderingContext2D, p: number, t: number, A
       const eout = 1 - easeEmph(1 - clamp((p - 0.56 - i * 0.05) / 0.32));
       const cx = (i - 1) * (colW + gapX);
       const cy = (1 - ein) * H * 0.55 - eout * H * 2.2 + Math.sin(t * 0.7 + i * 1.9) * 6;
-      // Tranche de page : chaque colonne prend le tiers suivant ; la parallaxe
-      // fait glisser doucement la fenêtre pendant la scène.
-      const pan = clamp(i / 3 + scrollP * 0.28 * (i === 1 ? 1.35 : 1), 0, 1);
+      // Départ de la colonne (sa page, son endroit) + parallaxe pendant la scène.
+      const pan = clamp(slots[i].panBase + scrollP * 0.28 * (i === 1 ? 1.35 : 1), 0, 1);
       ctx.save();
       ctx.globalAlpha *= easeOutCubic(ein);
       const r = colW * 0.055;
@@ -753,27 +785,30 @@ const SCENES: Scene[] = [
       const w = W * 0.16;
       // Voies : escalier montant gauche → droite, centre en avant (plus grand).
       // dir = sens du penché pendant le mouvement (extérieur, symétrique).
-      // panBase = ENDROIT de la page montré : centre = début (hero), gauche =
-      // milieu, droite = bas → on embrasse toute la page d'un coup d'œil.
-      // panDir = sens du scroll (la droite est déjà en bas → elle REMONTE).
+      // slot = rang de la page montrée (le centre a la vedette : il ouvre sur la
+      // home) — 3 captures mobiles = 3 PAGES différentes, une par téléphone ;
+      // moins de pages = les mêmes reprises plus bas (1 seule → hero / milieu /
+      // bas, on embrasse toute la page d'un coup d'œil). Voir pageSlots.
       // spin = rotation de sortie (chacun pivote dans son sens en filant).
+      const slots = pageSlots(3, imgs.length, 1);
       const lanes = [
-        { x: 0.31, restY: 0.56, delay: 0, scale: 0.94, dir: -1, imgIdx: 1, panBase: 0.5, panDir: 1, spin: -0.35 },
-        { x: 0.5, restY: 0.5, delay: 0.05, scale: 1.04, dir: 0, imgIdx: 0, panBase: 0, panDir: 1, spin: 0.25 },
-        { x: 0.69, restY: 0.44, delay: 0.1, scale: 0.94, dir: 1, imgIdx: 2, panBase: 1, panDir: -1, spin: 0.35 },
+        { x: 0.31, restY: 0.56, delay: 0, scale: 0.94, dir: -1, slot: 1, spin: -0.35 },
+        { x: 0.5, restY: 0.5, delay: 0.05, scale: 1.04, dir: 0, slot: 0, spin: 0.25 },
+        { x: 0.69, restY: 0.44, delay: 0.1, scale: 0.94, dir: 1, slot: 2, spin: 0.35 },
       ];
       // Progression du scroll commun — étalé sur une fenêtre LONGUE (il dure
       // pendant toute la pause et déborde sur le début de la sortie).
       const scrollP = easeInOutCubic(clamp((p - 0.28) / 0.34));
       for (const l of lanes) {
-        const idx = l.imgIdx % imgs.length;
+        const { idx, panBase } = slots[l.slot];
         const img = imgs[idx];
-        // Bas UTILE de la page (frange blanche de capture exclue) : la voie de
-        // droite se cale sur le footer réel et remonte — jamais dans le blanc.
+        // Bas UTILE de la page (frange blanche de capture exclue) : un téléphone
+        // calé sur le footer réel remonte — il ne descend jamais dans le blanc.
         const panMax = coverPanMax(img, w, w / 0.49, A.mobilesContentFrac[idx] ?? 1);
-        // Scroll depuis la zone de base, dans le sens de la voie, borné au contenu.
+        // Scroll depuis la zone de base ; une vue déjà en bas de page REMONTE.
+        const panDir = panBase > 0.5 ? -1 : 1;
         const drift = scrollP * coverMaxPan(img, w, w / 0.49, 1.4);
-        const pan = clamp(l.panBase * panMax + drift * l.panDir, 0, panMax);
+        const pan = clamp(panBase * panMax + drift * panDir, 0, panMax);
         // Montée : décélère jusqu'à sa marche (freinage doux, easeEmph).
         const eIn = easeEmph(clamp((p - l.delay) / 0.4));
         // Sortie = l'entrée REJOUÉE À L'ENVERS : même courbe easeEmph inversée
@@ -1127,20 +1162,24 @@ function makeHeroBlur(img: HTMLImageElement | null): HTMLCanvasElement | null {
   return c;
 }
 
+/**
+ * Précharge les captures du projet, PAGE PAR PAGE ([0] = home, puis les pages
+ * additionnelles scrapées, MOTION_SCREENS au plus — au-delà, aucune scène ne
+ * saurait quoi en faire). Les tableaux `pages` (desktop) et `mobiles` restent
+ * alignés sur le même index : une page sans capture retombe sur celle de la
+ * home, jamais sur un trou qui décalerait les autres.
+ */
 export async function preloadMotionImages(src: {
   logo?: string | null;
-  desktopFull?: string | null;
-  mobiles: string[];
-  extraDesktops?: string[];
+  pages: { desktop?: string | null; mobile?: string | null }[];
 }): Promise<MotionImages> {
-  const [logo, desktopFull, mobiles, extras] = await Promise.all([
+  const [logo, loaded] = await Promise.all([
     loadImg(src.logo),
-    loadImg(src.desktopFull),
-    Promise.all(src.mobiles.slice(0, 3).map((m) => loadImg(m))).then((a) =>
-      a.filter((m): m is HTMLImageElement => !!m),
-    ),
-    Promise.all((src.extraDesktops ?? []).slice(0, 2).map((d) => loadImg(d))).then((a) =>
-      a.filter((m): m is HTMLImageElement => !!m),
+    Promise.all(
+      src.pages.slice(0, MOTION_SCREENS).map(async (p) => ({
+        desktop: await loadImg(p.desktop),
+        mobile: await loadImg(p.mobile),
+      })),
     ),
   ]);
   try {
@@ -1148,9 +1187,14 @@ export async function preloadMotionImages(src: {
   } catch {
     /* best effort */
   }
-  // Pages à dérouler dans la scène « pages » : la home d'abord, puis les pages
-  // additionnelles scrapées (page produit…).
-  const pages = [desktopFull, ...extras].filter((m): m is HTMLImageElement => !!m);
+  // Une page sans AUCUNE capture n'existe pas pour la vidéo (elle décalerait les
+  // labels et ferait doublon à l'écran).
+  const kept = loaded.filter((p) => p.desktop || p.mobile);
+  const home = kept[0];
+  const desktopFull = home?.desktop ?? null;
+  const homeMobile = home?.mobile ?? null;
+  const pages = kept.map((p) => p.desktop ?? desktopFull).filter((m): m is HTMLImageElement => !!m);
+  const mobiles = kept.map((p) => p.mobile ?? homeMobile).filter((m): m is HTMLImageElement => !!m);
   return {
     logo,
     desktopFull,

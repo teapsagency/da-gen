@@ -15,6 +15,7 @@ import {
   motionDuration,
   MOTION_W,
   MOTION_H,
+  MOTION_SCREENS,
   type MotionImages,
   type MotionAssets,
 } from "@/lib/motion/motion";
@@ -124,16 +125,29 @@ export function MotionStudio() {
   const exportable = !exportBlocker;
 
   // ─── Images (préchargées quand le projet change) ───
+  // Une entrée par PAGE du site (home + pages additionnelles scrapées, cap
+  // MOTION_SCREENS) : desktop et mobile voyagent ensemble, donc les scènes
+  // multi-écrans (3 colonnes, 3 téléphones) peuvent montrer une page par écran.
+  const motionPages = useMemo(
+    () =>
+      scrapeResult
+        ? [
+            { desktop: scrapeResult.screenshots.desktopFull, mobile: scrapeResult.screenshots.mobile, label: scrapeResult.domain.replace(/^www\./, "") },
+            ...scrapeResult.extraPages.map((p) => ({ desktop: p.desktopFull, mobile: p.mobile, label: p.label?.trim() || "" })),
+          ]
+            .filter((p) => p.desktop || p.mobile)
+            .slice(0, MOTION_SCREENS)
+        : [],
+    [scrapeResult],
+  );
+
   const imageSources = useMemo(() => {
     if (!scrapeResult) return null;
     return {
       logo: selectedLogo || scrapeResult.logo || null,
-      desktopFull: scrapeResult.screenshots.desktopFull,
-      mobiles: [scrapeResult.screenshots.mobile, ...scrapeResult.extraPages.map((p) => p.mobile)].filter(Boolean) as string[],
-      // Captures desktop des pages additionnelles → déroulées dans la scène « pages ».
-      extraDesktops: scrapeResult.extraPages.map((p) => p.desktopFull).filter(Boolean) as string[],
+      pages: motionPages.map((p) => ({ desktop: p.desktop, mobile: p.mobile })),
     };
-  }, [scrapeResult, selectedLogo]);
+  }, [scrapeResult, selectedLogo, motionPages]);
 
   useEffect(() => {
     if (!imageSources) return;
@@ -176,10 +190,10 @@ export function MotionStudio() {
       tags,
       headline,
       includeCharte: motionCharte,
-      // Home + pages additionnelles (barre du navigateur de la scène « pages »).
-      pageLabels: [domain, ...scrapeResult.extraPages.slice(0, 2).map((p) => p.label?.trim() || domain)],
+      // Barre du navigateur de la scène « pages » — aligné sur les pages chargées.
+      pageLabels: motionPages.map((p) => p.label || domain),
     };
-  }, [images, scrapeResult, palette, showcaseMeshBase, accent, motionBg.accent, motionBg.speed, motionBg.intensity, fontName, tags, headline, motionCharte, projectName]);
+  }, [images, scrapeResult, palette, showcaseMeshBase, accent, motionBg.accent, motionBg.speed, motionBg.intensity, fontName, tags, headline, motionCharte, projectName, motionPages]);
 
   const drawAt = useCallback(
     (ti: number) => {
