@@ -1,8 +1,69 @@
-import puppeteer, { type Page } from 'puppeteer';
+import puppeteer, { type Frame, type Page } from 'puppeteer';
 import { extractColors } from './colorExtractor';
 import { cleanFontName } from './fontName';
 
 type ExtraPage = { label: string; url: string };
+
+/** Erreur Puppeteer signalant que le contexte JS est mort sous nos pieds (navigation en cours). */
+function isContextDestroyed(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /Execution context was destroyed|Cannot find context|Execution context is not available|detached Frame|frame got detached|Target closed/i.test(msg);
+}
+
+/** `page.evaluate` tolérant : renvoie false au lieu de throw si la page recharge pendant l'exécution. */
+async function safeEvaluate(page: Page, fn: () => void): Promise<boolean> {
+  try {
+    await page.evaluate(fn);
+    return true;
+  } catch (err) {
+    if (isContextDestroyed(err)) return false;
+    throw err;
+  }
+}
+
+/** Attend qu'un contexte JS exploitable existe à nouveau (après un rechargement de page). */
+async function waitForLiveContext(page: Page, timeout = 15000): Promise<boolean> {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    try {
+      const state = await page.evaluate(() => document.readyState);
+      if (state === 'interactive' || state === 'complete') return true;
+    } catch (err) {
+      if (!isContextDestroyed(err)) throw err;
+    }
+    if (Date.now() > deadline) return false;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
+/**
+ * `dismissPopups` + encaissement du RECHARGEMENT de page que certains gestionnaires
+ * de consentement déclenchent à l'acceptation (Orejime et beaucoup de plugins WP :
+ * le clic pose le cookie puis relance la page pour charger les scripts consentis —
+ * cas pix-associates.com). Sans ça, le `page.evaluate` suivant (injectEmojiFont)
+ * meurt en « Execution context was destroyed » et fait planter TOUT le scrape.
+ *
+ * Le reload emportant aussi le <style> de masquage des overlays injecté par
+ * dismissPopups, on rejoue la passe complète sur le nouveau document. Fenêtre de
+ * garde après chaque passe : le reload part quelques centaines de ms après le clic.
+ */
+async function dismissPopupsAndSettle(page: Page, log?: (msg: string) => void) {
+  for (let pass = 0; pass < 3; pass++) {
+    let navigated = false;
+    const onNav = (frame: Frame) => { if (frame === page.mainFrame()) navigated = true; };
+    page.on('framenavigated', onNav);
+    try {
+      await dismissPopups(page);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    } finally {
+      page.off('framenavigated', onNav);
+    }
+    if (!navigated) return;
+    log?.('Consent banner reloaded the page — replaying the popup pass');
+    await waitForLiveContext(page);
+    await page.waitForNetworkIdle({ idleTime: 700, timeout: 8000 }).catch(() => {});
+  }
+}
 
 /**
  * Déduit le nom de marque (ex. « Le Gélys ») plutôt que le domaine
@@ -40,7 +101,7 @@ async function dismissPopups(page: Page) {
   // naissance majeure si une est demandée ; on retire l'overlay en dernier
   // recours. Couvre l'app Shopify AgeX (cmginfotech) + une heuristique
   // générique scopée aux modales qui parlent d'âge/alcool.
-  await page.evaluate(() => {
+  await safeEvaluate(page, () => {
     const isVisible = (el: Element | null): el is HTMLElement =>
       !!el && el instanceof HTMLElement && el.offsetParent !== null;
 
@@ -92,7 +153,7 @@ async function dismissPopups(page: Page) {
 
   // Filet de sécurité : retirer les overlays d'age gate encore visibles et
   // rétablir le scroll (souvent verrouillé via overflow:hidden).
-  await page.evaluate(() => {
+  await safeEvaluate(page, () => {
     const sels = [
       '#cmginfoTechmodal',
       '[id*="age-gate" i]', '[class*="age-gate" i]',
@@ -110,7 +171,7 @@ async function dismissPopups(page: Page) {
     }
   });
 
-  await page.evaluate(() => {
+  await safeEvaluate(page, () => {
     // Click cookie accept buttons
     const selectors = [
       '#axeptio_btn_acceptAll', '#axeptio_btn_dismiss',
@@ -662,11 +723,11 @@ async function captureScreenshots(page: Page, zoom: number = 1) {
 }
 
 /** Navigate to a page, dismiss popups, and capture all screenshots */
-async function navigateAndCapture(page: Page, pageUrl: string, delay: number, zoom: number = 1) {
+async function navigateAndCapture(page: Page, pageUrl: string, delay: number, zoom: number = 1, log?: (msg: string) => void) {
   await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
   await page.waitForNetworkIdle({ idleTime: 1000, timeout: 8000 }).catch(() => {});
   await new Promise(resolve => setTimeout(resolve, Math.min(delay, 3000)));
-  await dismissPopups(page);
+  await dismissPopupsAndSettle(page, log);
   await injectEmojiFont(page);
   return captureScreenshots(page, zoom);
 }
@@ -752,7 +813,7 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
       log(`FAILED stylesheets: ${styleInfo.failedSheets.join(', ')}`);
     }
 
-    await dismissPopups(page);
+    await dismissPopupsAndSettle(page, log);
     log('Popups dismissed');
 
     await injectEmojiFont(page);
@@ -1040,7 +1101,7 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
     for (const ep of extraPages) {
       try {
         log(`Capturing extra page: ${ep.label} (${ep.url})`);
-        const shots = await navigateAndCapture(page, ep.url, delay, zoom);
+        const shots = await navigateAndCapture(page, ep.url, delay, zoom, log);
         capturedExtraPages.push({
           label: ep.label,
           url: ep.url,
