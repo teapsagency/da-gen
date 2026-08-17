@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Loader2, Square } from "lucide-react";
+import { Square } from "lucide-react";
+import { ThinkingOrb } from "thinking-orbs";
 import { stopScrape } from "./UrlInput";
 import { SnakeGame } from "./SnakeGame";
 
@@ -89,9 +90,9 @@ export const LoadingOverlay = ({
       </div>
 
       <div className="relative z-10 flex flex-col items-center max-w-sm w-full px-6 text-center gap-5">
-        {/* Animated pulsing icon box */}
-        <div className="w-16 h-16 rounded-2xl bg-card/60 backdrop-blur-xl border border-border shadow-2xl flex items-center justify-center animate-pulse">
-          <Loader2 className="w-8 h-8 text-foreground animate-spin" />
+        {/* Orbe animé « searching » (thinking-orbs) */}
+        <div className="w-16 h-16 flex items-center justify-center">
+          <ThinkingOrb state="searching" size={64} />
         </div>
 
         {/* Masked Sliding Text Container */}
