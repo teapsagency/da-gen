@@ -184,6 +184,36 @@ function xform(ctx: CanvasRenderingContext2D, cx: number, cy: number, scale: num
   ctx.restore();
 }
 
+// ─── Reflet d'écran ───
+// Bande lumineuse diagonale qui balaye la dalle — la lumière d'une pièce qui
+// glisse sur une vitre quand on incline l'écran. C'est ce qui donne sa MATIÈRE
+// au mockup : sans elle, une capture posée à plat reste une image ; avec elle,
+// c'est un écran. `pos` = position de la bande le long de la diagonale, à
+// animer de ~-0,2 à ~1,2 pour un balayage complet.
+//
+// Le gradient est construit pour que son paramètre corresponde exactement à
+// `0,72·u + 0,28·v` (u,v = coordonnées normalisées dans la fenêtre), soit une
+// diagonale douce ; les stops sont échantillonnés régulièrement, ce qui garantit
+// des offsets croissants et valides quelle que soit la position de la bande.
+const GLOSS_HALF = 0.17; // demi-largeur de la bande
+function drawScreenGloss(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, pos: number, amp: number) {
+  const gx = 0.72 / w, gy = 0.28 / h;
+  const inv = 1 / (gx * gx + gy * gy);
+  const grd = ctx.createLinearGradient(x, y, x + gx * inv, y + gy * inv);
+  const STEPS = 24;
+  let visible = false;
+  for (let i = 0; i <= STEPS; i++) {
+    const s = i / STEPS;
+    const d = Math.abs(s - pos) / GLOSS_HALF;
+    const a = d >= 1 ? 0 : amp * (1 - d) * (1 - d); // profil doux, sans arête
+    if (a > 0.001) visible = true;
+    grd.addColorStop(s, `rgba(255,255,255,${a.toFixed(4)})`);
+  }
+  if (!visible) return;
+  ctx.fillStyle = grd;
+  ctx.fillRect(x, y, w, h);
+}
+
 // ─── Mockups (fidèles aux assets de l'app — dots macOS fins, plat) ───
 function drawBrowser(
   ctx: CanvasRenderingContext2D,
@@ -193,6 +223,8 @@ function drawBrowser(
   panY: number,
   img: HTMLImageElement | null = A.desktopFull,
   urlLabel: string = A.domain,
+  // Reflet balayant la fenêtre entière (vitre) — voir drawScreenGloss.
+  gloss?: { pos: number; amp: number },
 ) {
   const x = -w / 2, y = -h / 2;
   const r = w * 0.016;
@@ -221,6 +253,15 @@ function drawBrowser(
   ctx.clip();
   if (img) drawCover(ctx, img, x + w * 0.008, y + barH, w - w * 0.016, h - barH - w * 0.008, panY);
   ctx.restore();
+  // Le reflet passe sur TOUTE la fenêtre (barre comprise) : c'est la vitre qui
+  // accroche la lumière, pas seulement la zone de contenu.
+  if (gloss && gloss.amp > 0.001) {
+    ctx.save();
+    roundRectPath(ctx, x, y, w, h, r);
+    ctx.clip();
+    drawScreenGloss(ctx, x, y, w, h, gloss.pos, gloss.amp);
+    ctx.restore();
+  }
 }
 
 function drawPhone(ctx: CanvasRenderingContext2D, w: number, img: HTMLImageElement | null, panY: number) {
@@ -731,7 +772,10 @@ const SCENES: Scene[] = [
       xform(ctx, x, y, zoom, rz, () => {
         // Projection parallèle d'un plan tourné rotateY(β) puis rotateX(α).
         ctx.transform(Math.cos(beta), Math.sin(beta) * Math.sin(alpha), 0, Math.cos(alpha), 0, 0);
-        drawBrowser(ctx, w, h, A, pan);
+        // REFLET : une bande de lumière balaye la dalle pendant tout le pivot.
+        // Dessinée APRÈS la transform → elle vit dans le plan de l'écran et
+        // s'incline avec lui, comme un vrai reflet sur une vitre.
+        drawBrowser(ctx, w, h, A, pan, undefined, undefined, { pos: -0.2 + 1.5 * sweep, amp: 0.26 });
       });
     },
   },
