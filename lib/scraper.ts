@@ -732,6 +732,41 @@ async function navigateAndCapture(page: Page, pageUrl: string, delay: number, zo
   return captureScreenshots(page, zoom);
 }
 
+/**
+ * Ferme le navigateur sans jamais bloquer le scrape.
+ *
+ * Sur certains sites (handler `beforeunload`, service worker, renderer qui ne
+ * répond plus au signal d'arrêt — vu sur expert-batiment83.fr), `browser.close()`
+ * ne rend JAMAIS la main : le scrape est pourtant terminé, mais la promesse de
+ * `scrapeSite` ne résout pas → la route SSE n'envoie jamais les `result-chunk`
+ * et l'app reste en chargement infini.
+ * On borne donc la fermeture propre, puis on tue le process Chromium.
+ */
+async function closeBrowserSafely(
+  browser: Awaited<ReturnType<typeof puppeteer.launch>>,
+  log: (msg: string) => void,
+) {
+  const CLOSE_TIMEOUT = 10000;
+  const proc = browser.process();
+  let timer: NodeJS.Timeout | undefined;
+
+  // `close()` peut rejeter (plus tard) si on tue le process : on neutralise la
+  // promesse pour éviter un unhandled rejection.
+  const closed = browser.close().then(() => true, () => true);
+  const timedOut = new Promise<false>(resolve => {
+    timer = setTimeout(() => resolve(false), CLOSE_TIMEOUT);
+  });
+
+  const ok = await Promise.race([closed, timedOut]);
+  clearTimeout(timer);
+  if (ok) return;
+
+  log(`Browser close bloqué (${CLOSE_TIMEOUT}ms) — kill du process Chromium`);
+  try {
+    proc?.kill('SIGKILL');
+  } catch { /* process déjà mort */ }
+}
+
 export async function scrapeSite(url: string, delay: number = 2000, extraPages: ExtraPage[] = [], onLog?: (entry: { time: number; msg: string }) => void, zoom: number = 1) {
   let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
   const t0 = Date.now();
@@ -1146,6 +1181,10 @@ export async function scrapeSite(url: string, delay: number = 2000, extraPages: 
       extraPages: capturedExtraPages,
     };
   } finally {
-    if (browser) await browser.close();
+    if (browser) {
+      log('Closing browser...');
+      await closeBrowserSafely(browser, log);
+      log('Browser closed');
+    }
   }
 }
